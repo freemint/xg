@@ -1,3 +1,10 @@
+2001-05-06: 0.07.4
+   - changed discovering of modifier keys, CapsLock is working now.
+   - fixed wrong keycodes in return of GetModifierMapping() request.
+   - disabled some more debug output.
+2001-04-16: 0.07.3
+   - corrected values of returned VisualIDs, to avoid several tweaks and
+     glitches of gtk+-linked clients.
 2001-04-12: 0.07.2
    - implemented improvised reply for GetFontPath() request.
    - workarounds for wrongly gtk+ requests:
@@ -17,7 +24,7 @@
    - bugfix in font handling which could cause crashes by stack damaging.
    - several parts of the code cleaned up.
 2001-03-25: 0.06.5
-   - improved handling of mouse buttons, doublecliks are working now also if an
+   - improved handling of mouse buttons, doubleclicks are working now also if an
      automatic button grab appears.
    - corrected replies for QueryPointer() and TranslateCoordinates() requests.
    - replaced linear array search for color names and atoms by faster binary
