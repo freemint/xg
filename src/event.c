@@ -19,6 +19,35 @@
 #include <X11/X.h>
 #include <X11/Xproto.h>
 
+//------------------------------------------------------------------------------
+#ifdef TRACE
+static const char *
+_M2STR (CARD8 mode)
+{
+	static char inval[16];
+	
+	switch (mode) {
+		case NotifyAncestor:           return "ancestor";
+		case NotifyVirtual:            return "virtual";
+		case NotifyInferior:           return "inferior";
+		case NotifyNonlinear:          return "nonlinear";
+		case NotifyNonlinearVirtual:   return "nonl.virt.";
+		case NotifyPointer:            return "pointer";
+		case NotifyPointerRoot:        return "ptr.root";
+		case NotifyDetailNone:         return "no_detail";
+	}
+	sprintf (inval, "<%u>", mode);
+	
+	return inval;
+}
+
+# define TRACEP(w,el,m,p,id,r) printf ("W:%X " el " %s [%i,%i] W:%lX [%i,%i] \n", \
+                                       w->Id, _M2STR(m), p.x, p.y, id, r.x, r.y)
+
+#else
+# define TRACEP(w,el,m,p,id,r)
+#endif
+
 
 //==============================================================================
 BOOL
@@ -145,7 +174,10 @@ EvntSearch (WINDOW * wind, CLIENT * clnt, CARD32 mask)
 			WINDEVNT * lst = (num > 1 ? wind->u.List.p->Event : &wind->u.Event);
 			while (num--) {
 				if (lst->Client == clnt  &&  lst->Mask & mask) return wind;
+				lst++;
 			}
+		} else if (!(mask &= wind->PropagateMask)) {
+			break;
 		}
 		wind = wind->Parent;
 	}
@@ -250,6 +282,77 @@ EvntPropagate (WINDOW * wind, CARD32 mask, BYTE event,
 	} while ((wind = wind->Parent));
 	
 	return exec;
+}
+
+//==============================================================================
+void
+EvntPoiner (WINDOW ** stack, int anc, int top,
+            PXY e_xy, PXY r_xy, CARD32 r_id, CARD8 mode)
+{
+	CARD8 detl, next, last;
+	int   bot;
+	
+	/*--- generate events ---*/
+	
+	if (anc == 0) {
+		detl = NotifyInferior;
+		next = NotifyVirtual;
+		last = NotifyAncestor;
+	} else if (anc == top) {
+		detl = NotifyAncestor;
+		next = NotifyVirtual;
+		last = NotifyInferior;
+	} else {
+		detl = NotifyNonlinear;
+		next = NotifyNonlinearVirtual;
+		last = NotifyNonlinear;
+	}
+	
+	// notify enter events
+	
+	if (stack[0]) {
+		TRACEP (stack[0], "Leave", detl, e_xy, r_id, r_xy);
+		if (stack[0]->u.List.AllMasks & LeaveWindowMask) {
+			EvntLeaveNotify (stack[0], r_id, None, r_xy, e_xy,
+			                 mode, ELFlagSameScreen, detl);
+		}
+		if (anc > 0) {
+			e_xy.x += stack[0]->Rect.x;
+			e_xy.y += stack[0]->Rect.y;
+		}
+	}
+	for (bot = 1; bot < anc; ++bot) {
+		TRACEP (stack[bot], "Leave", next, e_xy, r_id, r_xy);
+		if (stack[bot]->u.List.AllMasks & LeaveWindowMask) {
+			EvntLeaveNotify (stack[bot], r_id, None, r_xy, e_xy,
+			                 mode, ELFlagSameScreen, next);
+		}
+		e_xy.x += stack[bot]->Rect.x;
+		e_xy.y += stack[bot]->Rect.y;
+	}
+	
+	// notify leave events
+	
+	for (bot = anc +1; bot < top; ++bot) {
+		e_xy.x -= stack[bot]->Rect.x;
+		e_xy.y -= stack[bot]->Rect.y;
+		TRACEP (stack[bot], "Enter", next, e_xy, r_id, r_xy);
+		if (stack[bot]->u.List.AllMasks & EnterWindowMask) {
+			EvntEnterNotify (stack[bot], r_id, None, r_xy, e_xy,
+			                 mode, ELFlagSameScreen, next);
+		}
+	}
+	if (stack[top]) {
+		if (anc < top) {
+			e_xy.x -= stack[top]->Rect.x;
+			e_xy.y -= stack[top]->Rect.y;
+		}
+		TRACEP (stack[top], "Enter", last, e_xy, r_id, r_xy);
+		if (stack[top]->u.List.AllMasks & EnterWindowMask) {
+			EvntEnterNotify (stack[top], r_id, None, r_xy, e_xy,
+			                 mode, ELFlagSameScreen, last);
+		}
+	}
 }
 
 

@@ -34,6 +34,10 @@ p_WINDOW EvntSearch (p_WINDOW wind, p_CLIENT clnt, CARD32 mask);
 BOOL EvntPropagate (p_WINDOW wind, CARD32 mask, BYTE event,
                     CARD32 rid, CARD32 cid, PXY rxy, BYTE detail);
 
+// EnterNotify/LeaveNotify
+void EvntPoiner (p_WINDOW * stack, int anc, int top,
+                 PXY e_xy, PXY r_xy, CARD32 r_id, CARD8 mode);
+
 #define EvntCirculateNotify(w,m, wid, plc)\
                                          _evnt_w (w,m,CirculateNotify, wid, plc)
 #define EvntCirculateRequest(w,m, wid, plc)\

@@ -56,12 +56,9 @@ _M2STR (CARD8 mode)
 	return inval;
 }
 
-# define TRACEP(w,el,m,p,id,r) printf ("W:%X " el " %s [%i,%i] W:%lX [%i,%i] \n", \
-                                       w->Id, _M2STR(m), p.x, p.y, id, r.x, r.y)
 # define TRACEF(w,el,m) printf ("W:%X " el " %s \n", w->Id, _M2STR(m))
 
 #else
-# define TRACEP(w,el,m,p,id,r)
 # define TRACEF(w,el,m)
 #endif
 
@@ -260,13 +257,14 @@ WindPointerWatch (BOOL movedNreorg)
 			WmgrWidgetOff (NULL);
 		}
 		if (movedNreorg && stack[top]) {
-			TRACEP (stack[top], "      moved", -1, e_p, r_id, r_p);
 			WindPointerMove (&r_p);
 		}
 		return;
 	}
 	
 	/*--- generate events ---*/
+	
+	EvntPoiner (stack, anc, top, e_p, r_p, r_id, NotifyNormal);
 	
 	if (anc == 0) {
 		evnt = NotifyInferior;
@@ -282,40 +280,23 @@ WindPointerWatch (BOOL movedNreorg)
 		last = NotifyNonlinear;
 	}
 	
-	// notify enter/in events
+	// notify in events
 	
 	if (stack[0]) {
-		TRACEP (stack[0], "Leave", evnt, e_p, r_id, r_p);
-		if (stack[0]->u.List.AllMasks & LeaveWindowMask) {
-			EvntLeaveNotify (stack[0], r_id, None, r_p, e_p,
-			                 NotifyNormal, ELFlagSameScreen, evnt);
-		}
 		if (stack[0]->u.List.AllMasks & FocusChangeMask) {
 			TRACEF (stack[0], "FocusOut", evnt);
 			EvntFocusOut (stack[0], NotifyNormal, evnt);
 		}
-		if (anc > 0) {
-			e_p.x += stack[0]->Rect.x;
-			e_p.y += stack[0]->Rect.y;
-		}
 	}
 	for (bot = 1; bot < anc; ++bot) {
-		TRACEP (stack[bot], "Leave", next, e_p, r_id, r_p);
-		if (stack[bot]->u.List.AllMasks & LeaveWindowMask) {
-			EvntLeaveNotify (stack[bot], r_id, None, r_p, e_p,
-			                 NotifyNormal, ELFlagSameScreen, next);
-		}
 		if (stack[bot]->u.List.AllMasks & FocusChangeMask) {
 			TRACEF (stack[bot], "FocusOut", next);
 			EvntFocusOut (stack[bot], NotifyNormal, next);
 		}
-		e_p.x += stack[bot]->Rect.x;
-		e_p.y += stack[bot]->Rect.y;
 	}
 	
 	if (widget) {
 		if (WMGR_Active) {
-			TRACEP (widget, "      widget", -1, e_p, r_id, r_p);
 			WmgrWidget (widget, &r_p);
 		}
 	
@@ -323,28 +304,12 @@ WindPointerWatch (BOOL movedNreorg)
 		CURSOR * crsr = NULL;
 		
 		for (bot = anc +1; bot < top; ++bot) {
-			e_p.x -= stack[bot]->Rect.x;
-			e_p.y -= stack[bot]->Rect.y;
-			TRACEP (stack[bot], "Enter", next, e_p, r_id, r_p);
-			if (stack[bot]->u.List.AllMasks & EnterWindowMask) {
-				EvntEnterNotify (stack[bot], r_id, None, r_p, e_p,
-				                 NotifyNormal, ELFlagSameScreen, next);
-			}
 			if (stack[bot]->u.List.AllMasks & FocusChangeMask) {
 				TRACEF (stack[bot], "FocusIn", next);
 				EvntFocusIn (stack[bot], NotifyNormal, next);
 			}
 		}
 		if (stack[top]) {
-			if (anc < top) {
-				e_p.x -= stack[top]->Rect.x;
-				e_p.y -= stack[top]->Rect.y;
-			}
-			TRACEP (stack[top], "Enter", last, e_p, r_id, r_p);
-			if (stack[top]->u.List.AllMasks & EnterWindowMask) {
-				EvntEnterNotify (stack[top], r_id, None, r_p, e_p,
-				                 NotifyNormal, ELFlagSameScreen, last);
-			}
 			if (stack[top]->u.List.AllMasks & FocusChangeMask) {
 				TRACEF (stack[top], "FocusIn", last);
 				EvntFocusIn (stack[top], NotifyNormal, last);
