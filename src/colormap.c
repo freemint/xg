@@ -32,14 +32,25 @@ static RGB   _CMAP_VdiRGB[256];
 
 //==============================================================================
 void
-CmapPalette (void)
+CmapPalette (CARD16 handle)
 {
-	short mbuf[8] = { COLORS_CHANGED, ApplId(0), 0,0,0,0,0,0 };
-	RGB * rgb = _CMAP_VdiRGB +16;
-	int   i;
-	for (i = 16; i < 256; vs_color (GRPH_Vdi, i++, (short*)(rgb++)));
+	short i, hdl;
+	RGB * rgb;
 	
-	shel_write (SWM_BROADCAST, 0, 0, (void*)mbuf, NULL);
+	if (handle) {
+		i   = 0;
+		hdl = handle;
+	} else {
+		i   = 16;
+		hdl = GRPH_Vdi;
+	}
+	rgb = _CMAP_VdiRGB + i;
+	for ( ; i < 256; vs_color (GRPH_Vdi, i++, (short*)(rgb++)));
+	
+	if (!handle) {
+		short mbuf[8] = { COLORS_CHANGED, ApplId(0), 0,0,0,0,0,0 };
+		shel_write (SWM_BROADCAST, 0, 0, (void*)mbuf, NULL);
+	}
 }
 
 
@@ -79,7 +90,7 @@ CmapInit(void)
 				rgb = _CMAP_VdiRGB + _CMAP_TransGrey[i];
 				rgb->r = rgb->g = rgb->b = (1001 * i) /31;
 			}
-			CmapPalette();
+			CmapPalette (0);
 		}
 	}
 }
@@ -195,7 +206,7 @@ CmapLookup (RGB * dst, const RGB * src)
 			}
 		}
 	}
-	return pixel | 0x80000000uL;
+	return pixel;
 }
 
 

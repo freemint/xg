@@ -10,6 +10,7 @@
 //
 #include "pixmap_P.h"
 #include "grph.h"
+#include "colormap.h"
 #include "x_gem.h"
 #include "gemx.h"
 
@@ -113,6 +114,7 @@ PmapVdi (p_PIXMAP pmap, p_GC gc, BOOL fonts)
 		}
 		pmap->Vdi = hdl;
 		vsf_perimeter (hdl, PERIMETER_OFF);
+		if (pmap->Depth > 8) CmapPalette (hdl);
 		
 		if (_PMAP_Offscreen[_PMAP_Offs_Count]) {
 			_Pmap_VdiCls (_PMAP_Offscreen[_PMAP_Offs_Count]);
