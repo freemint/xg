@@ -22,9 +22,9 @@ void CmapInit(void);
 void   CmapPalette (CARD16 handle);
 CARD32 CmapLookup  (RGB * dst, const RGB * src);
 
-static inline CARD16 CmapPixelIdx (CARD32 pixel)
+static inline CARD16 CmapPixelIdx (CARD32 pixel, CARD16 depth)
 {
-	if (GRPH_Depth > 8) {
+	if (depth > 8) {
 		extern CARD16 (*Cmap_PixelIdx) (CARD32 );
 		pixel = Cmap_PixelIdx (pixel);
 	}

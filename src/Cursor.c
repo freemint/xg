@@ -2,7 +2,7 @@
 //
 // Cursor.c -- Implementation of struct 'CURSOR' related functions.
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-07 - Module released for beta state.
 // 2000-09-07 - Initial Version.
@@ -131,8 +131,8 @@ _Crsr_color (CURSOR * crsr, const RGB * fore, const RGB * back)
 	RGB    tmp;
 	CARD16 bgnd = CmapLookup (&tmp, back),
 	       fgnd = CmapLookup (&tmp, fore);
-	crsr->Bgnd  = CmapPixelIdx (bgnd == fgnd ? ~bgnd : bgnd);
-	crsr->Fgnd  = CmapPixelIdx (fgnd);
+	crsr->Bgnd  = CmapPixelIdx (bgnd == fgnd ? ~bgnd : bgnd, GRPH_Depth);
+	crsr->Fgnd  = CmapPixelIdx (fgnd                       , GRPH_Depth);
 }
 
 

@@ -383,7 +383,7 @@ _Wind_setup (CLIENT * clnt, WINDOW * w, CARD32 mask, CARD32 * val, CARD8 req)
 	if (mask & CWBackPixel) {
 		// overrides prev
 //		PRINT (,"+- bgnd=%lu", *val);
-		w->Back.Pixel = CmapPixelIdx (*(val++) /*& ((1uL << (w->Depth)) -1)*/);
+		w->Back.Pixel = CmapPixelIdx (*(val++), w->Depth);
 		w->hasBackGnd = xTrue;
 	}
 	if (mask & CWBorderPixmap) {
@@ -393,7 +393,7 @@ _Wind_setup (CLIENT * clnt, WINDOW * w, CARD32 mask, CARD32 * val, CARD8 req)
 	if (mask & CWBorderPixel) {
 		// overrides pref
 //		PRINT (,"+- fgnd=%lu", *val);
-		w->BorderPixel = CmapPixelIdx (*(val++) /*& ((1uL << (w->Depth)) -1)*/);
+		w->BorderPixel = CmapPixelIdx (*(val++), w->Depth);
 		w->hasBorder   = xTrue;
 	}
 	if (mask & CWBitGravity) {
@@ -893,6 +893,7 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 		wind->WinGravity   = NorthWestGravity;
 		wind->BitGravity   = ForgetGravity;
 		wind->SaveUnder    = xFalse;
+		// BorderPixel and Back.Pixel needn't to be defined here
 		
 		wind->isMapped    = xFalse;
 		wind->hasBorder   = xFalse;
@@ -903,9 +904,6 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 		wind->GwmIcon     = xFalse;
 		
 		wind->nSelections = 0;
-		
-		wind->BorderPixel = G_BLACK;
-		wind->Back.Pixel  = G_WHITE;
 		
 		wind->PropagateMask  = AllEventMask;
 		wind->u.Event.Mask   = 0uL;

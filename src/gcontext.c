@@ -81,11 +81,11 @@ _Gcnt_setup (CLIENT * clnt, GC * gc, CARD32 mask, CARD32 * val, CARD8 req)
 		DEBUG (,"+- pmsk=%lu", gc->PlaneMask);
 	}
 	if (mask & GCForeground) {
-		gc->Foreground = CmapPixelIdx (*(val++));
+		gc->Foreground = CmapPixelIdx (*(val++), gc->Depth);
 		DEBUG (,"+- fgnd=%lu", gc->Foreground);
 	}
 	if (mask & GCBackground) {
-		gc->Background = CmapPixelIdx (*(val++));
+		gc->Background = CmapPixelIdx (*(val++), gc->Depth);
 		DEBUG (,"+- bgnd=%lu", gc->Background);
 	}
 	if (mask & GCLineWidth) {
@@ -328,8 +328,8 @@ RQ_CreateGC (CLIENT * clnt, xCreateGCReq * q)
 		gc->FillRule    = EvenOddRule;
 		gc->ArcMode     = ArcChord;
 		gc->PlaneMask   = (1uL << gc->Depth) -1;
-		gc->Foreground  = G_WHITE;
-		gc->Background  = G_BLACK;
+		gc->Foreground  = CmapPixelIdx (0, gc->Depth);
+		gc->Background  = CmapPixelIdx (1, gc->Depth);
 		gc->Tile        = NULL;
 		gc->Stipple     = NULL;
 		gc->ClipMask    = NULL;
