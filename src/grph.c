@@ -208,6 +208,7 @@ GrphSetup (void * format_arr)
 BOOL
 GrphIntersect (p_GRECT dst, const struct s_GRECT * src)
 {
+#if 1
 	register BOOL res = 1;
 	__asm__ volatile ("
 		movem.l	(%1), d0/d1; | a.x:a.y/a.w:a.h
@@ -249,7 +250,7 @@ GrphIntersect (p_GRECT dst, const struct s_GRECT * src)
 		: "d0","d1","d2","d3" // clobbered
 	);
 	return res;
-/*
+# else
 	short p = dst->x + dst->w -1;
 	short q = src->x + src->w -1;
 	dst->x = (dst->x >= src->x ? dst->x : src->x);
@@ -260,8 +261,62 @@ GrphIntersect (p_GRECT dst, const struct s_GRECT * src)
 	dst->h = (p <= q ? p : q) - dst->y  +1;
 	
 	return (dst->w > 0  &&  dst->h > 0);
-*/
+# endif
 }
+
+//==============================================================================
+#ifndef INL_ISCT
+BOOL
+GrphIntersectP (p_PXY dst, const struct s_PXY * src)
+{
+# if 1
+	register BOOL res = 1;
+	__asm__ volatile ("
+		movem.l	(%1), d0/d1; | a.x0:a.y0/a.x1:a.y1
+		movem.l	(%2), d2/d3; | b.x0:b.y0/b.x1:b.y1
+			cmp.w		d0, d2;
+			ble.b		1f;   | ? b.y0 <= a.y0
+			move.w	d2, d0; | a.y0 = b.y0
+		1:	cmp.w		d1, d3;
+			bge.b		2f;   | ? b.y1 >= a.y1
+			move.w	d3, d1; | a.y1 = b.y1
+		2:	cmp.w		d0, d1;
+			bge.b		3f;   | ? a.y1 >= a.y0
+			clr.b		%0;
+		3:
+		swap		d0; | a.y0:a.x0
+		swap		d1; | a.y1:a.x1
+		swap		d2; | b.y0:b.x0
+		swap		d3; | b.y1:b.x1
+			cmp.w		d0, d2;
+			ble.b		5f;   | ? b.x0 <= a.x0
+			move.w	d2, d0; | a.x0 = b.x0
+		5:	cmp.w		d1, d3;
+			bge.b		6f;   | ? b.x1 >= a.x1
+			move.w	d3, d1; | a.x1 = b.x1
+		6:	cmp.w		d0, d1;
+			bge.b		7f;   | ? a.x1 >= a.x0
+			clr.b		%0;
+		7:
+		swap		d0;
+		swap		d1;
+		movem.l	d0/d1, (%1); | a.x:a.y/a.w:a.h
+		"
+		: "=d"(res)           // output
+		: "a"(dst),"a"(src)   // input
+		: "d0","d1","d2","d3" // clobbered
+	);
+	return res;
+# else
+	if (dst[0].x < src[0].x) dst[0].x = src[0].x;
+	if (dst[0].y < src[0].y) dst[0].y = src[0].y;
+	if (dst[1].x > src[1].x) dst[1].x = src[1].x;
+	if (dst[1].y > src[1].y) dst[1].y = src[1].y;
+	
+	return (dst[0].x <= dst[1].x  &&  dst[0].y <= dst[1].y);
+# endif
+}
+#endif INL_ISCT
 
 
 //==============================================================================

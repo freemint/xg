@@ -36,6 +36,36 @@ vs_clip_r (int handle, const GRECT * rect)
 	vdi(&vdi_params);
 }
 
+//==============================================================================
+void
+vs_clip_p (int handle, const PXY * clip)
+{
+	vdi_intin[0]         = 1;
+	((PXY*)vdi_ptsin)[0] = clip[0];
+	((PXY*)vdi_ptsin)[1] = clip[1];
+	
+	vdi_control[0] = 129;
+	vdi_control[1] = 2;
+	vdi_control[3] = 1;
+	vdi_control[5] = 0;
+	vdi_control[6] = handle;
+	vdi(&vdi_params);
+}
+
+//==============================================================================
+void
+vs_clip_off (int handle)
+{
+	vdi_intin[0] = 0;
+	
+	vdi_control[0] = 129;
+	vdi_control[1] = 2;
+	vdi_control[3] = 1;
+	vdi_control[5] = 0;
+	vdi_control[6] = handle;
+	vdi(&vdi_params);
+}
+
 
 //==============================================================================
 void
@@ -84,24 +114,6 @@ v_fillarea_p (int handle, int count, const PXY pxyarray[])
 	vdi (&vdi_params);
 	
 	vdi_params.ptsin = vdi_ptsin;
-}
-
-//==============================================================================
-void
-v_gtext_n (int handle, const PXY * p, int count, const char * str) 
-{
-	short i;
-	
-	for (i = 0; i < count; ++i) {
-		vdi_intin[i] = *(str++);
-	}
-	*(PXY*)vdi_ptsin = *p;
-	
-	vdi_control[0] = 8;
-	vdi_control[1] = 2;
-	vdi_control[3] = i;
-	vdi_control[6] = handle;
-	vdi (&vdi_params);
 }
 
 //==============================================================================

@@ -32,13 +32,14 @@ typedef struct s_GRECT {
 } GRECT;
 #endif
 
-void vs_clip_r (int handle, const GRECT * rect);
+void vs_clip_r   (int handle, const GRECT * rect);
+void vs_clip_p   (int handle, const PXY   * clip);
+void vs_clip_off (int handle);
 
 void vqt_extent_n (int , const short * str, int count, short * ext);
 
 void v_bar_p      (int , const PXY pxyarray[]);
 void v_fillarea_p (int , int count, const PXY pxyarray[]);
-void v_gtext_n    (int , const PXY * p, int count, const char * str);
 void v_gtext_arr  (int , const PXY * p, int count, const short * arr);
 void v_pline_p    (int , int count, const PXY pxyarray[]);
 void v_pmarker_p  (int , int count, const PXY pxyarray[]);

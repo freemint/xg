@@ -42,12 +42,115 @@ DrawDelete (p_DRAWABLE draw, p_CLIENT clnt)
 
 
 //------------------------------------------------------------------------------
-static inline GRECT *
-SizeToRCT (GRECT * dst, const short * src)
+static CARD16
+WindClipLockP (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
+               PXY * orig, PXY ** pBuf)
+{
+	WINDOW * pwnd;
+	GRECT    work = wind->Rect, rect;
+	BOOL     visb = wind->isMapped;
+	CARD16   nClp = 0;
+	PXY    * sect, * p_clip;
+	int      a, b, n;
+	short    l = 0x7FFF, u = 0x7FFF, r = 0x8000, d = 0x8000;
+	
+	if (border) {
+		work.x -= border;
+		work.y -= border;
+		border *= 2;
+		work.w += border;
+		work.h += border;
+	}
+	if (work.x < 0) { work.w += work.x; work.x = 0; }
+	if (work.y < 0) { work.h += work.y; work.y = 0; }
+	
+	*orig = *(PXY*)&wind->Rect;
+	
+	while ((pwnd = wind->Parent)) {
+		if (work.x + work.w > pwnd->Rect.w) work.w = pwnd->Rect.w - work.x;
+		if (work.y + work.h > pwnd->Rect.h) work.h = pwnd->Rect.h - work.y;
+		if ((work.x += pwnd->Rect.x) < 0) { work.w += work.x; work.x = 0; }
+		if ((work.y += pwnd->Rect.y) < 0) { work.h += work.y; work.y = 0; }
+		orig->x += pwnd->Rect.x;
+		orig->y += pwnd->Rect.y;
+		if (pwnd == &WIND_Root  || !(visb &= pwnd->isMapped)) break;
+		wind = pwnd;
+	}
+	if (!visb ||  work.w <= 0  ||  work.h <= 0) return 0;
+	
+	work.w += work.x -1;
+	work.h += work.y -1;
+	
+	if (clip  &&  n_clip > 0) {
+		PXY * c = p_clip = alloca (sizeof(GRECT) * n_clip);
+		n       = 0;
+		while (n_clip--) {
+			c[1].x = (c[0].x = clip->x + orig->x) + clip->w -1;
+			c[1].y = (c[0].y = clip->y + orig->y) + clip->h -1;
+			clip++;
+			if (GrphIntersectP (c, (PXY*)&work)) {
+				c += 2;
+				n += 1;
+			}
+		}
+		if (!(n_clip = n)) return 0;
+	
+	} else {
+		p_clip = (PXY*)&work;
+		if (clip  &&  n_clip < 0) {
+			PXY c[2];
+			c[1].x = (c[0].x = clip->x) + clip->w -1;
+			c[1].y = (c[0].y = clip->y) + clip->h -1;
+			if (!GrphIntersectP (p_clip, c)) return 0;
+		}
+		n_clip = 1;
+	}
+	
+	WindUpdate (xTrue);
+	wind_get (0, WF_SCREEN, &a, &b, &n,&n);
+	*pBuf = sect = (PXY*)((a << 16) | (b & 0xFFFF));
+	
+	wind_get_first (wind->Handle, &rect);
+	while (rect.w > 0  &&  rect.h > 0) {
+		PXY * c = p_clip;
+		n       = n_clip;
+		rect.w += rect.x -1;
+		rect.h += rect.y -1;
+		do {
+			sect[0] = *(PXY*)&rect.x;
+			sect[1] = *(PXY*)&rect.w;
+			if (GrphIntersectP (sect, c)) {
+				if (l > sect[0].x) l = sect[0].x;
+				if (u > sect[0].y) u = sect[0].y;
+				if (r < sect[1].x) r = sect[1].x;
+				if (d < sect[1].y) d = sect[1].y;
+				nClp += 1;
+				sect += 2;
+			}
+			c += 2;
+		} while (--n);
+		wind_get_next (wind->Handle, &rect);
+	}
+	if (nClp) {
+		sect[0].x = l;
+		sect[0].y = u;
+		sect[1].x = r;
+		sect[1].y = d;
+	
+	} else {
+		WindUpdate (xFalse);
+	}
+	return nClp;
+}
+
+//------------------------------------------------------------------------------
+static inline PXY *
+SizeToPXY (PXY * dst, const short * src)
 {
 	__asm__ volatile ("
-		clr.l		d0;
+		moveq.l	#0, d0;
 		move.l	(%0), d1;
+		sub.l		#0x00010001, d1;
 		movem.l	d0/d1, (%1);
 		"
 		:                   // output
@@ -59,30 +162,19 @@ SizeToRCT (GRECT * dst, const short * src)
 
 //------------------------------------------------------------------------------
 static inline CARD16
-SizeToClp (GRECT * dst, GRECT * clip, CARD16 n_clip, const short * src)
+SizeToLst (PXY * dst, GRECT * clip, CARD16 n_clip, const short * src)
 {
 	CARD16 nClp = 0;
+	PXY    size[2];
+	
+	SizeToPXY (size, src);
 	
 	while (n_clip--) {
-		if (clip->x <= 0) {
-			 dst->x = 0;
-			 dst->w = (clip->w <= src[0] ? clip->w : src[0]) + clip->x;
-		} else {
-			dst->x = clip->x;
-			if (clip->w + clip->x > src[0]) dst->w = src[0] - clip->x;
-			else                            dst->w = clip->w;
-		}
-		if (clip->y <= 0) {
-			 dst->y = 0;
-			 dst->h = (clip->h <= src[1] ? clip->h : src[1]) + clip->y;
-		} else {
-			dst->y = clip->y;
-			if (clip->h + clip->y > src[1]) dst->h = src[1] - clip->y;
-			else                            dst->h = clip->h;
-		}
-		if (dst->w > 0  &&  dst->h > 0) {
-			dst++;
-			nClp++;
+		dst[1].x = (dst[0].x = clip->x) + clip->w -1;
+		dst[1].y = (dst[0].y = clip->y) + clip->h -1;
+		if (GrphIntersectP (dst, size)) {
+			dst  += 2;
+			nClp += 1;
 		}
 		clip++;
 	}
@@ -170,8 +262,9 @@ RQ_GetGeometry (CLIENT * clnt, xGetGeometryReq * q)
 				r->borderWidth = wind->BorderWidth;
 			} else {
 				PIXMAP * pmap = (PIXMAP*)draw;
-				SizeToRCT ((GRECT*)&r->x, &pmap->W);
-				r->borderWidth   = 0;
+				*(long*)&r->x     = 0l;
+				*(long*)&r->width = *(long*)&pmap->W;
+				r->borderWidth = 0;
 			}
 			
 			DEBUG (GetGeometry," 0x%lX", q->id);
@@ -200,14 +293,14 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
 		short   hdl = GRPH_Vdi;
-		GRECT * sect;
+		PXY   * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				v_hide_c (hdl);
@@ -217,9 +310,9 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 		} else { // Pixmap
 			if (gc->ClipNum > 0) {
 				sect = alloca (sizeof(GRECT) * gc->ClipNum);
-				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 			} else {
-				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 				nClp = 1;
 			}
 			clnt->Fnct->shift_pnt (NULL, pxy, len, q->coordMode);
@@ -231,10 +324,11 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 				vsf_color (hdl, color);
 			}
 			do {
-				vs_clip_r    (hdl, sect++);
+				vs_clip_p    (hdl, sect);
 				v_fillarea_p (hdl, len, pxy);
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
+			vs_clip_off (hdl);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
@@ -265,14 +359,14 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 		BOOL    set = xTrue;
 		xArc  * arc = (xArc*)(q +1);
 		short   hdl = GRPH_Vdi;
-		GRECT * sect;
+		PXY   * sect;
 		PXY     orig;
 		CARD16  nClp;
 		CARD32  color;
 		
 		if (draw.p->isWind) {
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				v_hide_c (hdl);
 			}
@@ -281,9 +375,9 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 		} else { // Pixmap
 			if (gc->ClipNum > 0) {
 				sect = alloca (sizeof(GRECT) * gc->ClipNum);
-				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 			} else {
-				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 				nClp = 1;
 			}
 			*(long*)&orig = 0;
@@ -298,14 +392,15 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 			}
 			do {
 				int i;
-				vs_clip_r (hdl, sect++);
+				vs_clip_p (hdl, sect);
 				for (i = 0; i < len; ++i) {
 					v_ellarc (hdl, arc[i].x, arc[i].y,
 					          arc[i].width, arc[i].height,
 					          arc[i].angle1, arc[i].angle2);
 				}
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
+			vs_clip_off (hdl);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
@@ -333,14 +428,14 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 		BOOL    set = xTrue;
 		xArc  * arc = (xArc*)(q +1);
 		short   hdl = GRPH_Vdi;
-		GRECT * sect;
+		PXY   * sect;
 		PXY     orig;
 		CARD16  nClp;
 		CARD32  color;
 		
 		if (draw.p->isWind) {
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				v_hide_c (hdl);
 			}
@@ -349,9 +444,9 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 		} else { // Pixmap
 			if (gc->ClipNum > 0) {
 				sect = alloca (sizeof(GRECT) * gc->ClipNum);
-				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 			} else {
-				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 				nClp = 1;
 			}
 			*(long*)&orig = 0;
@@ -365,14 +460,15 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 			}
 			do {
 				int i;
-				vs_clip_r (hdl, sect++);
+				vs_clip_p (hdl, sect);
 				for (i = 0; i < len; ++i) {
 					v_ellpie (hdl, arc[i].x, arc[i].y,
 					          arc[i].width, arc[i].height,
 					          arc[i].angle1, arc[i].angle2);
 				}
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
+			vs_clip_off (hdl);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
@@ -400,14 +496,14 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
 		short   hdl = GRPH_Vdi;
-		GRECT * sect;
+		PXY   * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				v_hide_c (hdl);
@@ -417,9 +513,9 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 		} else { // Pixmap
 			if (gc->ClipNum > 0) {
 				sect = alloca (sizeof(GRECT) * gc->ClipNum);
-				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 			} else {
-				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 				nClp = 1;
 			}
 			clnt->Fnct->shift_pnt (NULL, pxy, len, q->coordMode);
@@ -432,10 +528,11 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 				vsl_width (hdl, gc->LineWidth);
 			}
 			do {
-				vs_clip_r (hdl, sect++);
+				vs_clip_p (hdl, sect);
 				v_pline_p (hdl, len, pxy);
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
+			vs_clip_off (hdl);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
@@ -466,14 +563,14 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
 		short   hdl = GRPH_Vdi;
-		GRECT * sect;
+		PXY   * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				v_hide_c (hdl);
@@ -489,10 +586,10 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 			} else {
 				if (gc->ClipNum > 0) {
 					sect = alloca (sizeof(GRECT) * gc->ClipNum);
-					nClp = SizeToClp (sect,
+					nClp = SizeToLst (sect,
 					                  gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 				} else {
-					sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+					sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 					nClp = 1;
 				}
 				set = (draw.Pixmap->Vdi > 0);
@@ -504,10 +601,11 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 				vsm_color (hdl, color);
 			}
 			do {
-				vs_clip_r   (hdl, sect++);
+				vs_clip_p   (hdl, sect);
 				v_pmarker_p (hdl, len, pxy);
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
+			vs_clip_off (hdl);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
@@ -539,14 +637,14 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 		BOOL    set = xTrue;
 		GRECT * rec = (GRECT*)(q +1);
 		short   hdl = GRPH_Vdi;
-		GRECT * sect;
+		PXY   * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_r2p (&orig, rec, len);
 				v_hide_c (hdl);
@@ -570,10 +668,10 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 			} else*/ {
 				if (gc->ClipNum > 0) {
 					sect = alloca (sizeof(GRECT) * gc->ClipNum);
-					nClp = SizeToClp (sect,
+					nClp = SizeToLst (sect,
 					                  gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 				} else {
-					sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+					sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 					nClp = 1;
 				}
 				clnt->Fnct->shift_r2p (NULL, rec, len);
@@ -587,10 +685,15 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 			}
 			do {
 				int i;
-				vs_clip_r (hdl, sect++);
-				for (i = 0; i < len; v_bar_p (hdl, (PXY*)&rec[i++]));
+				for (i = 0; i < len; i++) {
+					PXY clip[2];
+					*(GRECT*)clip = rec[i];
+					if (GrphIntersectP (clip, sect)) {
+						v_bar_p (hdl, clip);
+					}
+				}
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
@@ -622,13 +725,13 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 		GRECT * rec = (GRECT*)(q +1);
 		short   hdl = GRPH_Vdi;
 		PXY     orig;
-		GRECT * sect;
+		PXY   * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
 		if (draw.p->isWind) {
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				v_hide_c (hdl);
 			}
@@ -637,9 +740,9 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 		} else { // Pixmap
 			if (gc->ClipNum > 0) {
 				sect = alloca (sizeof(GRECT) * gc->ClipNum);
-				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 			} else {
-				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 				nClp = 1;
 			}
 			*(long*)&orig = 0;
@@ -661,7 +764,7 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 			}	
 			do {
 				int i;
-				vs_clip_r (hdl, sect++);
+				vs_clip_p (hdl, sect);
 				for (i = 0; i < len; ++i) {
 					PXY p[5];
 					p[0].x = p[3].x = p[4].x = rec[i].x + orig.x;
@@ -671,8 +774,9 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 					p[4].y          = p[0].y + d;
 					v_pline_p (hdl, 5, p);
 				}
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
+			vs_clip_off (hdl);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
@@ -700,14 +804,14 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
 		short   hdl = GRPH_Vdi;
-		GRECT * sect;
+		PXY   * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, CoordModeOrigin);
 				v_hide_c (hdl);
@@ -717,9 +821,9 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 		} else { // Pixmap
 			if (gc->ClipNum > 0) {
 				sect = alloca (sizeof(GRECT) * gc->ClipNum);
-				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 			} else {
-				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 				nClp = 1;
 			}
 			clnt->Fnct->shift_pnt (NULL, pxy, len, CoordModeOrigin);
@@ -732,13 +836,14 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 				vsl_width (hdl, gc->LineWidth);
 			}
 			do {
-				int i;
-				vs_clip_r (hdl, sect++);
+				int   i;
+				vs_clip_p (hdl, sect);
 				for (i = 0; i < len; i += 2) {
 					v_pline_p (hdl, 2, &pxy[i]);
 				}
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
+			vs_clip_off (hdl);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
@@ -755,13 +860,13 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 {
 	short   hdl = GRPH_Vdi;
 	short   arr[len];
-	GRECT * sect;
+	PXY   * sect;
 	PXY     orig;
 	CARD16  nClp;
 	
 	if (draw.p->isWind) {
-		nClp = WindClipLock (draw.Window, 0,
-		                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+		nClp = WindClipLockP (draw.Window, 0,
+		                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 		if (nClp) {
 			int dmy;
 			orig.x += pos->x;
@@ -780,31 +885,35 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 	} else { // Pixmap
 		if (gc->ClipNum > 0) {
 			sect = alloca (sizeof(GRECT) * gc->ClipNum);
-			nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+			nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 		} else {
-			sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+			sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 			nClp = 1;
 		}
 		orig = *pos;
 		hdl  = PmapVdi (draw.Pixmap, gc, xTrue);
 	}
 	if (nClp) {
+		BOOL bg_draw = (gc->Background != WHITE);
 		if (is8N16) FontLatin1_C (arr, text, len);
 		else        FontLatin1_W (arr, text, len);
+		if (!bg_draw) {
+			vswr_mode (hdl, MD_REPLACE);
+			vst_color (hdl, gc->Foreground);
+		}
 		do {
-			vs_clip_r (hdl, sect++);
-			if (gc->Background == WHITE) {
-				vswr_mode   (hdl, MD_REPLACE);
-			} else {
+			vs_clip_p (hdl, sect);
+			if (bg_draw) {
 				vswr_mode   (hdl, MD_ERASE);
 				vst_color   (hdl, gc->Background);
 				v_gtext_arr (hdl, &orig, len, arr);
 				vswr_mode   (hdl, MD_TRANS);
+				vst_color   (hdl, gc->Foreground);
 			}
-			vst_color   (hdl, gc->Foreground);
 			v_gtext_arr (hdl, &orig, len, arr);
+			sect++;
 		} while (--nClp);
-		vs_clip_r (hdl, NULL);
+		vs_clip_off (hdl);
 		
 		if (draw.p->isWind) {
 			v_show_c (hdl, 1);
@@ -862,13 +971,13 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 	if (t->len) {
 		short   hdl = GRPH_Vdi;
 		short   arr[t->len];
-		GRECT * sect;
+		PXY   * sect;
 		PXY     orig;
 		CARD16  nClp;
 		
 		if (draw.p->isWind) {
-			nClp = WindClipLock (draw.Window, 0,
-			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLockP (draw.Window, 0,
+			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				int dmy;
 				orig.x += pos->x;
@@ -890,9 +999,9 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 			       q->drawable, q->gc, q->x, q->y);
 			if (gc->ClipNum > 0) {
 				sect = alloca (sizeof(GRECT) * gc->ClipNum);
-				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
 			} else {
-				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				sect = SizeToPXY (alloca (sizeof(GRECT)), &draw.Pixmap->W);
 				nClp = 1;
 			}
 			orig = *pos;
@@ -903,10 +1012,11 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 			else        FontLatin1_W (arr, (short*)(t +1), t->len);
 			vswr_mode (hdl, MD_TRANS);
 			do {
-				vs_clip_r (hdl, sect++);
+				vs_clip_p (hdl, sect);
 				v_gtext_arr (hdl, &orig, t->len, arr);
+				sect += 2;
 			} while (--nClp);
-			vs_clip_r (hdl, NULL);
+			vs_clip_off (hdl);
 			
 			if (draw.p->isWind) {
 				v_show_c (hdl, 1);
