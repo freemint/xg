@@ -110,39 +110,6 @@ WindClipLock (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 	} else {
 		WindUpdate (xFalse);
 	}
-/*	
-	if (work.w > 0 && work.h > 0  && (!a_clip || GrphIntersect (&work, &clip))) {
-		GRECT * sec;
-		int     a, b, c;
-		short   l = 0x7FFF, u = 0x7FFF, r = 0x8000, d = 0x8000;
-		WindUpdate (xTrue);
-		c = wind_get (0, WF_SCREEN, &a, &b, &c,&c);
-		*pBuf = sec = (GRECT*)((a << 16) | (b & 0xFFFF));
-		
-		wind_get_first (wind->Handle, sec);
-		while (sec->w > 0  &&  sec->h > 0) {
-			if (GrphIntersect (sec, &work)) {
-				a = sec->x + sec->w -1;
-				b = sec->y + sec->h -1;
-				if (l > sec->x) l = sec->x;
-				if (u > sec->y) u = sec->y;
-				if (r < a)      r = a;
-				if (d < b)      d = b;
-				sec++;
-				nClp++;
-			}
-			wind_get_next (wind->Handle, sec);
-		}
-		if (nClp) {
-			sec->x = l;
-			sec->y = u;
-			sec->w = r - l +1;
-			sec->h = d - u +1;
-		} else {
-			*pBuf = NULL;
-			WindUpdate (xFalse);
-		}
-	}*/
 	return nClp;
 }
 
