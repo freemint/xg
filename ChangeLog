@@ -1,6 +1,21 @@
+2001-07-07: 0.10.2
+   - completely reworked keyboard mapping, should now work correctly with
+     different keyboard layouts, also for french and swedish.  Additional,
+     mostly can be made use of inputs done by ALT + number-field.
+   - improved KeyRelease events timing, will simply be generated after the
+     keyboard's initial repeat time expired.
+   - re-activated Ctrl+Alt+Backspace for imediate server shutdown, was removed
+     by accident.
+   - fix a bug which caused the AES to freeze if one mouse button was pressed
+     while another was still down.
+2001-07-05: 0.10.1
+   - corrected calculation of mouse pointer watching rectangle to avoid errors
+     on occluded window regions.  this gets rid of problems with knews's sliders
+     and xv's load/save box.
+
 2001-07-04: 0.10
    - added new control:  holding down the ALT key and pressing the left mouse
-     button somewhere inside a X window with allows to move this window, same as
+     button somewhere inside a X window allows to move this window, same as is
      handled by other X servers.  Additional there is a "magnetic snap" at the
      desktop borders while moving this way to make window positioning easier.
      a short mouse click into a window instead tops/bottoms this.
@@ -10,7 +25,7 @@
 2001-07-01: 0.09.4
    - activated the 'About' box (as wished by lp_ and other :-) ) to display the
      version number.
-   - heavily reworked management of window properties to make the built-in
+   - heavyly reworked management of window properties to make the built-in
      window manager's accesses to ICCC values easier and speeds it up a bit.
    - adapted to gemlib 0.41.
 2001-06-23: 0.09.3
@@ -122,7 +137,7 @@
    - corrected two times too often referenced cursors by pointer grabs.
 2001-02-14: 0.05.1
    - corrected ClearArea() handling of pixmap backgrounds.
-   - bugfix in exposure events generation while drawing window contents.
+   - bugfix in exposure events generating while drawing window contents.
 
 2001-02-12: 0.05
    - made the background of the root window (desktop) changeable too.
