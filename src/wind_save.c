@@ -12,7 +12,6 @@
 #include "x_gem.h"
 
 #include <stdlib.h>
-#include <stdio.h> //printf
 
 #include <X11/Xproto.h>
 
@@ -61,21 +60,40 @@ WindSaveUnder (CARD32 id, GRECT * rect, short hdl)
 void
 WindSaveFlush (BOOL restore)
 {
+	WIND_SaveDone = xFalse;
+	
 	if (_WIND_SaveMfdb.fd_addr) {
 		if (restore) {
 			MFDB scrn = { NULL, };
-			v_hide_c    (GRPH_Vdi);
-			vro_cpyfm_p (GRPH_Vdi, S_ONLY,
-			             (PXY*)&WIND_SaveArea[1], &_WIND_SaveMfdb, &scrn);
-			v_show_c    (GRPH_Vdi, 0);
-			WIND_SaveDone = (_WIND_SaveHandle <= 0);
-		} else {
-			WIND_SaveDone = xFalse;
+			v_hide_c (GRPH_Vdi);
+			if (_WIND_SaveHandle <= 0) {
+				vro_cpyfm_p (GRPH_Vdi, S_ONLY,
+				             (PXY*)&WIND_SaveArea[1], &_WIND_SaveMfdb, &scrn);
+				WIND_SaveDone = xTrue;
+			} else {
+				PRECT * src = &WIND_SaveArea[1];
+				PRECT * dst = &WIND_SaveArea[2];
+				WIND_UPDATE_BEG;
+				wind_get_first (_WIND_SaveHandle, (GRECT*)dst);
+				while (dst->rd.x > 0  &&  dst->rd.y > 0) {
+					dst->rd.x += dst->lu.x -1;
+					dst->rd.y += dst->lu.y -1;
+					if (GrphIntersectP (dst, &WIND_SaveArea[0])) {
+						src->lu.x = dst->lu.x - WIND_SaveArea[0].lu.x;
+						src->lu.y = dst->lu.y - WIND_SaveArea[0].lu.y;
+						src->rd.x = dst->rd.x - WIND_SaveArea[0].lu.x;
+						src->rd.y = dst->rd.y - WIND_SaveArea[0].lu.y;
+						vro_cpyfm_p (GRPH_Vdi, S_ONLY,
+						             (PXY*)&WIND_SaveArea[1], &_WIND_SaveMfdb, &scrn);
+					}
+					wind_get_next (_WIND_SaveHandle, (GRECT*)dst);
+				}
+				WIND_UPDATE_END;
+			}
+			v_show_c (GRPH_Vdi, 0);
 		}
 		free (_WIND_SaveMfdb.fd_addr);
 		_WIND_SaveMfdb.fd_addr = NULL;
-	} else if (!restore) {
-		WIND_SaveDone = xFalse;
 	}
 	_WIND_SaveUnder = 0ul;
 }
