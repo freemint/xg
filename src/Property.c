@@ -180,16 +180,17 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 		size_t have_size = (have ? have->Length : 0);
 		CARD8  mode      = (have_size ? q->mode : PropModeReplace);
 		size_t size      = q->nUnits * factor;
-		size_t need_size = size + (q->mode == PropModeReplace ? have_size : 0);
+		size_t need_size = size + (mode == PropModeReplace ? 0 : have_size);
 		size_t xtra      = (factor == 1 ? 1 :0);
 		                   // reserve an extra char space for a trailing '\0'
 		
 		#	ifdef TRACE
-			PRINT (ChangeProperty, "- '%s'(%s,%i*%li) of W:%lX",
+			PRINT (ChangeProperty, "-(W:%lX): '%s'(%s,%i*%li,%i)",
+	      		 q->window,
 	      		 ATOM_Table[q->property]->Name, ATOM_Table[q->type]->Name,
-	      		 factor, q->nUnits, q->window);
-			if (prop->Type == XA_STRING) {
-				PRINT (,"+\n          '%s'", prop->Data);
+	      		 factor, q->nUnits, q->mode);
+			if (q->type == XA_STRING) {
+				PRINT (,"+\n          '%*s'", (int)q->nUnits, (char*)(q +1));
 			} else {
 				PRINT (,"+");
 			}
