@@ -152,7 +152,7 @@ WindButton (CARD16 prev_mask, int count)
 	
 	if (_WIND_PgrabWindow) {
 		CARD32 c_id = None, w_id = 0;
-		if (wind) {
+		if (_WIND_OpenCounter && wind) {
 			WindOrigin (wind, &w_xy);
 			w_xy.x = MAIN_PointerPos->x - w_xy.x;
 			w_xy.y = MAIN_PointerPos->y - w_xy.y;
