@@ -9,8 +9,6 @@ struct _xReq;   typedef struct _xReq *   p_xReq;
 
 
 #define CLNTENTLEN        32
-#define MAXREQUESTSIZE    4096
-#define MAXREQUESTBYTES   (MAXREQUESTSIZE *4)
 
 
 typedef struct {
@@ -102,6 +100,10 @@ void   ClntError  (CLIENT *, int err, CARD32 val, int req, const char * form,
 #else
 # define DEBUG( req, frm, args...)
 #endif
+
+
+extern CARD32 CNFG_MaxReqLength;                      // length in units (longs)
+#define       CNFG_MaxReqBytes (CNFG_MaxReqLength *4) // same in bytes
 
 
 //void _Xrsc_Free(void*);

@@ -90,7 +90,7 @@ _Clnt_EvalAuth (CLIENT * clnt, xConnClientPrefix * q)
 		clnt->oBuf.Done = 0;
 	
 	}
-	clnt->oBuf.Left = SrvrSetup (clnt->oBuf.Mem, MAXREQUESTSIZE,
+	clnt->oBuf.Left = SrvrSetup (clnt->oBuf.Mem, CNFG_MaxReqLength,
 	                             clnt->DoSwap, clnt->Id << RID_MASK_BITS);
 	clnt->oBuf.Done = 0;
 	MAIN_FDSET_wr  |= 1uL << clnt->Fd;
@@ -165,8 +165,8 @@ ClntCreate (int fd, const char * name, const char * addr, int port)
 		clnt->Fd     = fd;
 		clnt->oBuf.Left  = 0;
 		clnt->oBuf.Done  = 0;
-		clnt->oBuf.Mem   = malloc (MAXREQUESTBYTES *2);
-		clnt->iBuf.Mem   = clnt->oBuf.Mem + MAXREQUESTBYTES;
+		clnt->oBuf.Mem   = malloc (CNFG_MaxReqBytes *2);
+		clnt->iBuf.Mem   = clnt->oBuf.Mem + CNFG_MaxReqBytes;
 		clnt->Fnct       = NULL;
 		clnt->DoSwap     = xFalse;
 		clnt->EventReffs = 0;
@@ -321,7 +321,7 @@ ClntSelect (long rd_set, long wr_set)
 						MAIN_FDSET_wr &= ~(1uL << CLNT_Requestor->Fd);
 					} else {
 						buf->Done += n;
-						if (buf->Left + buf->Done > MAXREQUESTBYTES) {
+						if (buf->Left + buf->Done > CNFG_MaxReqBytes) {
 							memcpy (buf->Mem, buf->Mem + buf->Done, buf->Done);
 							buf->Done = 0;
 						}

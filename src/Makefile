@@ -32,7 +32,7 @@ SRC = main.c srvr.c clnt.c clnt_swap.c Request.c wmgr.c \
       fontable.c gcontext.c font_init.c font.c \
       drawable.c pixmap.c pixm_mono.c grph.c \
       window.c wind_draw.c wind_grab.c wind_pntr.c event.c \
-      xrsc.c x_gem.c
+      xrsc.c x_gem.c config.c
 
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
