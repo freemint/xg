@@ -792,13 +792,13 @@ WmgrMessage (short * msg)
 {
 	static BOOL color_changed = xFalse;
 	
-	WINDOW * wind     = _Wmgr_WindByHandle(msg[3]);
 	BOOL     reset    = xFalse;
 	BOOL     inv_save = WIND_SaveDone;
+	WINDOW * wind;
 	
 	if (wind) switch (msg[0]) {
 		
-		case WM_REDRAW: {
+		case WM_REDRAW: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			GRECT * rect = (GRECT*)(msg +4);
 			if (WIND_SaveDone
 			    &&  rect->x              >= WIND_SaveArea->lu.x
@@ -812,7 +812,7 @@ WmgrMessage (short * msg)
 			}
 		}	break;
 		
-		case WM_MOVED:
+		case WM_MOVED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			wind_set_r (msg[3], WF_CURRXYWH, (GRECT*)(msg +4));
 			if (!wind->GwmIcon) {
 				CARD32 above = (wind->PrevSibl ? wind->PrevSibl->Id : None);
@@ -829,9 +829,9 @@ WmgrMessage (short * msg)
 					                  &work, wind->BorderWidth, wind->Override);
 			}
 			WindPointerWatch (xFalse);
-			break;
+		}	break;
 		
-		case WM_CLOSED: {
+		case WM_CLOSED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			CLIENT * clnt = ClntFind (wind->Id);
 			if (clnt) {
 				if (PropHasAtom (wind, WM_PROTOCOLS, WM_DELETE_WINDOW)) {
@@ -843,17 +843,17 @@ WmgrMessage (short * msg)
 			}
 		}	break;
 		
-		case WM_TOPPED:
+		case WM_TOPPED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			if (color_changed) {
 				CmapPalette();
 				color_changed = xFalse;
 			}
 			WindCirculate (wind, PlaceOnTop);
-			break;
+		}	break;
 		
-		case WM_BOTTOMED:
+		case WM_BOTTOMED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			WindCirculate (wind, PlaceOnBottom);
-			break;
+		}	break;
 		
 		case WM_ONTOP:
 			if (color_changed) {
@@ -866,18 +866,19 @@ WmgrMessage (short * msg)
 			WindPointerWatch (xFalse);
 			break;
 		
-		case WM_ICONIFY: {
+		case WM_ICONIFY: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			char * title = PropValue (wind, XA_WM_ICON_NAME, XA_STRING, 1);
 			if (title) {
 				wind_set_str (wind->Handle, WF_NAME, title);
 			}
 			WindUnmap (wind, xFalse);
 			wind_set_r (msg[3], WF_ICONIFY, (GRECT*)(msg +4));
+			wind_set   (msg[3], WF_BEVENT, 0x0000, 0,0,0);
 			wind->GwmIcon = xTrue;
 			WindPointerWatch (xFalse);
 		}	break;
 		
-		case WM_UNICONIFY: {
+		case WM_UNICONIFY: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			char * title = PropValue (wind, XA_WM_NAME, XA_STRING, 1);
 			GRECT  curr;
 			if (title) {
@@ -885,6 +886,7 @@ WmgrMessage (short * msg)
 			}
 			WmgrCalcBorder (&curr, wind);
 			wind_set_r (msg[3], WF_UNICONIFY, &curr);
+			wind_set   (msg[3], WF_BEVENT, 0x0001, 0,0,0);
 			wind->GwmIcon = xFalse;
 			WindMap (wind, xTrue);
 			WindPointerWatch (xFalse);
@@ -896,9 +898,6 @@ WmgrMessage (short * msg)
 
 		default:
 			printf ("event #%i %X \n", msg[0], MAIN_KeyButMask);
-	
-	} else {
-		printf ("event #%i %X \n", msg[0], MAIN_KeyButMask);
 	}
 	
 	if (inv_save) WindSaveFlush (xFalse);
