@@ -1,3 +1,8 @@
+2001-12-09: 0.14.2
+   - added a workaround for yet another NVDI bug which caused serious
+     crashes if many TrueType fonts are installed; done by reducing
+     the usage of offscreen bitmaps.
+   - improved resolving of gdos fontnames.
 2001-11-25: 0.14.1
    - the keybord init function now also searches for the _MIL cookie
      to enable (again) AltGr key combinations also for newer TOSs that
