@@ -582,10 +582,11 @@ _r_put_P8 (MFDB * mfdb, CARD16 width, CARD16 height)
 	mfdb->fd_addr = dst;
 	
 	while (height--) {
-		int i;
-		for (i = 0; i < width; i++) {
+		char * d = dst;
+		short  w = width;
+		while (w--) {
 			char c = *(src++);
-			dst[i] = (c == 1 ? 255 : c);
+			*(d++) = (c == 1 ? 255 : c);
 		}
 		src += (int)src & 1;
 		dst += inc / sizeof(*dst);
@@ -601,14 +602,19 @@ _r_put_16 (MFDB * mfdb, CARD16 width, CARD16 height)
 	short * src = mfdb->fd_addr;
 	int     inc = mfdb->fd_wdwidth *2 * 16;
 	
-	if (!(dst = malloc (inc * height))) return xFalse;
+	if (!(mfdb->fd_w & 0x000F)) {
+		return xTrue;
 	
+	} else if (!(dst = malloc (inc * height))) {
+		return xFalse;
+	}
 	mfdb->fd_addr = dst;
 	
 	while (height--) {
-		int i;
-		for (i = 0; i < width; i++) {
-			dst[i] = *(src++);
+		short * d = dst;
+		short   w = width;
+		while (w--) {
+			*(d++) = *(src++);
 		}
 		dst += inc / sizeof(*dst);
 	}
@@ -623,16 +629,21 @@ _r_put_24 (MFDB * mfdb, CARD16 width, CARD16 height)
 	short * src = mfdb->fd_addr;
 	int     inc = mfdb->fd_wdwidth *2 * 24;
 	
-	if (!(dst = malloc (inc * height))) return xFalse;
+	if (!(mfdb->fd_w & 0x000F)) {
+		return xTrue;
 	
+	} else if (!(dst = malloc (inc * height))) {
+		return xFalse;
+	}
 	mfdb->fd_addr = dst;
 	
 	width = (width *3 +1) /2;
 	
 	while (height--) {
-		int i;
-		for (i = 0; i < width; i++) {
-			dst[i] = *(src++);
+		short * d = dst;
+		short   w = width;
+		while (w--) {
+			*(d++) = *(src++);
 		}
 		dst += inc / sizeof(*dst);
 	}
@@ -647,14 +658,19 @@ _r_put_32 (MFDB * mfdb, CARD16 width, CARD16 height)
 	long * dst;
 	int    inc = mfdb->fd_wdwidth *2 * 32;
 	
-	if (!(dst = malloc (inc * height))) return xFalse;
+	if (!(mfdb->fd_w & 0x000F)) {
+		return xTrue;
 	
+	} else if (!(dst = malloc (inc * height))) {
+		return xFalse;
+	}
 	mfdb->fd_addr = dst;
 	
 	while (height--) {
-		int i;
-		for (i = 0; i < width; i++) {
-			dst[i] = *(src++);
+		long * d = dst;
+		short  w = width;
+		while (w--) {
+			*(d++) = *(src++);
 		}
 		dst += inc / sizeof(*dst);
 	}
@@ -822,8 +838,8 @@ _r_get_P8 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 	
 	while (h--) {
 		char * s = src;
-		int    i;
-		for (i = 0; i < mfdb->fd_w; i++) {
+		short  w = mfdb->fd_w;
+		while (w--) {
 			char c = *(s++);
 			if (c < 16) {
 				static const char pix_idx[16] = {
@@ -843,7 +859,7 @@ _r_get_P8 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 static BOOL
 _r_get_16 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 {
-	short * src;
+	short * src = NULL;
 	short * dst = mfdb->fd_addr;
 	int     inc = mfdb->fd_wdwidth *2 * 16;
 	int     h   = mfdb->fd_h;
@@ -852,9 +868,10 @@ _r_get_16 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 		src = (short*)((char*)ptr->fd_addr + (inc * pxy[0].lu.y))
 		    + pxy[0].lu.x;
 	
-	} else if ((src = malloc (inc * h))) {
+	} else if (!(mfdb->fd_w & 0x000F) || (src = malloc (inc * h))) {
 		MFDB scrn = { NULL, };
-		mfdb->fd_addr = src;
+		if (src) mfdb->fd_addr = src;
+		else     h             = 0;
 		v_hide_c (GRPH_Vdi);
 		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
 		v_show_c (GRPH_Vdi, 1);
@@ -865,11 +882,11 @@ _r_get_16 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 	
 	while (h--) {
 		short * s = src;
-		int     i;
-		for (i = 0; i < mfdb->fd_w; i++) {
+		short   w = mfdb->fd_w;
+		while (w--) {
 			*(dst++) = *(s++);
 		}
-		src += inc / sizeof(*src);
+		src += (short)(inc / sizeof(*src));
 	}
 	return xTrue;
 }
@@ -878,19 +895,19 @@ _r_get_16 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 static BOOL
 _r_get_24 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 {
-	short * src;
+	short * src = NULL;
 	short * dst = mfdb->fd_addr;
 	int     inc = mfdb->fd_wdwidth *2 * 24;
 	int     h   = mfdb->fd_h;
-	int     w   = (mfdb->fd_w *3 +1) /2;
 	
 	if (ptr) {
 		src = (short*)((char*)ptr->fd_addr + (inc * pxy[0].lu.y))
 		    + pxy[0].lu.x;
 	
-	} else if ((src = malloc (inc * h))) {
+	} else if (!(mfdb->fd_w & 0x000F) || (src = malloc (inc * h))) {
 		MFDB scrn = { NULL, };
-		mfdb->fd_addr = src;
+		if (src) mfdb->fd_addr = src;
+		else     h             = 0;
 		v_hide_c (GRPH_Vdi);
 		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
 		v_show_c (GRPH_Vdi, 1);
@@ -901,8 +918,8 @@ _r_get_24 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 	
 	while (h--) {
 		short * s = src;
-		int     i;
-		for (i = 0; i < w; i++) {
+		short   w = (mfdb->fd_w *3 +1) /2;
+		while (w--) {
 			*(dst++) = *(s++);
 		}
 		src += inc / sizeof(*src);
@@ -914,7 +931,7 @@ _r_get_24 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 static BOOL
 _r_get_32 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 {
-	long * src;
+	long * src = NULL;
 	long * dst = mfdb->fd_addr;
 	int    inc = mfdb->fd_wdwidth *2 * 32;
 	int    h   = mfdb->fd_h;
@@ -923,9 +940,10 @@ _r_get_32 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 		src = (long*)((char*)ptr->fd_addr + (inc * pxy[0].lu.y))
 		    + pxy[0].lu.x;
 	
-	} else if ((src = malloc (inc * h))) {
+	} else if (!(mfdb->fd_w & 0x000F) || (src = malloc (inc * h))) {
 		MFDB scrn = { NULL, };
-		mfdb->fd_addr = src;
+		if (src) mfdb->fd_addr = src;
+		else     h             = 0;
 		v_hide_c (GRPH_Vdi);
 		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
 		v_show_c (GRPH_Vdi, 1);
@@ -936,8 +954,8 @@ _r_get_32 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 	
 	while (h--) {
 		long * s = src;
-		int    i;
-		for (i = 0; i < mfdb->fd_w; i++) {
+		short  w = mfdb->fd_w;
+		while (w--) {
 			*(dst++) = *(s++);
 		}
 		src += inc / sizeof(*src);
