@@ -621,9 +621,9 @@ _put_color (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
 		do {
 			pxy[1] = *clip;
 			if (GrphIntersectP (&pxy[1], s)) {
-				pxy[0].lu.x = rct[0].x    + pxy[1].lu.x - s->lu.x;
+				pxy[0].lu.x = rct->x      + pxy[1].lu.x - s->lu.x;
 				pxy[0].rd.x = pxy[0].lu.x + pxy[1].rd.x - pxy[1].lu.x;
-				pxy[0].lu.y = rct[0].y    + pxy[1].lu.y - s->lu.y;
+				pxy[0].lu.y = rct->y      + pxy[1].lu.y - s->lu.y;
 				pxy[0].rd.y = pxy[0].lu.y + pxy[1].rd.y - pxy[1].lu.y;
 				vro_cpyfm (GRPH_Vdi, mode, (short*)pxy, src, &dst);
 			}
