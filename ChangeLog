@@ -1,3 +1,6 @@
+2001-01-07: 0.03
+   - Grabbed pointer event propagation corrected.
+   - README supplemented.
 2001-01-03: 0.02.4
    - [Un]GrabPointer() requests implemented.
    - bugfix: KillClient() couldn't detemine a windows owner.
