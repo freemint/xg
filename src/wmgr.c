@@ -1030,6 +1030,8 @@ WmgrMessage (short * msg)
 					wind_set (w->Handle, WF_TOP, 0,0,0,0);
 					_WMGR_HasFocus++;
 					break;
+				} else {
+					w = w->PrevSibl;
 				}
 				wind_set (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
 			} else {
