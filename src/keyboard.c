@@ -20,6 +20,8 @@
 
 #include <stdio.h>
 #include <mint/ssystem.h>
+#include <sys/cookie.h>
+# define C__MIL 0x5F4D494CL
 
 #include <X11/Xproto.h>
 
@@ -419,8 +421,8 @@ KybdInit (void)
 		
 		} else { // analyse extended keytables
 			
-			if ((long)KYBD_Table->AltGr >= os_beg  &&
-			    (long)KYBD_Table->AltGr <  os_end) {
+			if (((long)KYBD_Table->AltGr >= os_beg  &&
+			     (long)KYBD_Table->AltGr <  os_end) || !Getcookie (C__MIL, NULL)) {
 				KYBD_Atari = xFalse;
 				type       = "Milan";
 				n_agr = analyse_xtbl (KYBD_Table->AltGr, 0);
