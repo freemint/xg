@@ -160,8 +160,8 @@ WindButton (CARD16 prev_mask, int count)
 	//
 	if ((MAIN_KeyButMask & K_ALT) && (MAIN_KeyButMask & Button2Mask) && wind) {
 		short dmy;
-		printf ("\nW:%X #%i [%i,%i/%i,%i/%i] * %i \n",
-		        wind->Id, wind->Handle,
+		printf ("\nW:%X 0x%lX #%i [%i,%i/%i,%i/%i] * %i \n",
+		        wind->Id, wind->u.Event.Mask, wind->Handle,
 		        wind->Rect.x, wind->Rect.y, wind->Rect.w, wind->Rect.h,
 		        wind->BorderWidth, wind->Depth);
 		if (wind->hasBorder || wind->hasBackGnd) {
@@ -1297,6 +1297,7 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 	
 	WINDOW * wind = WindFind (q->window);
 	WINDOW * pwnd = WindFind (q->parent);
+	short    hdl;
 	
 	if (!wind) {
 		Bad(Window, q->window, ReparentWindow,"(): invalid child.");
@@ -1304,6 +1305,11 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 	} else if (!pwnd) {
 		Bad(Window, q->parent, ReparentWindow,"(): invalid parent.");
 	
+	} else if (wind->Parent == pwnd) {
+	#	ifndef NODEBUG
+		PRINT (,"\33pIGNORED\33q ReparentWindow() with same parent.");
+	#	endif NODEBUG
+		
 	} else {
 		BOOL     map;
 		
@@ -1319,8 +1325,8 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 		if ((map = wind->isMapped)) {
 			_Wind_Unmap (wind, xFalse);
 		}
-		if (wind->Handle > 0) {
-			wind_delete (wind->Handle);
+		if (hdl > 0) {
+			wind_delete (hdl);
 			wind->GwmParented = xFalse;
 			wind->GwmDecor    = xFalse;
 			wind->GwmIcon     = xFalse;
@@ -1339,8 +1345,6 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 		pwnd->StackTop = wind;
 		wind->Rect.x   = q->x;
 		wind->Rect.y   = q->y;
-		wind->Handle   = -WindHandle (pwnd);
-		WindSetHandles (wind);
 		
 		if (wind->u.List.AllMasks & StructureNotifyMask) {
 			EvntReparentNotify (wind, StructureNotifyMask,
@@ -1353,11 +1357,24 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 			                    *(PXY*)&wind->Rect, wind->Override);
 		}
 		
-		if (map && WindSetMapped (wind, WindVisible (pwnd))) {
-			GRECT curr;
-			WindGeometry (wind, &curr, wind->BorderWidth);
-			WindDrawSection (wind, &curr);
-			WindPointerWatch (xFalse);
+		if (pwnd == &WIND_Root) {
+			WmgrWindHandle (wind);
+			WindSetHandles (wind);
+			if (map) {
+				GRECT curr;
+				WmgrWindMap (wind, &curr);
+				WindPointerWatch (xFalse);
+			}
+		
+		} else {
+			wind->Handle   = -WindHandle (pwnd);
+			WindSetHandles (wind);
+			if (map && WindSetMapped (wind, WindVisible (pwnd))) {
+				GRECT curr;
+				WindGeometry (wind, &curr, wind->BorderWidth);
+				WindDrawSection (wind, &curr);
+				WindPointerWatch (xFalse);
+			}
 		}
 	}
 }
