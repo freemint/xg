@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// grph.h
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #ifndef __GRPH_H__
 # define __GRPH_H__
 # ifdef _grph_
@@ -34,10 +44,10 @@ void GrphRasterP8 (char  * dst, char * src, CARD16 width, CARD16 height);
 # define __p_xArc
 	struct _xArc; typedef struct _xArc * p_xArc;
 #endif
-void FT_Grph_ShiftArc_MSB (const p_PXY , p_xArc  arc, size_t num);
-void FT_Grph_ShiftArc_LSB (const p_PXY , p_xArc  arc, size_t num);
-void FT_Grph_ShiftPnt_MSB (const p_PXY , p_PXY pxy,   size_t num, short mode);
-void FT_Grph_ShiftPnt_LSB (const p_PXY , p_PXY pxy,   size_t num, short mode);
+void FT_Grph_ShiftArc_MSB (const p_PXY , p_xArc  arc, size_t num, short mode);
+void FT_Grph_ShiftArc_LSB (const p_PXY , p_xArc  arc, size_t num, short mode);
+void FT_Grph_ShiftPnt_MSB (const p_PXY , p_PXY   pxy, size_t num, short mode);
+void FT_Grph_ShiftPnt_LSB (const p_PXY , p_PXY   pxy, size_t num, short mode);
 void FT_Grph_ShiftR2P_MSB (const p_PXY , p_GRECT rct, size_t num);
 void FT_Grph_ShiftR2P_LSB (const p_PXY , p_GRECT rct, size_t num);
 

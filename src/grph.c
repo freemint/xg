@@ -2,7 +2,7 @@
 //
 // grph.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-06-05 - Initial Version.
@@ -385,29 +385,45 @@ GrphRasterP8 (char * dst, char * src, CARD16 width, CARD16 height)
 
 //------------------------------------------------------------------------------
 void
-FT_Grph_ShiftArc_MSB (const p_PXY origin, xArc * arc, size_t num)
+FT_Grph_ShiftArc_MSB (const p_PXY origin, xArc * arc, size_t num, short mode)
 {
 	while (num--) {
+		if (mode == ArcChord) {
+			arc->angle1 = 0;
+			arc->angle2 = 3600;
+		} else {
+			INT16 beg = (INT16)(((long)arc->angle2 *5) >> 5);
+			INT16 end = (INT16)(((long)arc->angle1 *5) >> 5);
+			arc->angle1 = (beg > 0 ? (beg >=  3600 ? 0    : 3600 -beg)
+			                       : (beg <= -3600 ? 3600 :      -beg));
+			arc->angle2 = (end > 0 ? (end >=  3600 ? 0    : 3600 -end)
+			                       : (end <= -3600 ? 3600 :      -end));
+		}
 		arc->x += origin->x + (arc->width  /= 2);
 		arc->y += origin->y + (arc->height /= 2);
-		
-		/*** what's about the angels ? ***/
-		
 		arc++;
 	}
 }
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void
-FT_Grph_ShiftArc_LSB (const p_PXY origin, xArc * arc, size_t num)
+FT_Grph_ShiftArc_LSB (const p_PXY origin, xArc * arc, size_t num, short mode)
 {
 	while (num--) {
+		if (mode == ArcChord) {
+			arc->angle1 = 0;
+			arc->angle2 = 3600;
+		} else {
+			INT16 beg = (INT16)(((long)Swap16(arc->angle2) *5) >> 5);
+			INT16 end = (INT16)(((long)Swap16(arc->angle1) *5) >> 5);
+			arc->angle1 = (beg > 0 ? (beg >=  3600 ? 0    : 3600 -beg)
+			                       : (beg <= -3600 ? 3600 :      -beg));
+			arc->angle2 = (end > 0 ? (end >=  3600 ? 0    : 3600 -end)
+			                       : (end <= -3600 ? 3600 :      -end));
+		}
 		arc->width  = Swap16(arc->width)  /2;
 		arc->height = Swap16(arc->height) /2;
 		arc->x = Swap16(arc->x) + origin->x + arc->width;
 		arc->y = Swap16(arc->y) + origin->y + arc->height;
-		
-		/*** what's about the angels ? ***/
-		
 		arc++;
 	}
 }

@@ -291,7 +291,7 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 			hdl = PmapVdi (draw.Pixmap, gc, xFalse);
 		}
 		if (nClp && gc_mode (&color, &set, hdl, gc)) {
-			clnt->Fnct->shift_arc (&orig, arc, len);
+			clnt->Fnct->shift_arc (&orig, arc, len, ArcPieSlice);
 			if (set) {
 				vsl_width (hdl, gc->LineWidth);
 				vsl_color (hdl, color);
@@ -301,7 +301,8 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 				vs_clip_r (hdl, sect++);
 				for (i = 0; i < len; ++i) {
 					v_ellarc (hdl, arc[i].x, arc[i].y,
-					          arc[i].width, arc[i].height, 0, 3600);
+					          arc[i].width, arc[i].height,
+					          arc[i].angle1, arc[i].angle2);
 				}
 			} while (--nClp);
 			vs_clip_r (hdl, NULL);
@@ -358,7 +359,7 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 			hdl = PmapVdi (draw.Pixmap, gc, xFalse);
 		}
 		if (nClp && gc_mode (&color, &set, hdl, gc)) {
-			clnt->Fnct->shift_arc (&orig, arc, len);
+			clnt->Fnct->shift_arc (&orig, arc, len, gc->ArcMode);
 			if (set) {
 				vsf_color (hdl, color);
 			}
@@ -367,7 +368,8 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 				vs_clip_r (hdl, sect++);
 				for (i = 0; i < len; ++i) {
 					v_ellpie (hdl, arc[i].x, arc[i].y,
-					          arc[i].width, arc[i].height, 0, 3600);
+					          arc[i].width, arc[i].height,
+					          arc[i].angle1, arc[i].angle2);
 				}
 			} while (--nClp);
 			vs_clip_r (hdl, NULL);
