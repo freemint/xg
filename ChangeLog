@@ -1,3 +1,8 @@
+2001-03-11: 0.06.2
+   - implemented real scrolling for CopyArea() request to reduce redraws.
+   - fixed a bug that caused the PolyFillRectangle() request to perform only the
+     first draw of the rectangle list.
+   - several minor bugfixes.
 2001-03-01: 0.06.1
    - implemented save-under screen buffering, which avoids a lot of redraw
      events for popup windows.
