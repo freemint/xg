@@ -37,10 +37,11 @@ SRC = main.c srvr.c clnt.c clnt_swap.c Request.c wmgr.c \
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
 
-$(PRG): $(OBJDIR) $(OBJ) Makefile version.c
+$(PRG): $(OBJDIR) $(OBJ) Makefile version.c ../include/version
 	@expr "0`cat -s $(OBJDIR)/build`" + 1 > $(OBJDIR)/build
 	@$(CC) $(CCFLAGS) -c version.c \
-	       -DDATE=\"`date +%m%d`\" -DBUILD=\"`cat -s $(OBJDIR)/build`\" \
+	       -DVERSION=\"`cat -s ../include/version`\" \
+	       -DBUILD=\"`cat -s $(OBJDIR)/build`\" \
 	       -o $(OBJDIR)/version.o
 	$(LD) $(LDFLAGS) -o $@ $(OBJ) $(OBJDIR)/version.o $(LIBS:%=-l%)
 	stack -S 128k $@

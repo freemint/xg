@@ -82,7 +82,7 @@ main (int argc, char * argv[])
 			}
 		}
 		
-		printf ("EEKS %s X Server starting ...\n", GLBL_Version);
+		printf ("X Server %s starting ...\n", GLBL_Version);
 		
 		menu_register (ApplId(0), (char*)"  X");
 		

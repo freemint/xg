@@ -1,3 +1,3 @@
 
 
-const char * GLBL_Version = "0.01 (beta) ["__DATE__":"BUILD"]";
+const char * GLBL_Version = VERSION " (beta) ["__DATE__":"BUILD"]";
