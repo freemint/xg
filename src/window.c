@@ -1253,7 +1253,7 @@ RQ_GetWindowAttributes (CLIENT * clnt, xGetWindowAttributesReq * q)
 {
 	WINDOW * wind = NULL;
 	
-	if ((q->id & ~RID_MASK) && !(wind = WindFind(q->id))) {
+	if (!(wind = WindFind(q->id)) && (q->id & ~RID_MASK)) {
 		Bad(Window, q->id, GetWindowAttributes,);
 	
 	} else {
@@ -1270,10 +1270,11 @@ RQ_GetWindowAttributes (CLIENT * clnt, xGetWindowAttributesReq * q)
 			r->backingBitPlanes = (1uL << wind->Depth) -1;
 			r->backingPixel     = 0;
 			r->saveUnder        = wind->SaveUnder;
-			r->mapInstalled     = xTrue;
-			r->mapState         = (WindVisible (wind) ? IsViewable : IsUnmapped);
+			r->mapState         = (!wind->isMapped    ? IsUnmapped :
+			                       WindVisible (wind) ? IsUnviewable : IsViewable);
 			r->override         = wind->Override;
-			r->colormap         = None;
+			r->colormap         = DFLT_COLORMAP;
+			r->mapInstalled     = (q->id == ROOT_WINDOW ? xTrue : xFalse);
 			r->allEventMasks    = wind->u.List.AllMasks & AllEventMask;
 			r->yourEventMask      = NoEventMask;
 			r->doNotPropagateMask = ~wind->PropagateMask;
@@ -1302,10 +1303,10 @@ RQ_GetWindowAttributes (CLIENT * clnt, xGetWindowAttributesReq * q)
 			r->backingBitPlanes = (1uL << GRPH_Depth) -1;
 			r->backingPixel     = 0;
 			r->saveUnder        = xFalse;
-			r->mapInstalled     = xTrue;
 			r->mapState         = IsViewable;
 			r->override         = xTrue;
-			r->colormap         = None;
+			r->colormap         = DFLT_COLORMAP;
+			r->mapInstalled     = xFalse;
 			r->allEventMasks    = KeyPressMask|ButtonPressMask|ExposureMask|
 			                      VisibilityChangeMask|StructureNotifyMask|
 			                      ResizeRedirectMask;
