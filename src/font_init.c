@@ -187,7 +187,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 		long  buf[size < 29 ? 29 : size];
 		MFDB  mfdb     = { buf, 32, hgt, 2, 0, 1, 0,0,0 };
 		short hdl      = GRPH_Handle;
-		short w_in[20] = { 1, 0,0, 0,0, face->Index,G_BLACK, 0,0,0, 2,
+		short w_in[20] = { 1, 0,0, 0,0, 1,G_BLACK, 0,0,0, 2,
 		                   31,hgt -1, GRPH_muWidth, GRPH_muHeight, 0,0,0,0,0 };
 		
 		v_opnbm (w_in, &mfdb, &hdl, (short*)buf);
@@ -195,8 +195,10 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 			short pxy[4] = { 0, 0, 31, hgt -1 };
 			PXY   p      = { 14, 0 };
 			
+			vst_load_fonts(hdl, 0);
 			vs_clip       (hdl, 1, pxy);
 			vswr_mode     (hdl, MD_TRANS);
+			vst_font      (hdl, face->Index);
 			vst_alignment (hdl, 1, 5, pxy, pxy);
 			if (!face->Type) {
 				vst_height (hdl, face->Height, pxy, pxy, pxy, pxy);
@@ -230,6 +232,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 				while (++i < hgt && !buf[i]);
 				face->MaxAsc = face->Ascent - i;
 			}
+			vst_unload_fonts(hdl, 0);
 			v_clsbm (hdl);
 		}
 	}
