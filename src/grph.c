@@ -265,7 +265,6 @@ GrphIntersect (p_GRECT dst, const struct s_GRECT * src)
 }
 
 //==============================================================================
-#ifndef INL_ISCT
 BOOL
 GrphIntersectP (p_PXY dst, const struct s_PXY * src)
 {
@@ -316,7 +315,6 @@ GrphIntersectP (p_PXY dst, const struct s_PXY * src)
 	return (dst[0].x <= dst[1].x  &&  dst[0].y <= dst[1].y);
 # endif
 }
-#endif INL_ISCT
 
 
 //==============================================================================
