@@ -2,7 +2,7 @@
 //
 // xrsc.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-10-02 - Initial Version.
@@ -193,7 +193,7 @@ _xrsc_delete (p_XRSCPOOL pool, p_XRSC r)
 
 //==============================================================================
 p_XRSC
-_xrsc_search (p_XRSCPOOL pool, CARD32 id)
+_xrsc_search (const struct s_XRSCPOOL * pool, CARD32 id)
 {
 	p_XRSC r = pool->item[id & pool->mask_bits];
 	
