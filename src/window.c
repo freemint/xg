@@ -142,41 +142,6 @@ WindCleanup (CLIENT * clnt)
 
 
 //==============================================================================
-static BOOL
-Evnt_Propagate (WINDOW * wind, CARD32 mask, BYTE event,
-               Window c_id, PXY r_xy, PXY e_xy, BYTE detail)
-{
-	BOOL exec = xFalse;
-	
-	do {
-		if (mask & wind->u.List.AllMasks) {
-			_evnt_w (wind, mask, event,
-			         ROOT_WINDOW, c_id, *(CARD32*)&r_xy, *(CARD32*)&e_xy, detail);
-			exec  = xTrue;
-			mask &= !wind->u.List.AllMasks;
-		}
-		if (mask &= wind->PropagateMask) {
-			e_xy.x += wind->Rect.x;
-			e_xy.y += wind->Rect.y;
-			if (c_id) c_id = wind->Id;
-		} else {
-			break;
-		}
-	} while ((wind = wind->Parent));
-	
-	return exec;
-}
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-static CARD32
-_get_child (WINDOW * wind, WINDOW * cand)
-{
-	do if (cand->Parent == wind) {
-		return cand->Id;
-	} while ((cand = cand->Parent));
-	
-	return None;
-}
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 BOOL
 WindButton (CARD16 prev_mask, int count)
 {
@@ -227,8 +192,8 @@ WindButton (CARD16 prev_mask, int count)
 	
 	if (!_WIND_PgrabWindow && wind) {
 		if (butt_r) {
-			Evnt_Propagate (wind, ButtonReleaseMask, ButtonRelease,
-			                wind->Id, r_xy, WindPointerPos (wind), butt_r);
+			EvntPropagate (wind, ButtonReleaseMask, ButtonRelease,
+			               wind->Id, r_xy, WindPointerPos (wind), butt_r);
 			if (!butt_p) {
 				return xFalse;
 			}
@@ -277,9 +242,9 @@ WindButton (CARD16 prev_mask, int count)
 				}
 				if (wnd_r) {
 					w_xy = WindPointerPos (wnd_r);
-					_evnt_c (_WIND_PgrabClient, ButtonRelease,
-					         ROOT_WINDOW, wnd_r->Id, _get_child (wnd_r, wind),
-					         *(CARD32*)&r_xy, *(CARD32*)&w_xy, butt_r);
+					EvntKeyButMotion (_WIND_PgrabClient, ButtonRelease,
+					                  wnd_r->Id, WindChildOf (wnd_r, wind),
+					                  r_xy, w_xy, butt_r);
 				}
 				if (_WIND_PgrabPassive) {
 					_Wind_PgrabClr (NULL);
@@ -299,11 +264,10 @@ WindButton (CARD16 prev_mask, int count)
 				wnd_p = _WIND_PgrabWindow;
 			}
 			if (wnd_p) {
-				c_id = _get_child (wnd_p, wind);
+				c_id = WindChildOf (wnd_p, wind);
 				w_xy = WindPointerPos (wnd_p);
-				_evnt_c (_WIND_PgrabClient, ButtonPress,
-				         ROOT_WINDOW, wnd_p->Id, c_id,
-				         *(CARD32*)&r_xy, *(CARD32*)&w_xy, butt_p);
+				EvntKeyButMotion (_WIND_PgrabClient, ButtonPress,
+				                  wnd_p->Id, c_id, r_xy, w_xy, butt_p);
 			}
 			if (count > 1) {
 				WINDOW * wnd_r = NULL;
@@ -314,19 +278,17 @@ WindButton (CARD16 prev_mask, int count)
 					wnd_r = _WIND_PgrabWindow;
 				}
 				if (wnd_r == wnd_p) {
-					_evnt_c (_WIND_PgrabClient, ButtonRelease,
-					         ROOT_WINDOW, wnd_r->Id, c_id,
-					         *(CARD32*)&r_xy, *(CARD32*)&w_xy, butt_p);
+					EvntKeyButMotion (_WIND_PgrabClient, ButtonRelease,
+					                  wnd_r->Id, c_id, r_xy, w_xy, butt_p);
 				} else if (wnd_r) {
 					PXY e_xy = WindPointerPos (wnd_r);
-					_evnt_c (_WIND_PgrabClient, ButtonRelease,
-					         ROOT_WINDOW, wnd_r->Id, _get_child (wnd_r, wind),
-					         *(CARD32*)&r_xy, *(CARD32*)&e_xy, butt_p);
+					EvntKeyButMotion (_WIND_PgrabClient, ButtonRelease,
+					                  wnd_r->Id, WindChildOf (wnd_r, wind),
+					                  r_xy, e_xy, butt_p);
 				}
 				if (wnd_p) {
-					_evnt_c (_WIND_PgrabClient, ButtonPress,
-					         ROOT_WINDOW, wnd_p->Id, c_id,
-					         *(CARD32*)&r_xy, *(CARD32*)&w_xy, butt_p);
+					EvntKeyButMotion (_WIND_PgrabClient, ButtonPress,
+					                  wnd_p->Id, c_id, r_xy, w_xy, butt_p);
 				}
 			}
 			return xFalse;
@@ -339,13 +301,13 @@ WindButton (CARD16 prev_mask, int count)
 	
 	if (butt_p) {
 		w_xy = WindPointerPos (wind);
-		Evnt_Propagate (wind, ButtonPressMask, ButtonPress,
-		                wind->Id, r_xy, w_xy, butt_p);
+		EvntPropagate (wind, ButtonPressMask, ButtonPress,
+		               wind->Id, r_xy, w_xy, butt_p);
 		if (count > 1) {
-			Evnt_Propagate (wind, ButtonReleaseMask, ButtonRelease,
-			                wind->Id, r_xy, w_xy, butt_r);
-			Evnt_Propagate (wind, ButtonPressMask, ButtonPress,
-			                wind->Id, r_xy, w_xy, butt_p);
+			EvntPropagate (wind, ButtonReleaseMask, ButtonRelease,
+			               wind->Id, r_xy, w_xy, butt_r);
+			EvntPropagate (wind, ButtonPressMask, ButtonPress,
+			               wind->Id, r_xy, w_xy, butt_p);
 		}
 	}
 	
@@ -509,13 +471,8 @@ WindMap (WINDOW * wind, BOOL visible)
 	BOOL redraw    = xFalse;
 	wind->isMapped = xTrue;
 	
-	if (wind->u.List.AllMasks & StructureNotifyMask) {
-		EvntMapNotify (wind, StructureNotifyMask, wind->Id, wind->Override);
-	}
-	if (wind->Parent->u.List.AllMasks & SubstructureNotifyMask) {
-		EvntMapNotify (wind->Parent,
-		               SubstructureNotifyMask, wind->Id, wind->Override);
-	}
+	EvntMapNotify (wind, wind->Id, wind->Override);
+	
 	if (visible) {
 		WINDOW * w = wind;
 		BOOL     b = xTrue;
@@ -554,13 +511,7 @@ WindUnmap (WINDOW * wind, BOOL by_conf)
 {
 	wind->isMapped = xFalse;
 	
-	if (wind->u.List.AllMasks & StructureNotifyMask) {
-		EvntUnmapNotify (wind, StructureNotifyMask, wind->Id, by_conf);
-	}
-	if (wind->Parent->u.List.AllMasks & SubstructureNotifyMask) {
-		EvntUnmapNotify (wind->Parent,
-		                 SubstructureNotifyMask, wind->Id, by_conf);
-	}
+	EvntUnmapNotify (wind, wind->Id, by_conf);
 }
 
 //==============================================================================
@@ -678,12 +629,8 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			}
 		}
 		
-		if (wind->u.List.AllMasks & StructureNotifyMask) {
-			EvntDestroyNotify (wind, StructureNotifyMask, wind->Id);
-		}
-		if (wind->Parent->u.List.AllMasks & SubstructureNotifyMask) {
-			EvntDestroyNotify (wind->Parent, SubstructureNotifyMask, wind->Id);
-		}
+		EvntDestroyNotify (wind, wind->Id);
+		
 		while (wind->ButtonGrab) {
 			_Wind_PgrabRemove (&wind->ButtonGrab);
 		}
@@ -766,13 +713,7 @@ WindCirculate (WINDOW * wind, CARD8 place)
 	}
 	
 	if (notify) {
-		if (wind->u.List.AllMasks & StructureNotifyMask) {
-			EvntCirculateNotify (wind, StructureNotifyMask, wind->Id, place);
-		}
-		if (wind->Parent->u.List.AllMasks & SubstructureNotifyMask) {
-			EvntCirculateNotify (wind->Parent, SubstructureNotifyMask,
-			                     wind->Id, place);
-		}
+		EvntCirculateNotify (wind, wind->Id, place);
 	}
 	WindPointerWatch (xFalse);
 	
@@ -791,16 +732,9 @@ _Wind_Resize (WINDOW * wind, GRECT * diff)
 	work.y = (wind->Rect.y += diff->y) - wind->BorderWidth;
 	work.w =  wind->Rect.w += diff->w;
 	work.h =  wind->Rect.h += diff->h;
-	if (wind->u.List.AllMasks & StructureNotifyMask) {
-		EvntConfigureNotify (wind, StructureNotifyMask,
-		                     wind->Id, above, work,
-		                     wind->BorderWidth, wind->Override);
-	}
-	if (wind->Parent->u.List.AllMasks & SubstructureNotifyMask) {
-		EvntConfigureNotify (wind->Parent, SubstructureNotifyMask,
-		                     wind->Id, above, work,
-		                     wind->BorderWidth, wind->Override);
-	}
+	EvntConfigureNotify (wind, wind->Id, above, &work,
+	                     wind->BorderWidth, wind->Override);
+	
 	if ((wind = wind->StackBot)) do {
 		BOOL notify = xFalse;
 		if       (wind->WinGravity == NorthGravity  ||
@@ -828,14 +762,7 @@ _Wind_Resize (WINDOW * wind, GRECT * diff)
 		if (notify) {
 			PXY pos = { wind->Rect.x - wind->BorderWidth,
 			            wind->Rect.y - wind->BorderWidth };
-			if (wind->u.List.AllMasks & StructureNotifyMask) {
-				EvntGravityNotify (wind, StructureNotifyMask,
-				                   wind->Id, pos);
-			}
-			if (wind->Parent->u.List.AllMasks & SubstructureNotifyMask) {
-				EvntGravityNotify (wind->Parent, SubstructureNotifyMask,
-				                   wind->Id, pos);
-			}
+			EvntGravityNotify (wind, wind->Id, pos);
 		} else if (wind->isMapped  &&  wind->WinGravity == UnmapGravity) {
 			WindUnmap (wind, xTrue);
 		}
@@ -984,8 +911,8 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 		}
 		
 		if (pwnd->u.List.AllMasks & SubstructureNotifyMask) {
-			EvntCreateNotify (pwnd, SubstructureNotifyMask, wind->Id,
-			                  wind->Rect, wind->BorderWidth, wind->Override);
+			EvntCreateNotify (pwnd, wind->Id,
+			                  &wind->Rect, wind->BorderWidth, wind->Override);
 		}
 	}
 }
@@ -1431,12 +1358,12 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 		if (wind->u.List.AllMasks & StructureNotifyMask) {
 			EvntReparentNotify (wind, StructureNotifyMask,
 			                    wind->Id, pwnd->Id,
-			                    wind->Rect, wind->Override);
+			                    *(PXY*)&wind->Rect, wind->Override);
 		}
 		if (pwnd->u.List.AllMasks & SubstructureNotifyMask) {
 			EvntReparentNotify (pwnd, SubstructureNotifyMask,
 			                    wind->Id, pwnd->Id,
-			                    wind->Rect, wind->Override);
+			                    *(PXY*)&wind->Rect, wind->Override);
 		}
 		
 		if (map && WindMap (wind, WindVisible (pwnd))) {
