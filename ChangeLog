@@ -1,3 +1,9 @@
+2001-02-22: 0.05.4
+   - implemented GraphicsExpose event, window scrolling by CopyArea() request
+     works now.
+   - window border corner decoration drawing corrected.
+   - shift mouse click at the sizer frame allows now always resizing of the
+     windows corner.
 2001-02-18: 0.05.3
    - implemented passive and automatic button grabs, so all aspects of button
      grabs handling should be completed now.
