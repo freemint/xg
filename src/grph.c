@@ -452,6 +452,12 @@ FT_Grph_ShiftPnt_LSB (const p_PXY origin, p_PXY pxy, size_t num, short mode)
 			pxy->x = Swap16(pxy->x) + origin->x;
 			pxy->y = Swap16(pxy->y) + origin->y;
 		}
+	
+	} else { // CoordModeOrigin && !origin
+		while (--num) {
+			pxy++;
+			SwapPXY (pxy, pxy);
+		}
 	}
 }
 
