@@ -1,3 +1,10 @@
+   - fixed a bug in the calculation of clipping rectangels (clip-by-
+     children mode) which was responsible for occasional undrawn
+     window parts.
+   - moved some spezialized AES/VDI call functions to the gemlib to
+     use the optimized trap interfaces.  code adapted to the new 0.42
+     gemlib version.
+
 2001-07-31: 0.12
    - updated and expanded README and Xg.hyp files.  The Xg.hyp now
      contains also the manpages for xconsole and xmodmap.
@@ -6,7 +13,7 @@
      to be started to apply user defined keyboard and/or mouse button
      mappings (see Xmodmap.EXMPL file).
    - improved performing of server reset with respect to the built-in
-      window manager (pseudo client).
+     window manager (pseudo client).
    - implemented ChangeKeyboardMapping request and MappingNotify
      event.  this makes it possible to change the keyboard mapping
      for user's purpose, normally done with the 'xmodmap' tool.
