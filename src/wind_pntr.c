@@ -264,7 +264,7 @@ WindPointerWatch (BOOL movedNreorg)
 	
 	/*--- generate events ---*/
 	
-	EvntPoiner (stack, anc, top, e_p, r_p, r_id, NotifyNormal);
+	EvntPointer (stack, anc, top, e_p, r_p, r_id, NotifyNormal);
 	
 	if (anc == 0) {
 		evnt = NotifyInferior;

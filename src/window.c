@@ -33,7 +33,7 @@ WINDOW WIND_Root = {
 	xTrue, xTrue, NotUseful, CenterGravity, ForgetGravity, xFalse,
 	xTrue, xFalse, xFalse, xFalse,  xFalse, xFalse, xFalse,   0u,
 	BLACK, {WHITE},   NoEventMask, {{ NoEventMask, NULL }},
-	NULL, NULL,NULL, NULL,NULL, NULL, NULL
+	NULL, NULL, NULL,NULL, NULL,NULL, NULL, NULL
 };
 
 CARD16 _WIND_OpenCounter = 0;
@@ -566,7 +566,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 				w            = w->Parent;
 			}
 			stack[anc] = bott;
-			EvntPoiner (stack, anc, anc, r_xy, r_xy, wind->Id, mode);
+			EvntPointer (stack, anc, anc, r_xy, r_xy, wind->Id, mode);
 			if (mode == NotifyUngrab) {
 				_Wind_PgrabClear (NULL);
 			}

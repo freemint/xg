@@ -2,7 +2,7 @@
 //
 // event.h
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-07-01 - Initial Version.
@@ -35,8 +35,8 @@ BOOL EvntPropagate (p_WINDOW wind, CARD32 mask, BYTE event,
                     CARD32 rid, CARD32 cid, PXY rxy, BYTE detail);
 
 // EnterNotify/LeaveNotify
-void EvntPoiner (p_WINDOW * stack, int anc, int top,
-                 PXY e_xy, PXY r_xy, CARD32 r_id, CARD8 mode);
+void EvntPointer (p_WINDOW * stack, int anc, int top,
+                  PXY e_xy, PXY r_xy, CARD32 r_id, CARD8 mode);
 
 #define EvntCirculateNotify(w,m, wid, plc)\
                                          _evnt_w (w,m,CirculateNotify, wid, plc)
