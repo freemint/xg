@@ -108,10 +108,12 @@ void WindSaveUnder (CARD32 id, GRECT * rect, short hdl);
 void WindSaveFlush (BOOL restore);
 
 // utility functions
-BOOL   WindVisible    (p_WINDOW );
-short  WindOrigin     (p_WINDOW , p_PXY   dst);
-short  WindGeometry   (p_WINDOW , p_GRECT dst, CARD16 border);
-PXY    WindPointerPos (p_WINDOW );
+#define  WindHandle(w)  (w->Handle < 0 ? -w->Handle : +w->Handle)
+BOOL     WindVisible    (p_WINDOW );
+PXY      WindOrigin     (p_WINDOW );
+short    WindGeometry   (p_WINDOW , p_GRECT dst, CARD16 border);
+PXY      WindPointerPos (p_WINDOW );
+void     WindSetHandles (p_WINDOW );
 
 static inline p_WINDOW WindFind (CARD32 id) {
 	p_WINDOW wind = DrawFind(id).Window;

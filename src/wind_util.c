@@ -28,31 +28,21 @@ WindVisible (WINDOW * wind)
 }
 
 
-//------------------------------------------------------------------------------
-static inline short
-_origin (WINDOW * wind, PXY * dst)
-{
-	WINDOW * w;
-	while ((w = wind->Parent)) {
-		dst->x += w->Rect.x;
-		dst->y += w->Rect.y;
-		if (w == &WIND_Root) break;
-		else                 wind = w;
-	}
-	return wind->Handle;
-}
-
 //==============================================================================
-short
-WindOrigin (WINDOW * wind, PXY * dst)
+PXY
+WindOrigin (WINDOW * wind)
 {
-	// Sets dst to the origin of the window in absolute screen coordinates and
-	// returns the AES handle of its anchestor that is a top window.
+	// Returns the origin of the window in absolute screen coordinates.
 	//...........................................................................
 	
-	*dst = *(PXY*)&wind->Rect;
+	PXY orig = *(PXY*)&wind->Rect;
 	
-	return _origin (wind, dst);
+	while ((wind = wind->Parent)) {
+		orig.x += wind->Rect.x;
+		orig.y += wind->Rect.y;
+	}
+	
+	return orig;
 }
 
 //==============================================================================
@@ -64,7 +54,9 @@ WindGeometry (WINDOW * wind, GRECT * dst, CARD16 border)
 	// anchestor that is a top window.
 	//...........................................................................
 	
-	*dst = wind->Rect;
+	*(PXY*)dst = WindOrigin (wind);
+	dst->w     = wind->Rect.w;
+	dst->h     = wind->Rect.h;
 	if (border) {
 		dst->x -= border;
 		dst->y -= border;
@@ -72,7 +64,7 @@ WindGeometry (WINDOW * wind, GRECT * dst, CARD16 border)
 		dst->w += border;
 		dst->h += border;
 	}
-	return _origin (wind, (PXY*)dst);
+	return WindHandle (wind);
 }
 
 
@@ -95,6 +87,39 @@ WindPointerPos (WINDOW * wind)
 	} while ((wind = wind->Parent));
 	
 	return pos;
+}
+
+
+//==============================================================================
+void
+WindSetHandles (WINDOW * wind)
+{
+	// Set Handle of all children to the negative value of their top-window
+	// anchestor.
+	//...........................................................................
+	
+	short hdl = (wind->Handle > 0 ? -wind->Handle : wind->Handle);
+	short n   = 1;
+	BOOL  b   = xTrue;
+	
+	if ((wind = wind->StackBot)) {
+		do {
+			if (b) {
+				wind->Handle = hdl;
+				while (wind->StackBot) {
+					wind = wind->StackBot;
+					n++;
+				}
+			}
+			if (wind->NextSibl) {
+				wind = wind->NextSibl;
+				b    = xTrue;
+			} else if (--n) {
+				wind = wind->Parent;
+				b    = xFalse;
+			}
+		} while (n);
+	}
 }
 
 

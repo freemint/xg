@@ -1155,7 +1155,10 @@ RQ_ChangeWindowAttributes (CLIENT * clnt, xChangeWindowAttributesReq * q)
 		    && WMGR_Active && !wind->isMapped  &&  wind->Handle > 0) {
 			if ((wind->Override == xFalse) != (wind->GwmDecor == xTrue)) {
 				short hdl = wind->Handle;
-				if (WmgrWindHandle (wind)) wind_delete (hdl);
+				if (WmgrWindHandle (wind)) {
+					WindSetHandles (wind);
+					wind_delete (hdl);
+				}
 			}
 		}
 		if (q->valueMask & CWCursor) {
@@ -1336,7 +1339,6 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 		}
 		if (wind->Handle > 0) {
 			wind_delete (wind->Handle);
-			wind->Handle    = -1;
 			wind->GwmParent = xFalse;
 			wind->GwmDecor  = xFalse;
 			wind->GwmIcon   = xFalse;
@@ -1355,6 +1357,8 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 		pwnd->StackTop = wind;
 		wind->Rect.x   = q->x;
 		wind->Rect.y   = q->y;
+		wind->Handle   = -WindHandle (pwnd);
+		WindSetHandles (wind);
 		
 		if (wind->u.List.AllMasks & StructureNotifyMask) {
 			EvntReparentNotify (wind, StructureNotifyMask,

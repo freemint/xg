@@ -463,7 +463,7 @@ RQ_TranslateCoords (CLIENT * clnt, xTranslateCoordsReq * q)
 	
 	if (q->srcWid & ~RID_MASK) {
 		if ((ok = ((wsrc = WindFind(q->srcWid)) != NULL))) {
-			WindOrigin (wsrc, &p_src);
+			p_src = WindOrigin (wsrc);
 		}
 	} else {
 		GRECT work;
@@ -477,7 +477,7 @@ RQ_TranslateCoords (CLIENT * clnt, xTranslateCoordsReq * q)
 	
 	} else if (q->dstWid & ~RID_MASK) {
 		if ((ok = ((wdst = WindFind(q->dstWid)) != NULL))) {
-			WindOrigin (wdst, &p_dst);
+			p_dst = WindOrigin (wdst);
 		}
 	} else {
 		GRECT work;

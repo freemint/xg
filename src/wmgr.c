@@ -275,6 +275,7 @@ WmgrActivate (BOOL onNoff)
 				if (title) {
 					wind_set_str (w->Handle, WF_NAME, title);
 				}
+				WindSetHandles (w);
 				if (w->isMapped) {
 					GRECT dummy;
 					WindUnmap   (w, xFalse);
@@ -297,6 +298,7 @@ WmgrActivate (BOOL onNoff)
 		while (w) {
 			short hdl = w->Handle;
 			if (w->GwmDecor && WmgrWindHandle (w)) {
+				WindSetHandles (w);
 				if (w->isMapped || w->GwmIcon) {
 					GRECT curr;
 					char * title = PropValue (w, XA_WM_NAME, XA_STRING, 1);
@@ -975,14 +977,16 @@ WmgrButton (void)
 				ml = s_hints->min_width;
 				mu = s_hints->min_height;
 			}
-			if (s_hints->flags & PMaxSize) {
-				mr = s_hints->max_width;
-				md = s_hints->max_height;
-			}
-			if (ml >= mr  &&  mu >= md) {
-				ev_i.evi_flags &= ~MU_M1;
-				cursor         =  0x000;
-				CrsrSelect (&_WMGR_Cursor.X);
+			if (!(MAIN_KeyButMask & K_CTRL)) {
+				if (s_hints->flags & PMaxSize) {
+					mr = s_hints->max_width;
+					md = s_hints->max_height;
+				}
+				if (ml >= mr  &&  mu >= md) {
+					ev_i.evi_flags &= ~MU_M1;
+					cursor         =  0x000;
+					CrsrSelect (&_WMGR_Cursor.X);
+				}
 			}
 		}
 		

@@ -145,6 +145,7 @@ WindClipLockP (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 		sect->rd.y = d;
 	
 	} else {
+		*pBuf = NULL;
 		WindUpdate (xFalse);
 	}
 	return nClp;
@@ -516,8 +517,8 @@ void
 WindPutMono (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 {
 	if (WindVisible (wind)) {
-		PXY pos;
-		short hdl = WindOrigin (wind, &pos);
+		PXY   pos = WindOrigin (wind);
+		short hdl = WindHandle (wind);
 		MFDB  dst = { NULL };
 		GRECT sec;
 		short colors[2] = { gc->Foreground, gc->Background };
@@ -550,8 +551,8 @@ void
 WindPutColor (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 {
 	if (WindVisible (wind)) {
-		PXY pos;
-		short hdl = WindOrigin (wind, &pos);
+		PXY   pos = WindOrigin (wind);
+		short hdl = WindHandle (wind);
 		MFDB  dst = { NULL };
 		GRECT sec;
 		
