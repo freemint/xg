@@ -1,3 +1,49 @@
+Installation
+============
+
+Copy the server's files to some location on your filesystem; there is no
+requirement of a fix path for the server.  A usefull place might be
+/usr/X11R6/bin/ but everything else works as well.
+
+The next step is to make a directory /var/lib/Xapp/ for the server.  If the
+server is startet by root at the first time, or the directory is writeable by
+the server, it will do the followings steps by itself.  Else do the following
+(as root user):
+	cd /var/lib ; mkdir Xapp ; chmod 777 Xapp
+
+Preparing of Environment
+------------------------
+
+There are a few things necessary for X-clients to be able to work.
+
+If a client starts, it first parses the environment variable DISPLAY to find out
+at which IP number the server should be connected.  So it's possible to start
+clients from connected machines, having their X-Windows opend on your local
+machine.  The value of DISPLAY has to be of the form "<server-IP>:0.0".  For
+clients running at a local machine, DISPLAY contains simply the value "0:0.0",
+where the first "0" is simply a shortcut for the local IP or even "localhost".
+For clients started on a remote machine connected to an Atari with e.g. the IP
+123.234.34.56, DISPLAY at the remote machine must be than "123.234.34.56:0.0".
+
+Most comfortable for the user is, to have somewhere in mint.cnf the line
+	setenv DISPLAY 0:0.0
+so it can't be forgotten to set.  Otherway it would be necessary to set it by
+hand in a shell window and start every client from that shell.
+
+Preparing directories
+---------------------
+
+The following isn't necessary for the server itself but should be done for
+clients to have a common directory hirachy.  First there should be a directory
+/usr/X11R6/ as beeing the "XTOPDIR" and a link /usr/X11 pointing to this
+directory as well, for historical reasons.  Next, most clients are looking for
+their configuration files at /usr/X11R6/lib/X11/app-defaults/ (or sometimes at
+/usr/X11/lib/X11/app-defaults/, therefor the link), so this should be created
+also.  These configuration files are such with the suffix ".ad" in packages
+and needs to be renamed without the suffix while copying to the apps-defaults
+e.g. "Xcalc.ad" to only "Xcalc".
+
+
 Fonts
 =====
 
@@ -41,7 +87,7 @@ Font-Aliasing
 
 If there exists a file /usr/X11/lib/X11/fonts.alias it will be read at server
 startup and later be used to substitute font names from client requests.  The
-format of these file is simply
+format of this file is simply
    <requested font><space/tab><font to use instead>
 in each line.  To edit this file, have a look at /var/lib/Xapp/fonts.db to see
 which fonts are provided.
@@ -67,9 +113,10 @@ The font to be substituted can also be a pattern, like
                                        -*-gothic*-medium-r-*-*-*-120-*-*-*-*-*-*
 
 Please pay attention that the '\' isn't allowed in the font.alias file; it's
-only used here for better radability!
+only used here for better readability!  Instead both parts have to be in one
+line, with spaces or tabs between.
 
-There are other oftern used fot names of the form '9x15', '6x13' and so on,
+There are other oftern used font names of the form '9x15', '6x13' and so on,
 which means monospaced fonts of <width> * <height> pixel size.  If an request of
 such a font name appeares and the server can't find it in its XLFD list nor in
 the alias list, it takes a scalable font which can scaled best to that geometry
