@@ -170,7 +170,7 @@ GrphSetup (void * format_arr)
 				GRPH_DepthMSB[1]->visl.greenMask  = 0x000007E0uL;
 				GRPH_DepthMSB[1]->visl.blueMask   = 0x0000001FuL;
 				GRPH_DepthMSB[1]->visl.bitsPerRGB = 6;
-			//	GraphRaster                       = _raster_16;
+				GraphRaster                       = _raster_15;
 			} else {
 				GRPH_DepthMSB[1]->visl.redMask    = 0x00FF0000uL;
 				GRPH_DepthMSB[1]->visl.greenMask  = 0x0000FF00uL;
