@@ -130,9 +130,9 @@ CmapLookup (RGB * dst, const RGB * src)
 			dst->r = dst->g = dst->b = 0xFFFF;
 		}
 	
-	} else if (max_p - min_p < 4) {
-		int c = (src->r >> 8) & 0xF8;
-		pixel = _CMAP_TransGrey[c/8];
+	} else if (max_p - min_p < 12) {
+		int c = (((CARD32)(src->g << 1) + src->r + src->b) >> 10) & 0xF8;
+		pixel = _CMAP_TransGrey[c>>3];
 		c    |= c >> 5;
 		dst->r = dst->g = dst->b = PIXEL(c);
 		
@@ -255,7 +255,8 @@ RQ_AllocColor (CLIENT * clnt, xAllocColorReq * q)
 	
 	ClntReply (AllocColor,, ":.2l");
 	
-	DEBUG (AllocColor," M:%lX rgb=%u,%u,%u", q->cmap, q->red, q->green, q->blue);
+	DEBUG (AllocColor," M:%lX rgb=%04X,%04X,%04X",
+	       q->cmap, q->red, q->green, q->blue);
 }
 
 
