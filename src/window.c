@@ -192,6 +192,13 @@ WindButton (CARD16 prev_mask, int count)
 	//<<<<< end debugging
 	
 	if (!_WIND_PgrabWindow && wind) {
+		if (WMGR_Active && (MAIN_KeyButMask & K_ALT)) {
+			while (wind->Handle < 0) {
+				wind = wind->Parent;
+			}
+			return WmgrButton (wind);
+		}
+		
 		if (butt_r) {
 			EvntPropagate (wind, ButtonReleaseMask, ButtonRelease,
 			               wind->Id, r_xy, WindPointerPos (wind), butt_r);
@@ -297,7 +304,7 @@ WindButton (CARD16 prev_mask, int count)
 	}
 	
 	if (!wind) {
-		return WmgrButton();
+		return WmgrButton (NULL);
 	}
 	
 	if (butt_p) {
