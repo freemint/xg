@@ -2,8 +2,8 @@
 //
 // Property.c -- Implementation of struct 'PROPERTY' related functions.
 //
-// Even  if  the  server normally doesn't interprete property contents, some of
-// it will be reported to the built-in window manager if changed or created.
+// Even  if the server normally doesn't interprete property contents, some of it
+// will be reported to the built-in window manager if changed or created.
 // These are:  XA_WM_COMMAND, XA_WM_NAME, XA_WM_ICON_NAME.
 //
 // Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
@@ -29,43 +29,34 @@
 #include <X11/Xatom.h>
 
 
-//------------------------------------------------------------------------------
-static p_PROPERTY *
-_Prop_Find (WINDOW * wind, Atom prop)
-{
-	p_PROPERTY * pProp = &wind->Properties;
-	
-	while (*pProp) {
-		if ((*pProp)->Name == prop) {
-			break;
-		}
-		pProp = &(*pProp)->Next;
-	}
-	return pProp;
-}
+#define _Prop_Find( pool, name )   (pool ? Xrsc(PROPERTY, name, pool->Pool) \
+                                         : NULL)
 
 
 //==============================================================================
 void *
-PropValue (WINDOW * wind, Atom name, Atom type, size_t min_len)
+PropValue (const PROPERTIES * pool, Atom name, Atom type, size_t min_len)
 {
-	PROPERTY * prop = *_Prop_Find (wind, name);
+	void     * data = NULL;
+	PROPERTY * prop;
 	
-	if (!prop || (type != None && type != prop->Type)
-	          || (min_len && min_len > prop->Length)) return NULL;
-	
-	return prop->Data;
+	if ((prop = _Prop_Find (pool, name))
+	    && (type == None || type    == prop->Type)
+	    && (!min_len     || min_len <= prop->Length)) {
+		data = prop->Data;
+	}
+	return data;
 }
 
 
 //==============================================================================
 BOOL
-PropHasAtom (WINDOW * wind, Atom name, Atom which)
+PropHasAtom (const PROPERTIES * pool, Atom name, Atom which)
 {
-	PROPERTY * prop = *_Prop_Find (wind, name);
 	BOOL       has  = xFalse;
+	PROPERTY * prop;
 	
-	if (prop  &&  prop->Type == XA_ATOM) {
+	if ((prop = _Prop_Find (pool, name))  &&  prop->Type == XA_ATOM) {
 		Atom * list = (Atom*)prop->Data;
 		int    num  = prop->Length /4;
 		int    i;
@@ -82,12 +73,46 @@ PropHasAtom (WINDOW * wind, Atom name, Atom which)
 
 //==============================================================================
 void
-PropDelete (p_PROPERTY * pProp)
+PropDelete (PROPERTIES ** pPool)
 {
-	PROPERTY * prop = *pProp;
-	if (prop) {
-		*pProp = prop->Next;
-		free (prop);
+	PROPERTIES * pool = *pPool;
+	
+	if (pool) {
+		int i;
+		
+		for (i = 0; i < XrscPOOLSIZE (pool->Pool); ++i) {
+			p_PROPERTY p;
+			while ((p = XrscPOOLITEM (pool->Pool, i))) XrscDelete (pool->Pool, p);
+		}
+		free (pool);
+		*pPool = NULL;
+	}
+}
+
+
+//------------------------------------------------------------------------------
+static void
+_Prop_ICCC (WINDOW * wind, PROPERTY * prop)
+{
+	switch (prop->Id) {
+		
+		case XA_WM_COMMAND:
+			WmgrClntUpdate (ClntFind (wind->Id), prop->Data);
+			break;
+		
+		case XA_WM_NAME:
+			WmgrWindName (wind, prop->Data, xFalse);
+			wind->Properties->WindName = prop->Data;
+			break;
+		
+		case XA_WM_ICON_NAME:
+			WmgrWindName (wind, prop->Data, xTrue);
+			wind->Properties->IconName = prop->Data;
+			break;
+		
+		case XA_WM_HINTS:
+			WmgrWindIcon (wind);
+			break;
 	}
 }
 
@@ -113,9 +138,9 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 	// void   (q +1):   data to be applied
 	//...........................................................................
 	
-	WINDOW * wind = WindFind (q->window);
-	
-	PROPERTY * prop, ** pProp;
+	WINDOW     * wind = WindFind (q->window);
+	PROPERTIES * pool = NULL;
+	PROPERTY   * prop = NULL, * have;
 	int factor = (q->format == 8  ? 1 : // number of bytes per unit
 	              q->format == 16 ? 2 :
 	              q->format == 32 ? 4 : 0);
@@ -138,8 +163,12 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 		                      "          illegal format.",
 		                      q->window, ATOM_Table[q->property]->Name);
 	
-	} else if ((prop = *(pProp = _Prop_Find (wind, q->property))) &&
-	            q->mode != PropModeReplace                        &&
+	} else if (!wind->Properties && !(pool = malloc (sizeof (PROPERTIES)))) {
+		Bad(Alloc,, ChangeProperty,"(W:%lX,A:%lu): pool struct.",
+		            q->window, q->property);
+		
+	} else if ((have = _Prop_Find (wind->Properties, q->property)) &&
+	            q->mode != PropModeReplace                         &&
 	           (q->type != prop->Type  ||  q->format != prop->Format)) {
 		Bad(Match,, ChangeProperty,"(W:%lX,'%s'):\n"
 		            "          type = A:%lu/A:%lu, format = %i/%i.",
@@ -148,65 +177,59 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 	
 	} else { //..................................................................
 		
-		size_t len  = q->nUnits * factor;
-		size_t size = (len +3) & ~3ul;
-		size_t have = (prop ? (prop->Length +3) & ~3ul : 0);
-		CARD8  mode = (prop && prop->Length ? q->mode : PropModeReplace);
-		BOOL   rplc = (prop && size != have);
+		size_t have_size = (have ? have->Length : 0);
+		CARD8  mode      = (have_size ? q->mode : PropModeReplace);
+		size_t size      = q->nUnits * factor;
+		size_t need_size = size + (q->mode == PropModeReplace ? have_size : 0);
+		size_t xtra      = (factor == 1 ? 1 :0);
+		                   // reserve an extra char space for a trailing '\0'
 		
-		if (!prop ||  size != have) {
-			size_t need = (mode == PropModeReplace ? len : len + prop->Length);
-			size_t byte = sizeof(PROPERTY) -4 + ((need +3) & ~3ul);
-			CARD8  xtra = (need & 3 ? 0 : 1);
-			// reserve an extra char space for a trailing '\0'
-			prop        = malloc (byte + xtra);
-			if (prop) {
-				prop->Next   = (rplc ? (*pProp)->Next : *pProp);
-				prop->Name   = q->property;
-				prop->Type   = q->type;
-				prop->Format = q->format;
-				prop->Length = need;
-			
-			} else if (*pProp && size < have) {
-				// reuse old property
-			#	ifndef NODEBUG
-				PRINT (,"\33pWARNING\33q ChangeProperty(W:%lX,A:%lu):\n"
-		             "          memory exhausted (%lu bytes), reuse previous.",
-		             q->window, q->property, byte);
-			#	endif NODEBUG
-				prop         = *pProp;
-				prop->Type   = q->type;
-				prop->Format = q->format;
-				prop->Length = need;
-				rplc         = xFalse; // must not be deleted now!
-			
+		#	ifdef TRACE
+			PRINT (ChangeProperty, "- '%s'(%s,%i*%li) of W:%lX",
+	      		 ATOM_Table[q->property]->Name, ATOM_Table[q->type]->Name,
+	      		 factor, q->nUnits, q->window);
+			if (prop->Type == XA_STRING) {
+				PRINT (,"+\n          '%s'", prop->Data);
 			} else {
-				Bad(Alloc,, ChangeProperty,"(W:%lX,A:%lu):\n"
-				            "          %lu bytes.", q->window, q->property, byte);
+				PRINT (,"+");
 			}
+		#	endif TRACE
 		
-		} else if (q->mode == PropModeReplace) {
-			prop->Length = len;
+		if (pool) {
+			XrscPoolInit (pool->Pool);
+			pool->WindName = NULL;
+			pool->IconName = NULL;
+			wind->Properties = pool;
+		
 		} else {
-			prop->Length += len;
+			pool = wind->Properties;
+			if (have) {
+				XrscRemove (pool->Pool, have);
+			}
 		}
 		
-		if (prop) {
+		prop = XrscCreate (PROPERTY, q->property, pool->Pool, need_size + xtra);
+		if (!prop) {
+			Bad(Alloc,, ChangeProperty,"(W:%lX,A:%lu):\n"
+			            "          %lu bytes.", q->window, q->property, need_size);
+			if (have) {
+				XrscInsert (pool->Pool, have);
+			}
+		
+		} else {
 			char * data = prop->Data;
 			
 			if (mode == PropModePrepend) {
-				memmove (data + len, (*pProp)->Data, (*pProp)->Length);
+				memcpy (data + size, have->Data, have->Length);
 			
 			} else if (mode == PropModeAppend) {
-				if (prop != *pProp) {
-					memcpy (data, (*pProp)->Data, (*pProp)->Length);
-				}
-				data += (*pProp)->Length;
+				memcpy (data, have->Data, have->Length);
+				data += have->Length;
 			}
 			
-			if (len) {
+			if (size) {
 				if (!clnt->DoSwap  ||  q->format == 8) {
-					memcpy (data, (q +1), len);
+					memcpy (data, (q +1), size);
 				
 				} else if (q->format == 16) {
 					CARD16 * src = (CARD16*)(q +1);
@@ -225,41 +248,21 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 					}
 				}
 			}
-			
-			prop->Data[prop->Length] = '\0';
-			
-			if (rplc) {
-				free (*pProp);
+			if (xtra) {
+				prop->Data[need_size] = '\0';
 			}
-			*pProp = prop;
+			prop->Type   = q->type;
+			prop->Format = q->format;
+			prop->Length = need_size;
 			
-			if (wind->Handle > 0) switch (prop->Name) {
-				case XA_WM_COMMAND:
-					WmgrClntUpdate (clnt, prop->Data);
-					break;
-				case XA_WM_NAME:
-					WmgrWindName (wind, prop->Data, xFalse);
-					break;
-				case XA_WM_ICON_NAME:
-					WmgrWindName (wind, prop->Data, xTrue);
-					break;
-				case XA_WM_HINTS:
-					WmgrWindIcon (wind);
-					break;
-			}
-			
-		#	ifdef TRACE
-			PRINT (ChangeProperty, "- '%s'(%s,%i*%li) of W:%lX",
-	      		 ATOM_Table[prop->Name]->Name, ATOM_Table[prop->Type]->Name,
-	      		 factor, q->nUnits, q->window);
-			if (prop->Type == XA_STRING) {
-				PRINT (,"+\n          '%s'", prop->Data);
-			} else {
-				PRINT (,"+");
-			}
-		#	endif TRACE
 			if (wind->u.List.AllMasks & PropertyChangeMask) {
-				EvntPropertyNotify (wind, prop->Name, PropertyNewValue);
+				EvntPropertyNotify (wind, prop->Id, PropertyNewValue);
+			}
+			if (wind->Handle > 0) {
+				_Prop_ICCC (wind, prop);
+			}
+			if (have) {
+				free (have);
 			}
 		}
 	}
@@ -277,8 +280,6 @@ RQ_DeleteProperty (CLIENT * clnt, xDeletePropertyReq * q)
 	
 	WINDOW * wind = WindFind (q->window);
 	
-	PROPERTY ** pProp;
-	
 	if (!wind) {
 		Bad(Window, q->window, DeleteProperty,"():\n          not %s.",
 		                       (DBG_XRSC_TypeError ? "a window" : "found"));
@@ -288,7 +289,7 @@ RQ_DeleteProperty (CLIENT * clnt, xDeletePropertyReq * q)
 	
 	} else { //..................................................................
 		
-		PROPERTY * prop = * (pProp = _Prop_Find (wind, q->property));
+		PROPERTY * prop = _Prop_Find (wind->Properties, q->property);
 		
 		DEBUG (DeleteProperty," '%s'(%s) from W:%lX",
 		       ATOM_Table[q->property]->Name,
@@ -296,10 +297,9 @@ RQ_DeleteProperty (CLIENT * clnt, xDeletePropertyReq * q)
 		
 		if (prop) {
 			if (wind->u.List.AllMasks & PropertyChangeMask) {
-				EvntPropertyNotify (wind, prop->Name, PropertyDelete);
+				EvntPropertyNotify (wind, prop->Id, PropertyDelete);
 			}
-			*pProp = prop->Next;
-			free (prop);
+			XrscDelete (wind->Properties->Pool, prop);
 		}
 	}
 }
@@ -310,7 +310,7 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 {
 	// Returns the full or partial content of a property.
 	//
-	// Window window:     location for the property
+	// Window window:     location of the property
 	// Atom   property:   source to get content from
 	// Atom   type:       AnyPropertyType or must match
 	// CARD32 longOffset: offset in 32bit units, indipendent of property format
@@ -325,10 +325,9 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 	// (char*)(r +1):       content
 	//...........................................................................
 	
-	WINDOW * wind = WindFind (q->window);
-	CARD32   offs = q->longOffset *4;
-	
-	PROPERTY ** pProp;
+	WINDOW   * wind = WindFind (q->window);
+	CARD32     offs = q->longOffset *4;
+	PROPERTY * prop;
 	
 	if (!wind) {
 		Bad(Window, q->window, GetProperty,"():\n          not %s.",
@@ -337,17 +336,16 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 	} else if (!AtomValid(q->property)) {
 		Bad(Atom, q->property ,GetProperty,"(W:%lX)", q->window);
 	
-	} else if (*(pProp = _Prop_Find (wind, q->property)) &&
-	           offs > (*pProp)->Length) {
+	} else if ((prop = _Prop_Find (wind->Properties, q->property)) &&
+	           offs > prop->Length) {
 		Bad(Value, q->longOffset, GetProperty,"(W:%lX,A:%lu)\n"
 		                          "          offset %lu > property length %u.",
-		                          q->window, q->property, offs, (*pProp)->Length);
+		                          q->window, q->property, offs, prop->Length);
 	
 	} else { //..................................................................
 		
 		ClntReplyPtr (GetProperty, r);
-		PROPERTY * prop = *pProp;
-		size_t     len  = 0;
+		size_t len  = 0;
 		
 		if (!prop) {
 			r->propertyType = None;
@@ -362,25 +360,25 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 			r->nItems       = 0;
 			
 		} else {
-			CARD8  byte = prop->Format /8;
+			CARD8 bytes = prop->Format /8;
 			len = (q->longLength *4) +offs;
 			len = (len <= prop->Length ? len : prop->Length) - offs;
 			
 			r->propertyType = prop->Type;
 			r->format       = prop->Format;
 			r->bytesAfter   = (prop->Length - offs) - len;
+			r->nItems       = len / bytes;
 			
 			if (!len) {
 				r->nItems = 0;
 				
 			} else if (!clnt->DoSwap  ||  prop->Format == 8) {
-				r->nItems = (byte == 1 ? len : (len + byte -1) / byte);
 				memcpy ((r +1), prop->Data + offs, len);
 				
 			} else if (prop->Format == 16) {
 				CARD16 * src = (CARD16*)(prop->Data + offs);
 				CARD16 * dst = (CARD16*)(r +1);
-				size_t   num = r->nItems = (len +1) /2;
+				size_t   num = r->nItems;
 				while (num--) {
 					*(dst++) = Swap16(*(src++));
 				}
@@ -388,7 +386,7 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 			} else { // prop->Format == 32
 				CARD32 * src = (CARD32*)(prop->Data + offs);
 				CARD32 * dst = (CARD32*)(r +1);
-				size_t   num =  r->nItems = (len +3) /4;
+				size_t   num =  r->nItems;
 				while (num--) {
 					*(dst++) = Swap32(*(src++));
 				}
@@ -402,12 +400,11 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 		
 		ClntReply (GetProperty, len, "all");
 		
-		if (prop && !r->bytesAfter && q->delete) {
+		if (prop && q->delete && !r->bytesAfter) {
 			if (wind->u.List.AllMasks & PropertyChangeMask) {
-				EvntPropertyNotify (wind, prop->Name, PropertyDelete);
+				EvntPropertyNotify (wind, prop->Id, PropertyDelete);
 			}
-			*pProp = prop->Next;
-			free (prop);
+			XrscDelete (wind->Properties->Pool, prop);
 		}
 	}
 }
@@ -435,22 +432,33 @@ RQ_ListProperties (CLIENT * clnt, xListPropertiesReq * q)
 	} else { //..................................................................
 		
 		ClntReplyPtr (ListProperties, r);
-		PROPERTY * prop = wind->Properties;
-		Atom     * atom = (Atom*)(r +1);
+		PROPERTIES * pool = wind->Properties;
+		Atom       * atom = (Atom*)(r +1);
 		
 		r->nProperties = 0;
 		
-		if (clnt->DoSwap) while (prop) {
-			*(atom++) = Swap32(prop->Name);
-			r->nProperties++;
-			prop = prop->Next;
-		
-		} else while (prop) { // (!clnt->DoSwap)
-			*(atom++) = prop->Name;
-			r->nProperties++;
-			prop = prop->Next;
+		if (pool) {
+			int i;
+			if (clnt->DoSwap) {
+				for (i = 0; i < XrscPOOLSIZE (pool->Pool); ++i) {
+					PROPERTY * prop = XrscPOOLITEM (pool->Pool, i);
+					while (prop) {
+						*(atom++) = Swap32(prop->Id);
+						r->nProperties++;
+						prop = prop->NextXRSC;
+					}
+				}
+			} else { // (!clnt->DoSwap)
+				for (i = 0; i < XrscPOOLSIZE (pool->Pool); ++i) {
+					PROPERTY * prop = XrscPOOLITEM (pool->Pool, i);
+					while (prop) {
+						*(atom++) = prop->Id;
+						r->nProperties++;
+						prop = prop->NextXRSC;
+					}
+				}
+			}
 		}
-		
 		DEBUG (ListProperties," of W:%lX (%u)", q->id, r->nProperties);
 		
 		ClntReply (ListProperties, (r->nProperties *4), ".");
@@ -472,7 +480,9 @@ RQ_RotateProperties (CLIENT * clnt, xRotatePropertiesReq * q)
 	// (Atom*)(q +1)      list of properties
 	//...........................................................................
 	
-	WINDOW * wind = WindFind (q->window);
+	WINDOW * wind  = WindFind (q->window);
+	CARD16   num   = q->nAtoms;
+	CARD16   delta = q->nPositions % num;
 	
 	if (!wind) {
 		Bad(Window, q->window, RotateProperties,"():\n          not %s.",
@@ -480,52 +490,49 @@ RQ_RotateProperties (CLIENT * clnt, xRotatePropertiesReq * q)
 	
 	} else if (q->nAtoms) { //...................................................
 		
-		PROPERTY ** list = (PROPERTY**)(q +1);
-		BOOL        ok   = xTrue;
-		Atom        name;
+		PROPERTIES * pool = wind->Properties;
+		BOOL         ok   = xTrue;
+		Atom       * name = (Atom*)(q +1);
+		PROPERTY   * list[num];
 		int i, j;
 		
-		for (i = 0; i < q->nAtoms; ++i) {
-			name = ((Atom*)(q +1))[i];
-			if (!AtomValid (name)) {
-				Bad(Atom, name, RotateProperties,"(W:%lX)", q->window);
+		if (clnt->DoSwap) for (i = 0; i < num; i++) {
+			name[i] = Swap32(name[i]);
+		}
+		for (i = 0; i < num; i++) {
+			if (!AtomValid (name[i])) {
+				Bad(Atom, name[i], RotateProperties,"(W:%lX)", q->window);
 				ok = xFalse;
 				break;
 	
-			} else if (!(list[i] = *_Prop_Find (wind, name))) {
+			} else if (!(list[(i + delta) % num] = _Prop_Find (pool, name[i]))) {
 				Bad(Match,, RotateProperties,"(W:%lX):\n"
-				            "          property A:%lX not found.", q->window, name);
+				            "          property A:%lX not found.",
+				            q->window, name[i]);
 				ok = xFalse;
 				break;
 			
 			} else for (j = 0; j < i; ++j) {
-				if (list[j]->Name == name) {
+				if (name[j] == name[i]) {
 					Bad(Match,, RotateProperties,"(W:%lX):\n"
 					            "          property A:%lX occured more than once.",
-					            q->window, name);
+					            q->window, name[i]);
 					ok = xFalse;
 					i  = q->nAtoms;
 					break;
 				}
 			}
 		}
-		if (ok) {
-			Atom first = list[0]->Name;
-			int  delta = q->nPositions % q->nAtoms;
+		if (ok && delta) {
+			BOOL notify = (0 != (wind->u.List.AllMasks & PropertyChangeMask));
 			
-			for (i = 0; i < q->nAtoms; ++i) {
-				if (!(j = i + delta)) {
-					name = first;
-				} else {
-					if      (j <  0)         j += q->nAtoms;
-					else if (j >= q->nAtoms) j -= q->nAtoms;
-					name = list[j]->Name;
-				}
-				list[i]->Name = name;
-				
-				if (wind->u.List.AllMasks & PropertyChangeMask) {
-					EvntPropertyNotify (wind, name, PropertyNewValue);
-				}
+			for (i = 0; i < num; i++) {
+				XrscRemove (pool->Pool, list[i]);
+				list[i]->Id = name[i];
+			}
+			for (i = 0; i < num; i++) {
+				XrscInsert (pool->Pool, list[i]);
+				if (notify) EvntPropertyNotify (wind, name[i], PropertyNewValue);
 			}
 	
 			DEBUG (RotateProperties,"(W:%lX,%u,%+i)",

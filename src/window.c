@@ -69,6 +69,8 @@ WindInit (BOOL initNreset)
 			exit (1);
 		}
 		if (WIND_Root.Properties) {
+				PropDelete (&WIND_Root.Properties);
+			/*
 			printf ("  remove Propert%s:",
 			        (WIND_Root.Properties->Next ? "ies" : "y"));
 			while (WIND_Root.Properties) {
@@ -81,6 +83,7 @@ WindInit (BOOL initNreset)
 				PropDelete (&WIND_Root.Properties);
 			}
 			printf (",\n");
+			*/
 		}
 		if (WIND_Root.Cursor) {
 			CrsrFree (WIND_Root.Cursor, NULL);
@@ -853,7 +856,7 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 	/* check visual */
 	/* check depth */
 	
-	} else if (!(wind = XrscCreate(WINDOW, q->wid, clnt->Drawables))) {
+	} else if (!(wind = XrscCreate(WINDOW, q->wid, clnt->Drawables,))) {
 		Bad(Alloc,, CreateWindow,"(W:%lX)", q->wid);
 	
 	} else {

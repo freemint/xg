@@ -253,9 +253,8 @@ WmgrActivate (BOOL onNoff)
 		while (w) {
 			short hdl = w->Handle;
 			if (!w->Override && WmgrWindHandle (w)) {
-				char * title = PropValue (w, XA_WM_NAME, XA_STRING, 1);
-				if (title) {
-					wind_set_str (w->Handle, WF_NAME, title);
+				if (w->Properties && w->Properties->WindName) {
+					wind_set_str (w->Handle, WF_NAME, w->Properties->WindName);
 				}
 				WindSetHandles (w);
 				if (w->isMapped) {
@@ -282,9 +281,8 @@ WmgrActivate (BOOL onNoff)
 				WindSetHandles (w);
 				if (w->isMapped || w->GwmIcon) {
 					GRECT curr;
-					char * title = PropValue (w, XA_WM_NAME, XA_STRING, 1);
-					if (title) {
-						wind_set_str (w->Handle, WF_NAME, title);
+					if (w->Properties && w->Properties->WindName) {
+						wind_set_str (w->Handle, WF_NAME, w->Properties->WindName);
 					}
 					if (w->isMapped) {
 						WindClrMapped (w, xFalse);
@@ -379,7 +377,7 @@ WmgrClntUpdate (CLIENT * client, const char * text)
 		
 	} else {
 		char buf[8];
-		int  len = sprintf (buf, "%03X", client->Id >> (RID_MASK_BITS & 0x1C));
+		int  len = sprintf (buf, "%03X", client->Id << (RID_MASK_BITS & 3));
 		strncpy (client->Entry +2, buf, len);
 	}
 }
@@ -487,9 +485,8 @@ WmgrWindMap (WINDOW * wind, GRECT * curr)
 	WmgrCalcBorder (curr, wind);
 	
 	if (wind->GwmIcon) {
-		char * title = PropValue (wind, XA_WM_NAME, XA_STRING, 1);
-		if (title) {
-			wind_set_str (wind->Handle, WF_NAME, title);
+		if (wind->Properties && wind->Properties->WindName) {
+			wind_set_str (wind->Handle, WF_NAME, wind->Properties->WindName);
 		}
 		wind_set (wind->Handle, WF_BEVENT, 0x0001, 0,0,0);
 		_Wmgr_SetWidgets (wind->Handle, -1);
@@ -625,7 +622,7 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 	typeof(vrt_cpyfm) * cpyfm = vrt_cpyfm;
 	int                 mode  = MD_TRANS;
 	
-	WmHints * hints = PropValue (wind,
+	WmHints * hints = PropValue (wind->Properties,
 	                             XA_WM_HINTS, XA_WM_HINTS, sizeof(WmHints));
 	if (hints && hints->icon_pixmap) {
 		PIXMAP * pmap = PmapFind (hints->icon_pixmap);
@@ -930,7 +927,8 @@ WmgrMessage (short * msg)
 		case WM_CLOSED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			CLIENT * clnt = ClntFind (wind->Id);
 			if (clnt) {
-				if (PropHasAtom (wind, WM_PROTOCOLS, WM_DELETE_WINDOW)) {
+				if (PropHasAtom (wind->Properties,
+				                 WM_PROTOCOLS, WM_DELETE_WINDOW)) {
 					Atom data[5] = { WM_DELETE_WINDOW };
 					EvntClientMsg (clnt, wind->Id, WM_PROTOCOLS, 32, data);
 				} else {
@@ -976,9 +974,8 @@ WmgrMessage (short * msg)
 			break;
 		
 		case WM_ICONIFY: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
-			char * title = PropValue (wind, XA_WM_ICON_NAME, XA_STRING, 1);
-			if (title) {
-				wind_set_str (wind->Handle, WF_NAME, title);
+			if (wind->Properties && wind->Properties->WindName) {
+				wind_set_str (wind->Handle, WF_NAME, wind->Properties->WindName);
 			}
 			if (msg[3] == WMGR_Focus) {
 				WMGR_Focus = 0;
@@ -1036,7 +1033,7 @@ WmgrButton (void)
 		int         ch, cv,  wh, wv,  mx, my;
 		int         ml = 0, mu = 0, mr = WIND_Root.Rect.w, md = WIND_Root.Rect.h;
 		
-		SizeHints * s_hints = PropValue (wind,
+		SizeHints * s_hints = PropValue (wind->Properties,
 		                                 XA_WM_NORMAL_HINTS, XA_WM_SIZE_HINTS,
 		                                 4/*sizeof(SizeHints)*/);
 		if (s_hints) {

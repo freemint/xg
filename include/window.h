@@ -18,7 +18,8 @@
 #define ROOT_DEPTH   1
 
 
-typedef struct s_BTNGRAB * p_BTNGRAB;
+typedef struct s_BTNGRAB    * p_BTNGRAB;
+typedef struct s_PROPERTIES * p_PROPERTIES;
 
 typedef struct {
 	CARD32   Mask;
@@ -51,29 +52,29 @@ typedef struct s_WINDOW {
 	
 	CARD16 nSelections:12;
 	
-	CARD32     BorderPixel;
+	CARD32       BorderPixel;
 	union {
-		CARD32   Pixel;
-		p_PIXMAP Pixmap;
-	}          Back;
+		CARD32      Pixel;
+		p_PIXMAP    Pixmap;
+	}            Back;
 	
-	CARD32     PropagateMask; // reverted do-not-propagate-mask
+	CARD32       PropagateMask; // reverted do-not-propagate-mask
 	union {
-		WINDEVNT  Event; // Mask >= 0: use this
+		WINDEVNT    Event; // Mask >= 0: use this
 		struct {
-			long     AllMasks;   // in both cases, holds all ORed event masks
+			long       AllMasks;   // in both cases, holds all ORed event masks
 			struct {
-				        CARD16   Length;
-				        WINDEVNT Event[1];
-			} *      p;
-		}         List; // AllMasks must be < 0
-	}          u;
-	p_BTNGRAB  ButtonGrab;
-	p_WINDOW   Parent;
-	p_WINDOW   PrevSibl, NextSibl;
-	p_WINDOW   StackBot, StackTop;
-	p_CURSOR   Cursor;
-	p_PROPERTY Properties;
+				          CARD16   Length;
+				          WINDEVNT Event[1];
+			} *        p;
+		}           List; // AllMasks must be < 0
+	}            u;
+	p_BTNGRAB    ButtonGrab;
+	p_WINDOW     Parent;
+	p_WINDOW     PrevSibl, NextSibl;
+	p_WINDOW     StackBot, StackTop;
+	p_CURSOR     Cursor;
+	p_PROPERTIES Properties;
 } WINDOW;
 
 extern WINDOW WIND_Root;
