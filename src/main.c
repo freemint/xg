@@ -52,9 +52,9 @@ static EVMULTI_OUT ev_o;
 long MAIN_FDSET_wr = 0L;
 long MAIN_FDSET_rd = 0L;
 
+PXY  * MAIN_PointerPos = &ev_o.evo_mouse;
 CARD32 MAIN_TimeStamp  = 0;
 CARD16 MAIN_KeyButMask = 0;
-PXY  * MAIN_PointerPos = &ev_o.evo_mouse;
 
 short _MAIN_Mctrl = 0;
 short _MAIN_Wupdt = 0;
@@ -184,8 +184,8 @@ main (int argc, char * argv[])
 				}
 				
 				if (event & MU_BUTTON) {
-					CARD16 prev_mask          = MAIN_KeyButMask & 0xFF00;;
-					*(CARD8*)&MAIN_KeyButMask = PntrMap(ev_o.evo_mbutton) >>8;
+					CARD16 prev_mask = MAIN_KeyButMask & 0xFF00;
+					MAIN_But_Mask    = PntrMap(ev_o.evo_mbutton) >>8;
 					if (ev_o.evo_mbutton) {
 						if (!prev_mask) WindMctrl (xTrue);
 						ev_i.evi_bclicks = 0x0101;
@@ -199,7 +199,7 @@ main (int argc, char * argv[])
 						if (!ev_o.evo_mbutton) {
 							WindMctrl (xFalse);
 						}
-						*(CARD8*)&MAIN_KeyButMask = PntrMap(ev_o.evo_mbutton) >>8;
+						MAIN_But_Mask = PntrMap(ev_o.evo_mbutton) >>8;
 						meta = (*kb_shift & (K_RSHIFT|K_LSHIFT|K_LOCK|K_CTRL|K_ALT))
 				           | (*kb_shift & K_ALTGR ? 0x20 : 0);
 						if (meta != KYBD_PrvMeta

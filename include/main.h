@@ -59,7 +59,9 @@ struct s_CURSOR;     typedef struct s_CURSOR   * p_CURSOR;
 
 extern CONST CARD32 MAIN_TimeStamp;
 extern CONST p_PXY  MAIN_PointerPos;
-extern       CARD16 MAIN_KeyButMask;
+extern CONST CARD16 MAIN_KeyButMask;
+#define             MAIN_Key_Mask (((CARD8*)&MAIN_KeyButMask)[1])
+#define             MAIN_But_Mask (((CARD8*)&MAIN_KeyButMask)[0])
 
 extern long MAIN_FDSET_wr, MAIN_FDSET_rd;
 

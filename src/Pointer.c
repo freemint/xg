@@ -65,7 +65,7 @@ RQ_SetPointerMapping (CLIENT * clnt, xSetPointerMappingReq * q)
 	
 		ClntReplyPtr (SetPointerMapping, r);
 		
-		if (MAIN_KeyButMask & 0xFF00) {
+		if (MAIN_But_Mask) {
 			DEBUG (SetPointerMapping," ignored %i,%i,%i.", but[0], but[1], but[2]);
 			r->success = MappingBusy;
 			ClntReply (SetPointerMapping,,NULL);

@@ -212,7 +212,7 @@ WindButton (CARD16 prev_mask, int count)
 		if (butt_p) {
 			CLIENT * clnt;
 			#define MASK (ButtonPressMask|ButtonReleaseMask)
-			if (!_Wind_PgrabMatch (wind, butt_p, MAIN_KeyButMask & 0xFF)
+			if (!_Wind_PgrabMatch (wind, butt_p, MAIN_Key_Mask)
 			    &&  (wind->u.List.AllMasks & MASK) == MASK
 			    &&  (clnt = EvntClient (wind, MASK))) {
 				_Wind_PgrabSet (clnt, wind, NULL,
