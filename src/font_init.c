@@ -9,6 +9,7 @@
 //==============================================================================
 //
 #include "font_P.h"
+#include "wmgr.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -153,15 +154,15 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 	short dist[5], width, minADE, maxADE, dmy[3];
 	
 	vqt_fontinfo (GRPH_Vdi, &minADE, &maxADE, dist, &width, dmy);
-	face->HalfLine = dist[2];
-	face->Ascent   = dist[4] +1;
-	face->MaxAsc   = dist[3];
-	face->MinAsc   = dist[2];
-	face->Descent  = dist[0];
-	face->MaxDesc  = dist[1];
-	face->MinDesc  = 0;
-	face->MinChr   = minADE;
-	face->MaxChr   = maxADE;
+	face->HalfLine =  dist[2];
+	face->Ascent   =  dist[4];
+	face->MaxAsc   =  dist[3];
+	face->MinAsc   =  dist[2];
+	face->Descent  = (dist[0] ? dist[0] +1 : 0);
+	face->MaxDesc  = (dist[1] ? dist[1] +1 : 0);
+	face->MinDesc  =  0;
+	face->MinChr   =  minADE;
+	face->MaxChr   =  maxADE;
 	vqt_width (GRPH_Vdi, '.', &dist[0], &dist[1], &dist[2]);
 	face->MinWidth = dist[0] - dist[1] - dist[2];
 	face->MinLftBr = dist[1];
@@ -178,9 +179,67 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 		face->MaxRgtBr = dist[0] - dist[2];
 	}
 	face->MinAttr = face->MaxAttr = 0;
+	
+	if ((!face->Type || face->Type >= 2) &&
+	    (face->HalfLine >= face->Ascent || face->MaxDesc > face->Ascent /2)) {
+		short hgt      = face->Ascent + face->Descent;
+		short size     = hgt * GRPH_Depth;
+		long  buf[size < 15 ? 15 : size];
+		MFDB  mfdb     = { buf, 32, hgt, 2, 0, 1, 0,0,0 };
+		short hdl      = GRPH_Handle;
+		short w_in[20] = { 1, 0,0, 0,0, face->Index,G_BLACK, 0,0,0, 2,
+		                   31,hgt -1, GRPH_muWidth, GRPH_muHeight, 0,0,0,0,0 };
+		
+		v_opnbm (w_in, &mfdb, &hdl, (short*)buf);
+		if (hdl > 0) {
+			short pxy[4] = { 0, 0, 31, hgt -1 };
+			PXY   p      = { 14, 0 };
+			
+			vs_clip       (hdl, 1, pxy);
+			vswr_mode     (hdl, MD_TRANS);
+			vst_alignment (hdl, 1, 5, pxy, pxy);
+			if (!face->Type) {
+				vst_height (hdl, face->Height, pxy, pxy, pxy, pxy);
+				vst_width  (hdl, face->Width,  pxy, pxy, pxy, pxy);
+			} else {
+				vst_point  (hdl, face->Points, pxy, pxy, pxy, pxy);
+			}
+			memset (buf, 0, sizeof(long) * hgt);
+			
+			if (face->MaxDesc > face->Ascent /2) {
+				short txt[] = {'g','p','q','y'};
+				short i     = sizeof(txt) /2;
+				while (--i) v_gtext_arr (hdl, &p, 1, &txt[i]);
+				i = hgt;
+				while (--i && !buf[i]);
+				face->MaxDesc = i - face->Ascent +1;
+			}
+			if (face->HalfLine >= face->Ascent) {
+				short txt[] = {'a','c','e','m','n','o','r','s','u','v','w','x','z'};
+				short i     = sizeof(txt) /2;
+				while (--i) v_gtext_arr (hdl, &p, 1, &txt[i]);
+				i = -1;
+				while (++i < hgt && !buf[i]);
+				face->HalfLine = face->MinAsc = face->Ascent - i;
+			}
+			if (face->MaxAsc >= face->Ascent) {
+				short txt[] = {'T'};
+				short i     = 0;
+				v_gtext_arr (hdl, &p, 1, &txt[0]);
+				while (++i < hgt && !buf[i]);
+				face->MaxAsc = face->Ascent - i;
+			}
+			v_clsbm (hdl);
+		}
+	}
 }
 
 //==============================================================================
+
+//>>>>>>>>>> TEMPORARY >>>>>>>>>>
+BOOL FONT_Obsolete = xFalse;
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 void
 FontInit (short count)
 {
@@ -251,6 +310,15 @@ FontInit (short count)
 	         || !(f_db = fopen ("/var/lib/Xapp/fonts.db", "r"))))) {
 		printf ("  \33pERROR\33q: Can't acess /var/lib/.\n");
 		return;
+		
+	} else {
+		int major, minor, tiny;
+		if (!fgets (buf, sizeof(buf), f_db)
+		    || sscanf (buf, "# fonts.db; %i.%i.%i ", &major, &minor, &tiny) != 3
+		    || minor < 6 || (minor == 6  &&  tiny < 3)) {
+			fclose (f_db);
+			f_db = NULL;
+		}
 	}
 	if (f_db) {
 		FONTFACE * face = NULL, ** fptr = NULL;
@@ -331,8 +399,10 @@ FontInit (short count)
 	
 	/*--- scan VDI fonts ---*/
 	
-	f_db = fopen ("/var/lib/Xapp/fonts.db", "w");
-	
+	if ((f_db = fopen ("/var/lib/Xapp/fonts.db", "w"))) {
+		extern const char * GLBL_Version;
+		fprintf (f_db, "# fonts.db; %s\n", GLBL_Version);
+	}
 	printf ("  loaded %i font%s\n", count, (count == 1 ? "" : "s"));
 	for (i = 1; i <= count; i++) {
 		struct FONT_DB * db = font_db;
@@ -348,7 +418,7 @@ FontInit (short count)
 		unsigned      resx = 72, resy = 72;
 		BOOL          isMono, isSymbol;
 		const short * cset = NULL;
-		char        * code = NULL;
+		BOOL          latn = xFalse;
 		char        * p;
 		short         type, dmy;
 		
@@ -368,9 +438,24 @@ FontInit (short count)
 		}
 		
 		if (!isSymbol) {
-			if (info.format == 1  && (p = strchr (info.font_name, 'Ý'))) {
-				*p   = '\0';
-				code = p +1;
+
+//>>>>>>>>>> TEMPORARY >>>>>>>>>>
+			if (info.format == 1
+			    && (p = strchr (info.font_name, 'Ý')) && p != info.font_name) {
+				if (!FONT_Obsolete) {
+					printf ("\n  **********\n  *\n  * obsolete font: ");
+				} else {
+					printf ("  *                ");
+				}
+				printf ("% 5i '%s'\n", info.id, info.font_name);
+				FONT_Obsolete = xTrue;
+				continue;
+			}
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+			if (info.format == 1
+			    &&  info.font_name[0] =='Ý'&&  info.font_name[1] =='-') {
+				latn = xTrue;
 				cset = _FONT_ExtLatin;
 			} else {
 				cset = _FONT_TosLatin;
@@ -462,33 +547,53 @@ FontInit (short count)
 				case 12: setw = "Expanded";      break;
 			}
 			
-		} else if (code) {
-			switch (*code) {
-				case 'M': fndr = "Misc"; break;
-			}
-			if (*code) switch (*(++code)) {
-				case 'F': fmly = "Fixed"; break;
-			}
-			if (*code) switch (*(++code)) {
-				case 'M': wght = "Medium"; break;
-				case 'B': wght = "Bold"; break;
-			}
-			if (*code) {
-				slnt[0] = *(++code);
-			}
-			if (*code) switch (*(++code)) {
-				case 'C': setw = "Condensed";     break;
-				case 'c': setw = "SemiCondensed"; break;
-				case 'N': setw = "Normal";        break;
-				case 'e': setw = "SemiExpanded";  break;
-				case 'E': setw = "Expanded";      break;
-			}
-			if (*code) {
-				++code; // astl
-			}
-			if (*code) {
-				spcg[0] = *(++code);
-			}
+		} else if (latn) {
+			do {
+				fndr = info.font_name +2;
+				if (!(p = strchr (fndr, '-'))) break;
+				*(p++) = '\0';
+				fmly   = p;
+				if (!(p = strchr (fmly, '-'))) break;
+				*p = '\0';
+				if (!*(++p)) break;
+				if (*p && *p != '-') switch (*(p++)) {
+					case 'M': wght = "Medium"; break;
+					case 'B': wght = "Bold";   break;
+				}
+				if (*(p++) != '-') break;
+				switch (*p) {
+					case 'R':
+					case 'I': slnt[0] = *(p++); break;
+				}
+				if (*(p++) != '-') break;
+				if (*p && *p != '-') switch (*(p++)) {
+					case 'C': setw = "Condensed";     break;
+					case 'c': setw = "SemiCondensed"; break;
+					case 'N': setw = "Normal";        break;
+					case 'e': setw = "SemiExpanded";  break;
+					case 'E': setw = "Expanded";      break;
+				}
+				if (*(p++) != '-') break;
+				if (*p != '-') {
+					p++;   // AddStyle
+				}
+				if (*(p++) != '-') break;
+				switch (*p) {
+					case 'C':
+					case 'P':
+					case 'M': spcg[0] = *(p++); break;
+				}
+				if (*(p++) != '-') break;
+				if (*p && *p != '-') switch (*(p++)) {
+					case 'I': creg = "ISO8859";                   break;
+					case '!': creg = fndr; cenc = "FONTSPECIFIC"; break;
+				}
+				if (*(p++) != '-') break;
+				switch (*p) {
+					case '1'...'9': cenc = p++; *p = '\0'; break;
+					case 'F':       cenc = "FONTSPECIFIC"; break;
+				}
+			} while(0);
 			resx = 75;
 			resy = 75;
 			
@@ -559,12 +664,28 @@ FontInit (short count)
 				face->Points  = info.pt_sizes[j];
 				face->Height  = pxsz;
 				face->Width   = wdth;
+				if (face->Type == 4) {
+					// For determineing TrueType, finish the startup intro and
+					// unlock the screen to avoid NVDI producing a deadlock while
+					// possible reporting damaged fonts in console window.
+					//
+					WmgrIntro (xFalse);
+					graf_mouse (BUSYBEE, NULL);
+				}
 				_Font_Bounds (face, (spcg[0] != 'P'));
 				if (f_db) _save_face (f_db, face);
 				list = &face->Next;
 			}
 		}
 	}
+//>>>>>>>>>> TEMPORARY >>>>>>>>>>
+	if (FONT_Obsolete) {
+		printf ("  *\n  * Please upate the Latin1-encoded Font Package from:\n");
+		printf ("  *      http://freemint.de/X11/gdos-X-fonts-02.tgz\n");
+		printf ("  * (or newer version)\n  *\n  **********\n\n");
+	}
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+	
 	if (f_db) fclose (f_db);
 	
 	while (font_db) {
