@@ -6,7 +6,7 @@
 // identify  properties,  types and selections, without the need of sending the
 // much more time consumpting string names instead.
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-07 - Module released for beta state.
 // 2000-06-18 - Initial Version.
