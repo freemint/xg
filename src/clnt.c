@@ -309,7 +309,7 @@ ClntSelect (long rd_set, long wr_set)
 		}
 		if (wr_set & mask) {
 			long n = Foutstat (CLNT_Requestor->Fd);
-			if (n < 0 || n > 8192) {
+			if (n < 0) {
 				longjmp (CLNT_Error, 1);
 			} else {
 				NETBUF * buf = &CLNT_Requestor->oBuf;
