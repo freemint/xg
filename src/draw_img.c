@@ -387,7 +387,7 @@ return;
 					if (!nExp && !(action & (CPsrcP|CPsrcW))) {
 						//
 						// no intersections found and due to no source regions to be
-						// handled no further actions are necessary
+						// handled, so no further actions are necessary
 						//
 						action = 0x00;
 					}
@@ -448,8 +448,8 @@ return;
 				if (action == (CPsrcP|CPdstW)) {
 					WindPutImg (dst_d.Window, gc, rect, PmapMFDB(src_d.Pixmap),
 					            orig, sect, nSct);
-					debug = xFalse;
 				}
+				debug = xFalse;
 			
 			} else { // destination is pixmap
 				
