@@ -253,8 +253,25 @@ RQ_PutImage (CLIENT * clnt, xPutImageReq * q)
 void
 RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
 {
-	PRINT (- X_GetImage," D:%lX [%i,%i/%u,%u] form=%i mask=%lu",
-	       q->drawable, q->x,q->y, q->width, q->height, q->format, q->planeMask);
+	//
+	// fully faked atm
+	//
+	
+	p_DRAWABLE draw = DrawFind(q->drawable);
+	
+	ClntReplyPtr (GetImage, r);
+	
+	size_t size = (q->width * draw.p->Depth +7) /8 * q->height;
+	
+	PRINT (- X_GetImage,
+	       " D:%lX [%i,%i/%u,%u] form=%i mask=%lX -> dpth = %i size = %lu",
+	       q->drawable, q->x,q->y, q->width, q->height, q->format, q->planeMask,
+	       draw.p->Depth, size);
+	
+	r->depth  = draw.p->Depth;
+	r->visual = DFLT_VISUAL;
+	
+	ClntReply (GetImage, size, NULL);
 }
 
 
@@ -275,11 +292,11 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 	} else if (!gc) {
 		Bad(GC, q->gc, CopyArea,);
 	
-	} else if (src_d.p->Depth != dst_d.p->Depth) {
-		Bad(Match,, CopyArea,"(%c:%X,%c:%x):\n           depth %u != %u.",
-		            (src_d.p->isWind ? 'W' : 'P'), src_d.p->Id,
-		            (dst_d.p->isWind ? 'W' : 'P'), dst_d.p->Id,
-		            src_d.p->Depth, dst_d.p->Depth);
+//	} else if (src_d.p->Depth != dst_d.p->Depth) {
+//		Bad(Match,, CopyArea,"(%c:%X,%c:%X):\n           depth %u != %u.",
+//		            (src_d.p->isWind ? 'W' : 'P'), src_d.p->Id,
+//		            (dst_d.p->isWind ? 'W' : 'P'), dst_d.p->Id,
+//		            src_d.p->Depth, dst_d.p->Depth);
 	
 	} else {
 		BOOL debug = xTrue;
@@ -411,17 +428,18 @@ RQ_CopyPlane (CLIENT * clnt, xCopyPlaneReq * q)
 			}
 			
 		}
-		// Hacking: GraphicsExposure should be generated if necessary instead!
-		//
-		if (gc->GraphExpos) {
-			EvntNoExposure (clnt, dst_d.p->Id, X_CopyPlane);
-		}
 		if (debug) {
 			PRINT (- X_CopyPlane," #%i(0x%lx)"
 			       " G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX %i,%i",
 			       plane, q->bitPlane, q->gc, (src_d.p->isWind ? 'W' : 'P'),
 			       q->srcDrawable, q->srcX, q->srcY, q->width, q->height,
 			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable, q->dstX, q->dstY);
+		}
+		/*
+		 *  Hacking: GraphicsExposure should be generated if necessary instead!
+		 */
+		if (gc->GraphExpos) {
+			EvntNoExposure (clnt, dst_d.p->Id, X_CopyPlane);
 		}
 	}
 }
