@@ -104,7 +104,7 @@ static struct {
 	char     Name[6];
 } _FONT_Cursor = {
 	{	NULL, NULL, 1, 0x00, 0, xTrue, xTrue, 10,
-		16,16,  0,16, 16, 16,0, 0,0l,  0,16, 16, 16,0, 0,
+		16,16,  0,16, 16, 16,0, 0, 8, 0l,  0,16, 16, 16,0, 0,
 		0, 153, 16,0,  NULL,  6,{'c'} },
 	{	"ursor" }
 };
@@ -119,9 +119,9 @@ _save_face (FILE * file, FONTFACE * face)
 {
 	fputs (face->Name, file);
 	fputs ("\n",       file);
-	fprintf (file, "   %i, %i,%i   %i,%i   %i,%i"
+	fprintf (file, "   %i, %i,%i, %i   %i,%i   %i,%i"
 	         "   %i, %i,%i, %i,%i   %i, %i,%i, %i,%i\n",
-	         face->Points, face->Width, face->Height,
+	         face->Points, face->Width, face->Height, face->HalfLine,
 	         face->MinChr, face->MaxChr, face->Ascent, face->Descent,
 	         face->MinWidth, face->MinAsc, face->MinDesc,
 	         face->MinLftBr, face->MinRgtBr,
@@ -153,14 +153,15 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 	short dist[5], width, minADE, maxADE, dmy[3];
 	
 	vqt_fontinfo (GRPH_Vdi, &minADE, &maxADE, dist, &width, dmy);
-	face->Ascent  = dist[4];
-	face->MaxAsc  = dist[3];
-	face->MinAsc  = dist[2];
-	face->Descent = dist[0];
-	face->MaxDesc = dist[1];
-	face->MinDesc = 0;
-	face->MinChr  = minADE;
-	face->MaxChr  = maxADE;
+	face->HalfLine = dist[2];
+	face->Ascent   = dist[4] +1;
+	face->MaxAsc   = dist[3];
+	face->MinAsc   = dist[2];
+	face->Descent  = dist[0];
+	face->MaxDesc  = dist[1];
+	face->MinDesc  = 0;
+	face->MinChr   = minADE;
+	face->MaxChr   = maxADE;
 	vqt_width (GRPH_Vdi, '.', &dist[0], &dist[1], &dist[2]);
 	face->MinWidth = dist[0] - dist[1] - dist[2];
 	face->MinLftBr = dist[1];
@@ -299,15 +300,15 @@ FontInit (short count)
 				puts("D");
 				break;
 			
-			} else if (sscanf (buf, "%i, %hi,%hi %hi,%hi %hi,%hi"
+			} else if (sscanf (buf, "%i, %hi,%hi, %hi  %hi,%hi %hi,%hi"
 			                   "%hi, %hi,%hi, %hi,%hi %hi, %hi,%hi, %hi,%hi",
-					             &i, &face->Width, &face->Height,
+					             &i, &face->Width, &face->Height, &face->HalfLine,
 					             &face->MinChr, &face->MaxChr,
 					             &face->Ascent, &face->Descent,
 					             &face->MinWidth, &face->MinAsc, &face->MinDesc,
 					             &face->MinLftBr, &face->MinRgtBr,
 					             &face->MaxWidth, &face->MaxAsc, &face->MaxDesc,
-					             &face->MaxLftBr, &face->MaxRgtBr) == 17) {
+					             &face->MaxLftBr, &face->MaxRgtBr) == 18) {
 				face->CharSet = NULL;
 				face->Index   = font_db->id;
 				face->Effects = 0;

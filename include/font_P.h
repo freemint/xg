@@ -39,7 +39,8 @@ typedef struct s_FONTFACE {
 	short MinWidth;
 	short MinAsc, MinDesc;
 	short MinAttr;   // unused
-	long  _pad1;
+	short _pad1;
+	short HalfLine;
 	// max-bounds
 	short MaxLftBr, MaxRgtBr;
 	short MaxWidth;

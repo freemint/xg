@@ -20,6 +20,30 @@
 #include <X11/X.h>
 
 
+static CARD8 _FONT_AscDesc[256] = { // ISO-coded
+#	define SET(a,b,c,d,e,f,g,h, i,j,k,l,m,n,o,p) \
+				0x##a, 0x##b, 0x##c, 0x##d, 0x##e, 0x##f, 0x##g, 0x##h, \
+				0x##i, 0x##j, 0x##k, 0x##l, 0x##m, 0x##n, 0x##o, 0x##p
+	SET ( 1, 1, 1, 1, 1, 1, 1,34, 32, 1, 1, 1, 1, 1, 1, 1),
+	SET ( 1, 1, 1, 1, 1, 1, 1, 1,  1,31,31,31,21, 1,31,23),
+	SET (31,31,34,32,31,31,31,34, 31,31,22,22,10,23,11,31),
+	SET (31,31,31,31,31,31,31,31, 31,31,21,20,31,22,31,31),
+	SET (31,31,31,31,31,31,31,31, 31,31,31,31,31,31,31,31),
+	SET (31,31,31,31,31,31,31,31, 31,31,31,31,31,31,34,00),
+	SET (34,21,31,21,31,21,31,20, 31,31,30,31,31,21,21,21),
+	SET (20,20,21,21,31,21,21,21, 21,20,21,31,31,31,34,21),
+	SET (21,30,31,21,31,31,20,21, 31,31,31,31,31,31,31,31),
+	SET (32,23,31,31,30,40, 1,22, 21,31,11,31,32, 1,30,33),
+	SET (31,31,21,31,32,31,31,31, 44,31,32,31,23,23,31,34),
+	SET (34,32,33,33,34,20,31,23, 00,33,33,31,31,31,31,31),
+	SET (41,41,41,41,41,41,31,30, 41,41,41,41,41,41,41,41),
+	SET (31,41,41,41,41,41,41,32, 31,41,41,41,41,41,31,30),
+	SET (41,41,41,41,41,41,21,20, 41,41,41,41,41,41,41,41),
+	SET (31,41,41,41,41,41,41,21, 21,41,41,41,41,40,30,40)
+#	undef SET
+};
+
+
 //==============================================================================
 void
 FontDelete (p_FONT font, p_CLIENT clnt)
@@ -354,8 +378,10 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 	
 	} else { //..................................................................
 	
-		FONTFACE * face = font->FontFace;
-		size_t     size = 0;
+		FONTFACE *  face = font->FontFace;
+		size_t      size = 0;
+		xCharInfo * info;
+		short       asc[5], desc[5];
 		ClntReplyPtr (QueryFont, r);
 		
 		PRINT (QueryFont," F:%lX", q->id);
@@ -387,42 +413,67 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 				a++;
 			}
 		}
-		if (face->isMono) {
-			r->nCharInfos  = 0;
+		info          =  (xCharInfo*)((char*)(r +1) + size);
+		r->nCharInfos =  face->MaxChr - face->MinChr +1;
+		size          += r->nCharInfos * sizeof(xCharInfo);
+		if (face->isSymbol) {
+			asc[0]  = asc[1]  = asc[2]  = asc[3]  = asc[4]  = face->MaxAsc;
+			desc[0] = desc[1] = desc[2] = desc[3] = desc[4] = face->MaxDesc;
 		} else {
-			xCharInfo * info = (xCharInfo*)((char*)(r +1) + size);
-			r->nCharInfos    = face->MaxChr - face->MinChr +1;
-			size += r->nCharInfos * sizeof(xCharInfo);
-			if (face->CharInfos) {
-				memcpy (info, face->CharInfos, size);
-			} else {
-				xCharInfo * p = info;
-				short c, ld, rd, w;
-				vst_font    (GRPH_Vdi, face->Index);
-				vst_effects (GRPH_Vdi, face->Effects);
-				vst_point   (GRPH_Vdi, face->Points, &c, &c, &c, &c);
-				for (c = face->MinChr; c <= face->MaxChr; ++c) {
-					vqt_width (GRPH_Vdi, (face->CharSet ? face->CharSet[c] : c),
-					           &w, &ld, &rd);
-					p->leftSideBearing  = ld;
-					p->rightSideBearing = w - rd;
-					p->characterWidth   = w;
-					p->ascent           = face->MaxAsc;
-					p->descent          = face->MaxDesc;
-					p->attributes       = 0;
-					p++;
-				}
-				if ((face->CharInfos = malloc (size))) {
-					memcpy (face->CharInfos, info, size);
-				}
+			asc[0] = 0;
+			asc[1] = face->HalfLine /3;
+			asc[2] = face->HalfLine;
+			asc[3] = face->MaxAsc;
+			asc[4] = face->Ascent;
+			desc[0] = face->MaxDesc;
+			desc[1] = 0;
+			desc[2] = -(face->HalfLine /3);
+			desc[3] = -((face->HalfLine +1) /2);
+			desc[4] = -face->HalfLine;
+		}
+		if (face->isMono) {
+			xCharInfo * p = info;
+			short c;
+			for (c = face->MinChr; c <= face->MaxChr; c++) {
+				p->leftSideBearing  = face->MaxLftBr;
+				p->rightSideBearing = face->MaxRgtBr;
+				p->characterWidth   = face->MaxWidth;
+				p->ascent           = asc [_FONT_AscDesc[c] >> 4];
+				p->descent          = desc[_FONT_AscDesc[c] &  0x0F];
+				p->attributes       = 0;
+				p++;
 			}
-			if (clnt->DoSwap) {
-				short * p = (short*)info;
-				int     n = size /2;
-				while (n--) {
-					*p = Swap16(*p);
-					p++;
-				}
+		
+		} else if (face->CharInfos) {
+			memcpy (info, face->CharInfos, size);
+		
+		} else {
+			xCharInfo * p = info;
+			short c, ld, rd, w;
+			vst_font    (GRPH_Vdi, face->Index);
+			vst_effects (GRPH_Vdi, face->Effects);
+			vst_point   (GRPH_Vdi, face->Points, &c, &c, &c, &c);
+			for (c = face->MinChr; c <= face->MaxChr; ++c) {
+				vqt_width (GRPH_Vdi, (face->CharSet ? face->CharSet[c] : c),
+				           &w, &ld, &rd);
+				p->leftSideBearing  = ld;
+				p->rightSideBearing = w - rd;
+				p->characterWidth   = w;
+				p->ascent           = face->MaxAsc;
+				p->descent          = face->MaxDesc;
+				p->attributes       = 0;
+				p++;
+			}
+			if ((face->CharInfos = malloc (size))) {
+				memcpy (face->CharInfos, info, size);
+			}
+		}
+		if (clnt->DoSwap) {
+			short * p = (short*)info;
+			int     n = size /2;
+			while (n--) {
+				*p = Swap16(*p);
+				p++;
 			}
 		}
 		
