@@ -84,7 +84,7 @@ main (int argc, char * argv[])
 		
 		printf ("EEKS %s X Server starting ...\n", GLBL_Version);
 		
-		menu_register (ApplId(0), (char*)"  Eeks X11 Server");
+		menu_register (ApplId(0), (char*)"  X");
 		
 		if (SrvrInit (port) >= 0) {
 			CARD32 t_start  = clock() * (1000 / CLOCKS_PER_SEC);

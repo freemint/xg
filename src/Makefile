@@ -1,6 +1,6 @@
 WARN    = -Wall -Wpointer-arith -Wwrite-strings -Wmissing-prototypes -Wshadow \
           -Werror #-Wcast-qual
-CCOPTS  = -D_TRACE #-g -O2 -fstrength-reduce #-DNODEBUG
+CCOPTS  = -D_TRACE -g -O2 -fstrength-reduce #-DNODEBUG
 CCFLAGS = -funsigned-char -fomit-frame-pointer \
           -I. -I../include -I/usr/GEM/include \
           $(CCOPTS) $(WARN)
@@ -14,7 +14,7 @@ CXX = g++ #-pipe
 LD  = gcc -g
 AR  = ar rs
 
-PRG    = eeks.app
+PRG    = X.app
 OBJDIR = ../obj
 LIBS   = gem socket
 DEPEND = $(OBJDIR)/depends
@@ -54,17 +54,6 @@ $(OBJDIR):
 	@$(MAKE) $(DPND)
 	@echo "*** Make $(PRG) ***"
 
-
-package: ALL
-	cp eeks.app eeks-g.app
-	tar c eeks-g.app eeks.rsc | gzip -9 > ../`date +eeks%m%d-g.tgz` ;\
-	    \rm -f eeks-g.app &
-	strip eeks.app
-	tar c eeks.app eeks.rsc | gzip -9 > ../`date +eeks%m%d.tgz` &
-	@cd ../..;\
-	tar cv EEKS/include/*.h EEKS/obj/build\
-	    EEKS/src/Makefile EEKS/src/*.c EEKS/src/eeks.h EEKS/src/eeks.rsc\
-	| gzip -9 > EEKS/`date +eeks%m%d-src.tgz`
 
 clean: ; rm -f *.% *.[bB][aA][kK] ../include/*.%
 
