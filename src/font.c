@@ -97,13 +97,29 @@ FontLatin1_W (short * arr, const short * str, int len)
 }
 
 
+//------------------------------------------------------------------------------
+static FONTFACE *
+_Font_Match (const char * pattern, FONTFACE * start)
+{
+	FONTFACE * face = (start ? start->Next : _FONT_List);
+	
+	while (face) {
+		if (!fnmatch (pattern, face->Name, FNM_NOESCAPE|FNM_CASEFOLD)) {
+			break;
+		}
+		face = face->Next;
+	}
+	return face;
+}
+
+
 //==============================================================================
 //
 // Callback Functions
 
 #include "Request.h"
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_ListFonts (CLIENT * clnt, xListFontsReq * q)
 {
@@ -139,7 +155,7 @@ RQ_ListFonts (CLIENT * clnt, xListFontsReq * q)
 }
 
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 {
@@ -158,23 +174,27 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 	
 	} else { //..................................................................
 		
-		FONTFACE * face = _FONT_List;
+		FONTFACE * face;
 		FONT     * font;
 		unsigned   w, h;
 
 		PRINT (OpenFont," F:%lX '%.*s'", q->fid, q->nbytes, (char*)(q +1));
 		
 		patt[q->nbytes] = '\0';
-		while (face) {
-			if (!fnmatch (patt, face->Name, FNM_NOESCAPE|FNM_CASEFOLD)) {
-				break;
-			}
-			face = face->Next;
-		}
+		face = _Font_Match (patt, NULL);
+		
 		if (!face  &&  sscanf (patt, "%ux%u", &w, &h) == 2) {
-			FONTFACE ** prot = &_FONT_List;
-			while (*prot) {
-				if ((*prot)->Type >= 2  &&  (*prot)->isMono && !(*prot)->isSymbol) {
+			char buf[50] = "";
+			sprintf (buf, "*-%u-*-*-*-C-%u0-ISO8859-1", h, w);
+			face = _Font_Match (buf, NULL);
+			
+			if (!face) {
+				FONTFACE ** prot = &_FONT_List;
+				while (*prot && ((*prot)->Type < 2
+				       || !(*prot)->isMono || (*prot)->isSymbol)) {
+					prot = &(*prot)->Next;
+				}
+				if (*prot) {
 					int i, dmy[3];
 					face = _Font_Create (patt, q->nbytes, 0, xFalse, xTrue);
 					if (!face) {
@@ -184,7 +204,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 					face->Index   = (*prot)->Index;
 					face->Effects = 0;
 					face->Points  = 0;
-					vst_font   (GRPH_Vdi, face->Index);
+					vst_font (GRPH_Vdi, face->Index);
 					i = 0;
 					while (i < h) {
 						int c_h;
@@ -206,14 +226,10 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 						i++;
 					}
 					vst_width  (GRPH_Vdi, face->Width, dmy,dmy, &w,&h);
-					//face->MaxAsc  = dist[3] - dist[1];
-					//face->MinAsc  = dist[2] - dist[1];
 					_Font_Bounds (face, xTrue);
 					face->Next = *prot;
 					*prot      = face;
-					break;
 				}
-				prot = &(*prot)->Next;
 			}
 		}
 		if (!face && strcasecmp (patt, "cursor")) {
@@ -321,7 +337,7 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 }
 
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_QueryTextExtents (CLIENT * clnt, xQueryTextExtentsReq * q)
 {
