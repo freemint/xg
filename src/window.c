@@ -527,7 +527,7 @@ WindClrMapped (WINDOW * wind, BOOL by_conf)
 
 //------------------------------------------------------------------------------
 static void
-_Wind_Unmap (WINDOW * wind, BOOL ptr_check)
+_Wind_Unmap (WINDOW * wind, BOOL visible, BOOL ptr_check)
 {
 	BOOL saved = (wind->Id == _WIND_SaveUnder);
 	
@@ -536,7 +536,7 @@ _Wind_Unmap (WINDOW * wind, BOOL ptr_check)
 	
 	} else {
 		WindClrMapped (wind, xFalse);
-		if (WindVisible (wind->Parent)) {
+		if (visible) {
 			GRECT sect;
 			WindGeometry (wind, &sect, wind->BorderWidth);
 			if (!saved) {
@@ -1042,15 +1042,65 @@ RQ_UnmapWindow (CLIENT * clnt, xUnmapWindowReq * q)
 		
 		DEBUG (UnmapWindow," 0x%lX", q->id);
 		
-		_Wind_Unmap (wind, xTrue);
+		_Wind_Unmap (wind, WindVisible (wind->Parent), xTrue);
 	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_UnmapSubwindows (CLIENT * clnt, xUnmapSubwindowsReq * q)
 {
-	PRINT (- X_UnmapSubwindows," W:%lX", q->id);
+	// Unmap all mapped children of the window, in bottom-to-top stacking order.
+	//
+	// CARD32 id: window
+	//...........................................................................
+	
+	WINDOW * wind = WindFind (q->id);
+	
+	if (!wind) {
+		Bad(Window, q->id, UnmapSubwindows,);
+	
+	} else if (wind->StackBot) { //..............................................
+		
+		WINDOW * w    = wind->StackBot;
+		BOOL     vis  = WindVisible (wind);
+		GRECT    rect = { 0x7FFF, 0x7FFF, 0, 0 };
+		BOOL     root = (wind == &WIND_Root);
+		BOOL     draw = xFalse;
+		
+		PRINT (UnmapSubwindows," W:%lX", q->id);
+		
+		do if (w->isMapped) {
+			if (vis && (draw = !root)) {
+				GRECT work = w->Rect;
+				int   b    = w->BorderWidth;
+				if (b) {
+					work.x -= b;
+					work.y -= b;
+					b *= 2;
+					work.w += b;
+					work.h += b;
+				}
+				if (rect.x >  work.x)            rect.x = work.x;
+				if (rect.w < (work.w += work.x)) rect.w = work.w;
+				if (rect.y >  work.y)            rect.y = work.y;
+				if (rect.h < (work.h += work.y)) rect.h = work.h;
+			}
+			_Wind_Unmap (w, xFalse, xFalse);
+		} while ((w = w->NextSibl));
+		
+		if (vis) {
+			if (draw) {
+				PXY orig = WindOrigin (wind);
+				rect.w -= rect.x;
+				rect.x += orig.x;
+				rect.h -= rect.y;
+				rect.y += orig.y;
+				WindDrawSection (wind, &rect);
+			}
+			WindPointerWatch (xFalse);
+		}
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -1338,7 +1388,7 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 		PRINT (ReparentWindow," W:%lX for W:%lX", q->window, q->parent);
 		
 		if ((map = wind->isMapped)) {
-			_Wind_Unmap (wind, xFalse);
+			_Wind_Unmap (wind, WindVisible (wind->Parent), xFalse);
 		}
 		if (wind->Handle > 0) {
 			wind_delete (wind->Handle);
