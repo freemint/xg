@@ -238,10 +238,13 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 					WmgrClntUpdate (clnt, prop->Data);
 					break;
 				case XA_WM_NAME:
-					WmgrWindName (wind, prop->Data, xTrue);
+					WmgrWindName (wind, prop->Data, xFalse);
 					break;
 				case XA_WM_ICON_NAME:
-					WmgrWindName (wind, prop->Data, xFalse);
+					WmgrWindName (wind, prop->Data, xTrue);
+					break;
+				case XA_WM_HINTS:
+					WmgrWindIcon (wind);
 					break;
 			}
 			

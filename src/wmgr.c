@@ -610,12 +610,84 @@ WmgrWindUnmap (WINDOW * wind, BOOL destroy)
 	return (WMGR_OpenCounter > 0);
 }
 
+
+//------------------------------------------------------------------------------
+static void
+_Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
+{
+	GRECT  work, sect;
+	MFDB   screen = { NULL };
+	MFDB * icon   = &_WMGR_Icon;
+	MFDB * mask   = NULL;
+	short  pxy[8] = { 0, 0, };
+	short  col[3] = { G_BLACK, G_WHITE, 0 };
+	PXY    rec[2];
+	typeof(vrt_cpyfm) * cpyfm = vrt_cpyfm;
+	int                 mode  = MD_TRANS;
+	
+	WmHints * hints = PropValue (wind,
+	                             XA_WM_HINTS, XA_WM_HINTS, sizeof(WmHints));
+	if (hints && hints->icon_pixmap) {
+		PIXMAP * pmap = PmapFind (hints->icon_pixmap);
+		if (pmap) {
+			icon = PmapMFDB (pmap);
+			if (icon->fd_nplanes != 1) {
+				cpyfm = (typeof(vrt_cpyfm)*)vro_cpyfm;
+				mode  = S_OR_D;
+			}
+			if (hints->icon_mask
+			    && (pmap = PmapFind (hints->icon_mask)) && pmap->Depth == 1) {
+				mask = PmapMFDB (pmap);
+			}
+		}
+	}
+	WindUpdate (xTrue);
+	wind_get_work (wind->Handle, &work);
+	pxy[2] = icon->fd_w -1;
+	pxy[3] = icon->fd_h -1;
+	pxy[4] = work.x + ((work.w - icon->fd_w) /2);
+	pxy[5] = work.y + ((work.h - icon->fd_h) /2);
+	pxy[6] = pxy[4] + icon->fd_w -1;
+	pxy[7] = pxy[5] + icon->fd_h -1;
+	rec[1].x = (rec[0].x = work.x) + work.w -1;
+	rec[1].y = (rec[0].y = work.y) + work.h -1;
+	
+	if (!clip || GrphIntersect (&work, clip)) {
+		vswr_mode (GRPH_Vdi, MD_REPLACE);
+		vsf_color (GRPH_Vdi, G_LWHITE);
+		v_hide_c  (GRPH_Vdi);
+		wind_get_first (wind->Handle, &sect);
+		while (sect.w > 0  &&  sect.h > 0) {
+			if (GrphIntersect (&sect, &work)) {
+				vs_clip_r (GRPH_Vdi, &sect);
+				v_bar     (GRPH_Vdi, (short*)rec);
+				if (mask) vrt_cpyfm (GRPH_Vdi, MD_TRANS, pxy, mask, &screen, col +1);
+				(*cpyfm) (GRPH_Vdi, mode, pxy, icon, &screen, col);
+			}
+			wind_get_next (wind->Handle, &sect);
+		}
+		vs_clip_r (GRPH_Vdi, NULL);
+		v_show_c  (GRPH_Vdi, 1);
+	}
+	WindUpdate (xFalse);
+}
+
+
 //==============================================================================
 void
 WmgrWindName (WINDOW * wind, const char * name, BOOL windNicon)
 {
-	if (/*wind->isIcon !=*/ windNicon) {
+	if (wind->GwmIcon == windNicon) {
 		wind_set_str (wind->Handle, WF_NAME, (char*)name);
+	}
+}
+
+//==============================================================================
+void
+WmgrWindIcon (WINDOW * wind)
+{
+	if (wind->GwmIcon) {
+		_Wmgr_DrawIcon (wind, NULL);
 	}
 }
 
@@ -788,65 +860,6 @@ _Wmgr_WindByPointer (void)
 		wind = _Wmgr_WindByHandle (hdl);
 	}
 	return wind;
-}
-
-//------------------------------------------------------------------------------
-static void
-_Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
-{
-	GRECT  work, sect;
-	MFDB   screen = { NULL };
-	MFDB * icon   = &_WMGR_Icon;
-	MFDB * mask   = NULL;
-	short  pxy[8] = { 0, 0, };
-	short  col[3] = { G_BLACK, G_WHITE, 0 };
-	PXY    rec[2];
-	typeof(vrt_cpyfm) * cpyfm = vrt_cpyfm;
-	int                 mode  = MD_TRANS;
-	
-	WmHints * hints = PropValue (wind,
-	                             XA_WM_HINTS, XA_WM_HINTS, sizeof(WmHints));
-	if (hints && hints->icon_pixmap) {
-		PIXMAP * pmap = PmapFind (hints->icon_pixmap);
-		if (pmap) {
-			icon = PmapMFDB (pmap);
-			if (icon->fd_nplanes != 1) {
-				cpyfm = (typeof(vrt_cpyfm)*)vro_cpyfm;
-				mode  = S_OR_D;
-			}
-			if (hints->icon_mask
-			    && (pmap = PmapFind (hints->icon_mask)) && pmap->Depth == 1) {
-				mask = PmapMFDB (pmap);
-			}
-		}
-	}
-	WindUpdate (xTrue);
-	wind_get_work (wind->Handle, &work);
-	pxy[2] = icon->fd_w -1;
-	pxy[3] = icon->fd_h -1;
-	pxy[4] = work.x + ((work.w - icon->fd_w) /2);
-	pxy[5] = work.y + ((work.h - icon->fd_h) /2);
-	pxy[6] = pxy[4] + icon->fd_w -1;
-	pxy[7] = pxy[5] + icon->fd_h -1;
-	rec[1].x = (rec[0].x = work.x) + work.w -1;
-	rec[1].y = (rec[0].y = work.y) + work.h -1;
-	
-	vswr_mode (GRPH_Vdi, MD_REPLACE);
-	vsf_color (GRPH_Vdi, G_LWHITE);
-	v_hide_c  (GRPH_Vdi);
-	wind_get_first (wind->Handle, &sect);
-	while (sect.w > 0  &&  sect.h > 0) {
-		if (GrphIntersect (&sect, &work)) {
-			vs_clip_r (GRPH_Vdi, &sect);
-			v_bar     (GRPH_Vdi, (short*)rec);
-			if (mask) vrt_cpyfm (GRPH_Vdi, MD_TRANS, pxy, mask, &screen, col +1);
-			(*cpyfm) (GRPH_Vdi, mode, pxy, icon, &screen, col);
-		}
-		wind_get_next (wind->Handle, &sect);
-	}
-	vs_clip_r (GRPH_Vdi, NULL);
-	v_show_c  (GRPH_Vdi, 1);
-	WindUpdate (xFalse);
 }
 
 //==============================================================================
