@@ -481,19 +481,21 @@ draw_wind (WINDOW * wind, PRECT * work,
 		if (wind->hasBackGnd) {
 			nEvn = draw_bgnd (wind, orig, work, sect, nClp, exps);
 		
-		} else if (exps) do {
-			*exps = *(GRECT*)area;
-			if (GrphIntersectP ((PRECT*)exps, sect)) {
-				exps->w -= exps->x -1;
-				exps->h -= exps->y -1;
-				exps->x -= orig.x;
-				exps->y -= orig.y;
-				exps++;
-				nEvn++;
-			}
-			sect++;
-		} while (--nClp);
-		
+		} else if (exps) {
+			do {
+				*exps = *(GRECT*)area;
+				if (GrphIntersectP ((PRECT*)exps, sect)) {
+					exps->w -= exps->x -1;
+					exps->h -= exps->y -1;
+					exps->x -= orig.x;
+					exps->y -= orig.y;
+					exps++;
+					nEvn++;
+				}
+				sect++;
+			} while (--nClp);
+			exps -= nEvn;
+		}
 		if (nEvn && exps) EvntExpose (wind, nEvn, exps);
 	}
 	return (nEvn > 0);
