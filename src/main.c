@@ -150,10 +150,10 @@ main (int argc, char * argv[])
 				}
 				
 				if (event & MU_BUTTON) {
-					CARD16 prev_mask          = MAIN_KeyButMask;
+					CARD16 prev_mask          = MAIN_KeyButMask & 0xFF00;;
 					*(CARD8*)&MAIN_KeyButMask = PntrMap(ev_o.evo_mbutton) >>8;
 					if (ev_o.evo_mbutton) {
-						if (prev_mask) WindMctrl (xTrue);
+						if (!prev_mask) WindMctrl (xTrue);
 						ev_i.evi_bclicks = 0x0101;
 					} else {
 						WindMctrl (xFalse);
