@@ -9,7 +9,6 @@
 //==============================================================================
 //
 #include "font_P.h"
-#include "tools.h"
 #include "Atom.h"
 
 #include <stdlib.h>

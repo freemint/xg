@@ -27,6 +27,7 @@
 
 struct s_PXY;        typedef struct s_PXY      * p_PXY;
 struct s_GRECT;      typedef struct s_GRECT    * p_GRECT;
+struct s_PRECT;      typedef struct s_PRECT    * p_PRECT;
 
 struct s_GC;         typedef struct s_GC       * p_GC;
 struct s_FONt;       typedef struct s_FONT     * p_FONT;

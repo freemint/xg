@@ -17,12 +17,18 @@
 # endif
 
 
+typedef struct s_PRECT {
+	PXY lu;
+	PXY rd;
+} PRECT;
+
+
 BOOL GrphInit  (void);
 void GrphExit  (void);
 int  GrphSetup (void * format_arr);
 
 BOOL GrphIntersect  (p_GRECT a, const struct s_GRECT * b);
-BOOL GrphIntersectP (p_PXY   a, const struct s_PXY   * b);
+BOOL GrphIntersectP (p_PRECT a, const struct s_PRECT * b);
 
 
 extern CONST short GRPH_Handle;
