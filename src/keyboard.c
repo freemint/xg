@@ -44,6 +44,7 @@
 static KeyCode KYBD_Mod[8][2];
 static KeySym  KYBD_Map[140][4];
 static CARD8   KYBD_Set[256];
+static CARD8   KYBD_Rep[32];
 
 const CARD8 KYBD_CodeMin = KEYSYM_OFFS;
 CARD8       KYBD_CodeMax;
@@ -154,7 +155,8 @@ static KeySym Tos2Iso[256] = {
 static void
 set_sym (KeySym line[], int col, KeySym sym)
 {
-	line[col] = sym;
+	line += col;
+	*line = sym;
 	if (!(col & 1)) {
 		col = 4 - col;
 		while (--col > 0) *(++line) = NoSymbol;
@@ -426,10 +428,20 @@ KybdInit (void)
 		
 		// apply the default modifier and function keycodes
 		
-		{	static SCANTAB tab[] = {
-				{ KC_SHFT_L,0, 0,XK_Shift_L },   { KC_SHFT_R,0, 0,XK_Shift_R },
-				{ KC_LOCK,0,   0,XK_Caps_Lock }, { KC_CTRL,0,   0,XK_Control_L },
-				{ KC_ALT,0,    0,XK_Alt_L },     { KC_ALTGR,0,  0,XK_Mode_switch },
+		if (KYBD_Atari) {
+			static SCANTAB tab[] = {   { 113,2, 0,XK_End },
+			   { 99,2, 0,XK_Page_Up }, { 100,2, 0,XK_Page_Down } };
+			set_map (tab, numberof(tab));
+		
+		} else { // pc keyboard
+			static SCANTAB tab[] = {   { 79,0, 0,XK_End },
+			   { 73,0, 0,XK_Page_Up }, { 81,0, 0,XK_Page_Down } };
+			set_map (tab, numberof(tab));
+			if      (KYBD_Set['†']) KYBD_Lang = K_SWEDISH;
+			else if (KYBD_Set['‡']) KYBD_Lang = K_FRENCH;
+			else if (KYBD_Set['ž']) KYBD_Lang = K_GERMAN;
+		}
+		{	static SCANTAB fnc_tab[] = {
 				{ 59,0, 0,XK_F1  }, { 84,0, 0,XK_F11 },
 				{ 60,0, 0,XK_F2  }, { 85,0, 0,XK_F12 },
 				{ 61,0, 0,XK_F3  }, { 86,0, 0,XK_F13 },
@@ -444,20 +456,17 @@ KybdInit (void)
 				{ 72,0, 0,XK_Up },    { 75,0, 0,XK_Left },
 				{ 77,0, 0,XK_Right }, { 80,0, 0,XK_Down },
 				{ 97,0, 0,XK_Undo },  { 98,0, 0,XK_Help } };
-			set_map (tab, numberof(tab));
-		}
-		if (KYBD_Atari) {
-			static SCANTAB tab[] = {   { 113,2, 0,XK_End },
-			   { 99,2, 0,XK_Page_Up }, { 100,2, 0,XK_Page_Down } };
-			set_map (tab, numberof(tab));
-		
-		} else { // pc keyboard
-			static SCANTAB tab[] = {   { 79,0, 0,XK_End },
-			   { 73,0, 0,XK_Page_Up }, { 81,0, 0,XK_Page_Down } };
-			set_map (tab, numberof(tab));
-			if      (KYBD_Set['†']) KYBD_Lang = K_SWEDISH;
-			else if (KYBD_Set['‡']) KYBD_Lang = K_FRENCH;
-			else if (KYBD_Set['ž']) KYBD_Lang = K_GERMAN;
+			static SCANTAB mod_tab[] = {
+				{ KC_SHFT_L,0, 0,XK_Shift_L },   { KC_SHFT_R,0, 0,XK_Shift_R },
+				{ KC_LOCK,0,   0,XK_Caps_Lock }, { KC_CTRL,0,   0,XK_Control_L },
+				{ KC_ALT,0,    0,XK_Alt_L },     { KC_ALTGR,0,  0,XK_Mode_switch }};
+			set_map (fnc_tab, numberof(fnc_tab));
+			memset (KYBD_Rep, 0, sizeof(KYBD_Rep));
+			i = KYBD_CodeMax - KEYSYM_OFFS +1;
+			do if (KYBD_Map[i][0] != XK_VoidSymbol) {
+				KYBD_Rep[i /8 +1] |= 1 << (i & 0x07);
+			} while (--i);
+			set_map (mod_tab, numberof(mod_tab));
 		}
 		
 		// apply some additional keycodes
@@ -608,6 +617,42 @@ KybdEvent (CARD16 scan, CARD8 meta)
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
+RQ_GetKeyboardControl (CLIENT * clnt, xGetKeyboardControlReq * q)
+{
+	// Returns the current control values for the keyboard
+	//
+	// (no request parameters)
+	//
+	// BOOL   globalAutoRepeat: read from 'conterm' system variable bit 1
+	// CARD32 ledMask:          if CapsLock is on, LED #1 is lit
+	// CARD8  keyClickPercent:  read from 'conterm' system variable bit 0
+	// CARD8  bellPercent:
+	// CARD16 bellPitch:
+	// CARD16 bellDuration:
+	// BYTE   map[32]:         bit masks start here
+	//...........................................................................
+	
+	ClntReplyPtr (GetKeyboardControl, r);
+	char conterm = Ssystem (S_GETBVAL, 0x484, 0);
+	
+	DEBUG (GetKeyboardControl," ");
+	
+	r->ledMask      = (MAIN_Key_Mask & LockMask ? 1 : 0);
+	r->bellPercent  =  100;
+	r->bellPitch    = 2000; //Hz
+	r->bellDuration =  100; //ms
+	r->keyClickPercent  = (conterm & 0x01 ? 100   : 0);
+	r->globalAutoRepeat = (conterm & 0x02 ? xTrue : xFalse);
+	
+	if (r->globalAutoRepeat) memcpy (r->map, KYBD_Rep, sizeof(r->map));
+	else                     memset (r->map, 0,        sizeof(r->map));
+	
+	ClntReply (GetKeyboardControl,, "l2:");
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void
 RQ_GetModifierMapping (CLIENT * clnt, xGetModifierMappingReq * q)
 {
 	// Returns the keycodes of the modifiers Shift, Lock, Control, Mod1...Mod5
@@ -667,6 +712,13 @@ RQ_GetKeyboardMapping (CLIENT * clnt, xGetKeyboardMappingReq * q)
 		}
 		ClntReply (GetKeyboardMapping, len, NULL);
 	}
+}
+
+//------------------------------------------------------------------------------
+void
+RQ_ChangeKeyboardControl (CLIENT * clnt, xChangeKeyboardControlReq * q)
+{
+	PRINT (- X_ChangeKeyboardControl," ");
 }
 
 //------------------------------------------------------------------------------
