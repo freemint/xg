@@ -173,7 +173,7 @@ name, for example the lines
    -courier-: -Courier10Pitch-
 would cause that a request for '-adobe-courier-*-*-*-*-*-*-*-*-*-*-*-*'
 would be translated to '-*-Courier10Pitch-*-*-*-*-*-*-*-*-*-*-*-*' which
-matches the speedo font from the NVDI package.  The field demimeters '-'
+matches the speedo font from the NVDI package.  The field delimeters '-'
 should always be used (even if not forced) to avoid wrong results.
 
 The "foo: bar" form is to substitute the whole font name and will be done
