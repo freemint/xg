@@ -1,3 +1,8 @@
+2001-01-31: 0.04.2
+   - changed color palette to get it much more closer to the NVDI5 default
+     palette.
+   - implemented internal pseudo mouse-font, previous queries for the font
+     'cursor' caused crashes.
 2001-01-30: 0.04.1
    - changed syntax and location of the fonts.alias file to get it more
      flexible and handy.  See the README file for details.

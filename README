@@ -95,11 +95,13 @@ be renamed without the suffix while copying to the app-defaults e.g.
 configuration fileas at /etc/X11/.
 
 Next, a directory /usr/X11R6/ should be created as being the "XTOPDIR" and
-a link /usr/X11 pointing to this directory as well, for historical reasons.
+a link /usr/X11 pointing to this directory as well, for historical reasons:
+   cd /usr ; ln -s X11R6 X11
 Furthermore, some clients are looking for their configuration files not at
 /etc/X11/app-defaults/, but at /usr/X11R6/lib/X11/app-defaults/ (or at
 /usr/X11/lib/X11/app-defaults/, therefor the link) instead, so there should
-be placed a link pointing to /etc/X11/app-defaults/.
+be placed a link pointing to /etc/X11/app-defaults/:
+   cd /usr/X11R6/lib/X11 ; ln -s /etc/X11/app-defaults
 
 After carrying out all the previous steps, the system should have these
 directories and links:
