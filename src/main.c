@@ -69,18 +69,18 @@ main (int argc, char * argv[])
 		short xcon  = Fopen ("/dev/xconout2", 0x80);
 		short redir = _app;
 		
-		short c_id = -1;
+		short c_id = 0;
 		if (xcon >= 0) {
 			const char * args[] = {
-				"-g","-0-0", "-notify", "-file", "/dev/xconout2" };
+					"-g","-0-0", "-fn","6x10", "-notify", "-file", "/dev/xconout2" };
 			c_id = WmgrLaunch ("/usr/X11/bin/xconsole",
 			                   sizeof(args) / sizeof(*args), args);
-			if (c_id >= 0) {
-				(void)Pkill (c_id, 17);
+			if (c_id > 0) {
 				redir = 0;
 			} else {
-				Fclose (xcon);
+				c_id = 0;
 			}
+			Fclose (xcon);
 		}
 		if (redir) {
 			char  r_cmd[] = "U:\\usr\\bin\\xcat", r_tail[] = "";
@@ -130,11 +130,6 @@ main (int argc, char * argv[])
 			clock_t kb_tmout = 0x7FFFFFFF;
 			
 			WmgrActivate (xTrue); //(_app == 0);
-			
-			if (c_id >= 0) {
-				Fclose (xcon);
-				(void)Pkill (c_id, 19);
-			}
 			
 			if (argc > 1  &&  argv[1] && *argv[1]) {
 				int i;
@@ -221,9 +216,7 @@ main (int argc, char * argv[])
 				if      (event & MU_M1) WindPointerWatch (xTrue);
 				else if (event & MU_M2) WindPointerMove  (NULL);
 				
-				{	long rd_set = MAIN_FDSET_rd, wr_set = MAIN_FDSET_wr;
-				if (reset || (Fselect (1, &rd_set, &wr_set, 0)
-				              && !SrvrSelect (rd_set, wr_set))) {
+				if (reset || SrvrSelect()) {
 					printf ("\nLast client left, server reset ...\n");
 					if (_MAIN_Mctrl) {
 						puts("*BOING*");
@@ -235,7 +228,7 @@ main (int argc, char * argv[])
 						WindUpdate (xFalse);
 					}
 					SrvrReset();
-				}}
+				}
 			} 
 		}
 	}

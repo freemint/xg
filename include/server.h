@@ -14,7 +14,7 @@
 
 int    SrvrInit   (int port);
 void   SrvrReset  (void);
-int    SrvrSelect (long rd_set, long wr_set);
+BOOL   SrvrSelect (void);
 size_t SrvrSetup  (void * buf, CARD16 maxreqlen, int DoSwap, long rid);
 
 

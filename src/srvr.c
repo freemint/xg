@@ -154,9 +154,14 @@ SrvrReset()
 }
 
 //==============================================================================
-int
-SrvrSelect (long rd_set, long wr_set)
+BOOL
+SrvrSelect (void)
 {
+	long rd_set = MAIN_FDSET_rd,
+	     wr_set = MAIN_FDSET_wr;
+	
+	if (!Fselect (1, &rd_set, &wr_set, 0)) return xFalse;
+	
 	if (rd_set & SRVR_RdSet) {
 		struct hostent   * peer;
 		const char       * addr;
@@ -176,9 +181,9 @@ SrvrSelect (long rd_set, long wr_set)
 			ClntCreate (fd, (peer ? peer->h_name : "<unknown>"),
 			            addr, sock_in.sin_port);
 		}
-		if (!(rd_set &= ~SRVR_RdSet) && !wr_set) return 1;
+		if (!(rd_set &= ~SRVR_RdSet) && !wr_set) return xFalse;
 	}
-	return (ClntSelect (rd_set, wr_set));
+	return (ClntSelect (rd_set, wr_set) == 0);
 }
 
 //==============================================================================
