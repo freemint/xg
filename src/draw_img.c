@@ -95,8 +95,7 @@ RQ_PutImage (CLIENT * clnt, xPutImageReq * q)
 				       (q->length *4) - sizeof (xPutImageReq),
 				       r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
 				
-			} else if (!(mfdb.fd_addr
-			               = malloc (mfdb.fd_wdwidth *2 * q->height * q->depth))) {
+			} else if (!GraphRaster (&mfdb, q->width, q->height)) {
 				printf ("Can't allocate buffer.\n");
 				
 			} else { // q->format == ZPixmap
@@ -108,19 +107,10 @@ RQ_PutImage (CLIENT * clnt, xPutImageReq * q)
 				       (q->length *4) - sizeof (xPutImageReq),
 				       r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
 				
-				if (GRPH_Depth == 4) {
-					GrphRasterI4 (mfdb.fd_addr, (char*)(q +1), q->width, q->height);
-				} else if (GRPH_Format == SCRN_Interleaved) {
-					GrphRasterI8 (mfdb.fd_addr, (char*)(q +1), q->width, q->height);
-				} else if (GRPH_Format == SCRN_PackedPixel) {
-					GrphRasterP8 (mfdb.fd_addr, (char*)(q +1), q->width, q->height);
-				} else if (GRPH_Format == SCRN_FalconHigh) {
-					GrphRaster15 (mfdb.fd_addr, (short*)(q +1), q->width, q->height);
-				}
 				if (draw.p->isWind) WindPutColor (draw.Window, gc, r, &mfdb);
 				else                PmapPutColor (draw.Pixmap, gc, r, &mfdb);
 				
-				free (mfdb.fd_addr);
+				if (mfdb.fd_addr != (q +1)) free (mfdb.fd_addr);
 			}
 		
 		} else {

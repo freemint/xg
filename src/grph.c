@@ -53,6 +53,12 @@ __depth_lsb_1, __depth_lsb_n,
 * GRPH_DepthLSB[2] = { &__depth_lsb_1, &__depth_lsb_n };
 
 
+static BOOL _raster_I4 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _raster_I8 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _raster_P8 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _raster_15 (MFDB * mfdb, CARD16 width, CARD16 height);
+
+
 //==============================================================================
 BOOL
 GrphInit(void)
@@ -149,19 +155,41 @@ GrphSetup (void * format_arr)
 		
 		GRPH_DepthNum++;
 		GRPH_DepthMSB[1]->dpth.depth = r_dpth  = GRPH_Depth;
-	//	GRPH_DepthMSB[1]->visl.colormapEntries = 1 << GRPH_Depth;
-		if (GRPH_Depth >= 15) {
-			GRPH_DepthMSB[1]->visl.colormapEntries = 1 << 5;
-			GRPH_DepthMSB[1]->visl.bitsPerRGB   = 8;   // normally 5
-			GRPH_DepthMSB[1]->visl.redMask      = 0x0000F800uL;
-			GRPH_DepthMSB[1]->visl.greenMask    = 0x000007C0uL;
-			GRPH_DepthMSB[1]->visl.blueMask     = 0x0000001FuL;
-			GRPH_DepthMSB[1]->visl.class        = TrueColor;
+		if (GRPH_Depth > 8) {
+			GRPH_DepthMSB[1]->visl.class         = TrueColor;
 			wht_px = (1uL << GRPH_Depth) -1;
 			blk_px = 0;
+			if (GRPH_Format == SCRN_FalconHigh) {
+				GRPH_DepthMSB[1]->visl.redMask    = 0x0000F800uL;
+				GRPH_DepthMSB[1]->visl.greenMask  = 0x000007C0uL;
+				GRPH_DepthMSB[1]->visl.blueMask   = 0x0000001FuL;
+				GRPH_DepthMSB[1]->visl.bitsPerRGB = 5;
+				GraphRaster                       = _raster_15;
+			} else if (GRPH_Depth == 16) {
+				GRPH_DepthMSB[1]->visl.redMask    = 0x0000F800uL;
+				GRPH_DepthMSB[1]->visl.greenMask  = 0x000007E0uL;
+				GRPH_DepthMSB[1]->visl.blueMask   = 0x0000001FuL;
+				GRPH_DepthMSB[1]->visl.bitsPerRGB = 6;
+			//	GraphRaster                       = _raster_16;
+			} else {
+				GRPH_DepthMSB[1]->visl.redMask    = 0x00FF0000uL;
+				GRPH_DepthMSB[1]->visl.greenMask  = 0x0000FF00uL;
+				GRPH_DepthMSB[1]->visl.blueMask   = 0x000000FFuL;
+				GRPH_DepthMSB[1]->visl.bitsPerRGB = 8;
+			//	if      (GRPH_Depth == 24) GraphRaster = _raster_24;
+			//	else if (GRPH_Depth == 32) GraphRaster = _raster_32;
+			}
+			GRPH_DepthMSB[1]->visl.colormapEntries
+			                              = 1 << GRPH_DepthMSB[1]->visl.bitsPerRGB;
 		} else {
 			GRPH_DepthMSB[1]->visl.colormapEntries = 1 << GRPH_Depth;
 			GRPH_DepthMSB[1]->visl.bitsPerRGB   = pfrm->depth;
+			if (GRPH_Depth == 4) {
+				if      (GRPH_Format == SCRN_Interleaved) GraphRaster = _raster_I4;
+			} else if (GRPH_Depth == 8) {
+				if      (GRPH_Format == SCRN_Interleaved) GraphRaster = _raster_I8;
+				else if (GRPH_Format == SCRN_PackedPixel) GraphRaster = _raster_P8;
+			}
 		}
 		r_visl = GRPH_DepthMSB[1]->visl.visualID;
 	}
@@ -376,9 +404,42 @@ GrphCombine (GRECT * a, const GRECT * b)
 
 //==============================================================================
 void
-GrphRasterI4 (short * dst, char * src, CARD16 width, CARD16 height)
+GrphError (void)
+{
+	const char txt[] = "[3]"
+	                   "[ X Server:"
+	                   "|==========="
+	                   "| "
+	                   "|Unsupported screen format!"
+	                   "|(%i planes)]"
+	                   "[ Abort ]";
+	char buf[sizeof(txt)+10];
+	
+	sprintf (buf, txt, GRPH_Depth);
+	form_alert (1, buf);
+	
+	exit (1);
+}
+
+
+//==============================================================================
+// Graphic depth depending functions for converting images sent from clients to
+// to device depend bitmaps as used by the VDI.  Only necessary for depths with
+// more than 1 plane.
+//
+BOOL (*GraphRaster)(MFDB * , CARD16 width, CARD16 height) = (void*)GrphError;
+
+//------------------------------------------------------------------------------
+static BOOL
+_raster_I4 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
 	CARD8 val[16] = { 0,15,1,2,4,6,3,5, 7,8,9,10,12,14,11,13 };
+	char  * src = mfdb->fd_addr;
+	short * dst;
+	
+	if (!(dst = malloc (mfdb->fd_wdwidth *2 * height * 4))) return xFalse;
+	
+	mfdb->fd_addr = dst;
 	
 	while (height--) {
 		int c = -1, w = (width +1) /2;
@@ -405,16 +466,24 @@ GrphRasterI4 (short * dst, char * src, CARD16 width, CARD16 height)
 		}
 		src += (int)src & 1;
 	}
+	return xTrue;
 }
 
-//==============================================================================
-void
-GrphRasterI8 (short * dst, char * src, CARD16 width, CARD16 height)
+//------------------------------------------------------------------------------
+static BOOL
+_raster_I8 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
+	char  * src = mfdb->fd_addr;
+	short * dst;
+	
+	if (!(dst = malloc (mfdb->fd_wdwidth *2 * height * 8))) return xFalse;
+	
+	mfdb->fd_addr = dst;
+	
 	__asm__ volatile ("
-		movea.l	%0, a0;
-		movea.l	%1, a1;
-		lea		%3, a2;
+		movea.l	%0, a0; | src
+		movea.l	%1, a1; | dst
+		lea		%3, a2; | height
 		
 		1:
 		move.w	%2, d7; | width counter
@@ -469,16 +538,24 @@ GrphRasterI8 (short * dst, char * src, CARD16 width, CARD16 height)
 		9:
 		"
 		:                                          // output
-		: "g"(src),"g"(dst),"g"(width),"g"(height) // input
+		: "g"(src),"g"(dst),"g"(width),"m"(height) // input
 		: "d0","d1","d2","d3","d4","d5","d6","d7", "a0","a1","a2" // clobbered
 	);
+	return xTrue;
 }
 
-//==============================================================================
-void
-GrphRasterP8 (char * dst, char * src, CARD16 width, CARD16 height)
+//------------------------------------------------------------------------------
+static BOOL
+_raster_P8 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
-	int i;
+	char * src = mfdb->fd_addr;
+	char * dst;
+	int    i;
+	
+	if (!(dst = malloc (mfdb->fd_wdwidth *2 * height * 8))) return xFalse;
+	
+	mfdb->fd_addr = dst;
+	
 	while (height--) {
 		for (i = 0; i < width; i++) {
 			dst[i] = (src[i] == 1 ? 255 : src[i]);
@@ -486,39 +563,28 @@ GrphRasterP8 (char * dst, char * src, CARD16 width, CARD16 height)
 		src += (width +1) & ~1;
 		dst += (width +15) & ~15;
 	}
+	return xTrue;
 }
 
-//==============================================================================
-void
-GrphRaster15 (short * dst, short * src, CARD16 width, CARD16 height)
+//------------------------------------------------------------------------------
+static BOOL
+_raster_15 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
-	int i;
+	short * src = mfdb->fd_addr;
+	short * dst;
+	int     i;
+	
+	if (!(dst = malloc (mfdb->fd_wdwidth *2 * height * 16))) return xFalse;
+	
+	mfdb->fd_addr = dst;
+	
 	while (height--) {
 		for (i = 0; i < width; i++) {
 			dst[i] = *(src++);
 		}
 		dst += (width +15) & ~15;
 	}
-}
-
-
-//==============================================================================
-void
-GrphError (void)
-{
-	const char txt[] = "[3]"
-	                   "[ X Server:"
-	                   "|==========="
-	                   "| "
-	                   "|Unsupported screen format!"
-	                   "|(%i planes)]"
-	                   "[ Abort ]";
-	char buf[sizeof(txt)+10];
-	
-	sprintf (buf, txt, GRPH_Depth);
-	form_alert (1, buf);
-	
-	exit (1);
+	return xTrue;
 }
 
 
