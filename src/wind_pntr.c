@@ -435,7 +435,7 @@ RQ_QueryPointer (CLIENT * clnt, xQueryPointerReq * q)
 					}
 				}
 			} else {
-				pos = WindPointerPos (NULL);
+				pos    = WindPointerPos (wind);
 				work.x = work.y = 0;
 				work.w = wind->Rect.w;
 				work.h = wind->Rect.h;
