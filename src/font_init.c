@@ -317,9 +317,9 @@ FontInit (short count)
 		return;
 		
 	} else {
-		int major, minor, tiny = 0;
+		int major = -1, minor = -1, tiny = 0;
 		if (!fgets (buf, sizeof(buf), f_db)
-		    || sscanf (buf, "# fonts.db; %i.%i.%i ", &major, &minor, &tiny) < 2
+		    || sscanf (buf, "# fonts.db; %d.%d.%d ", &major, &minor, &tiny) < 2
 		    || minor < 6 || (minor == 6  &&  tiny < 3)) {
 			fclose (f_db);
 			f_db = NULL;
