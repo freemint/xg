@@ -19,6 +19,9 @@
 #include <ctype.h>
 
 
+static BOOL _N_interim_14_3 = xTrue;
+
+
 typedef struct {
 	char           fh_fmver[8];
 	unsigned long  fh_fntsz;
@@ -172,7 +175,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono, short * o_hdl, MFDB * mfdb)
 	}
 	face->MinAttr = face->MaxAttr = 0;
 	
-	if ((!face->Type || face->Type >= 2) &&
+	if ((!face->Type || (_N_interim_14_3 && face->Type >= 2)) &&
 	    (face->HalfLine >= face->Ascent || face->MaxDesc > face->Ascent /2)) {
 		short hgt = face->Ascent + face->Descent;
 		short hdl = (o_hdl ? *o_hdl : 0);
@@ -203,14 +206,15 @@ _Font_Bounds (FONTFACE * face, BOOL mono, short * o_hdl, MFDB * mfdb)
 					vs_clip       (hdl, 1, pxy);
 					vswr_mode     (hdl, MD_TRANS);
 					vst_alignment (hdl, 1, 5, dmy, dmy);
+					vst_color     (hdl, G_BLACK);
 				}
 			}
 		}
 		
 		if (hdl > 0) {
 			long * buf = mfdb->fd_addr;
-			PXY     p   = { 14, 0 };
-			short   i;
+			PXY    p   = { 14, 0 };
+			short  i;
 			
 			vst_font (hdl, face->Index);
 			if (!face->Type) {
@@ -316,7 +320,7 @@ _read_fontdb (FILE * f_db)
 	
 	if (!fgets (buf, sizeof(buf), f_db)
 	    || sscanf (buf, "# fonts.db; %d.%d.%d ", &major, &minor, &tiny) < 2
-	    || minor < 6 || (minor == 6  &&  tiny < 3)) {
+	    || minor < 14 || (minor == 14  &&  tiny < 2)) {
 		fclose (f_db);
 		return NULL;
 	}
@@ -426,6 +430,10 @@ FontInit (short count)
 	short o_hdl = 0;
 	MFDB  mfdb  = { NULL };
 	
+	
+	_N_interim_14_3 = (count <= 50);
+	
+	
 	_read_alias();
 	
 	if (   (access (PATH_LibDir, R_OK|W_OK|X_OK) &&
@@ -511,7 +519,14 @@ FontInit (short count)
 		if (f_db) {
 			fprintf (f_db, "%i: %u,%u,%u %s\n", info.id,
 			               info.format, isSymbol, isMono, info.file_name1);
-			fflush  (f_db);
+		#if 0
+			if (info.format > 2) {
+				fprintf (f_db, "# font   |%s|\n", info.font_name);
+				fprintf (f_db, "# family |%s|\n", info.family_name);
+				fprintf (f_db, "# style  |%s|\n", info.style_name);
+				fflush  (f_db);
+			}
+		#endif
 		}
 		
 		if (db && db->list) {
@@ -529,55 +544,270 @@ FontInit (short count)
 		
 		if (info.format > 1) {
 			vqt_fontheader (GRPH_Vdi, (char*)fhdr, info.file_name1);
-			spcg[0] = (fhdr->fh_cflgs & 2 ? fhdr->fh_famcl == 3 ? 'C' : 'M' : 'P');
-			slnt[0] = (fhdr->fh_cflgs & 1 ? 'I' : 'R');
-			resx = 0;
-			resy = 0;
-		}
-		if (info.format == 2) { //___Speedo___
-			if (!strncasecmp (fmly, "Bits ", 5)) {
-				fndr =  "Bitstream";
-				fmly += 5;
-			} else if ((p = strstr (fhdr->fh_cpyrt, "opyright"))) {
-				if ((p = strstr (p, "by "))) {
-					fndr = p +3;
-					if ((p = strchr (fndr, ' '))) *p = '\0';
-				}
-			}
-			if (fhdr->fh_cflgs & 0x04  ||  fhdr->fh_famcl == 1) {
-				astl = "Serif";
-			} else if (fhdr->fh_famcl == 2) {
-				astl = "Sans";
-			} else if (fhdr->fh_famcl == 4) {
-				astl = "Script";
-			} else if (fhdr->fh_famcl == 5) {
-				astl = "Decorated";
-			}
-			switch (fhdr->fh_frmcl >> 4) {
-				case  1: wght = "Thin";       break;
-				case  2: wght = "UltraLight"; break;
-				case  3: wght = "ExtraLight"; break;
-				case  4: wght = "Light";      break;
-				case  5: wght = "Book";       break;
-				case  6: //wght = "Normal";     break;
-				case  7: wght = "Medium";     break;
-				case  8: wght = "Semibold";   break;
-				case  9: wght = "Demibold";   break;
-				case 10: wght = "Bold";       break;
-				case 11: wght = "ExtraBold";  break;
-				case 12: wght = "UltraBold";  break;
-				case 13: wght = "Heavy";      break;
-				case 14: wght = "Black";      break;
-			}
-			switch (fhdr->fh_frmcl & 0x0F) {
-				case  4: setw = "Condensed";     break;
-				case  6: setw = "SemiCondensed"; break;
-				case  8: setw = "Normal";        break;
-				case 10: setw = "SemiExpanded";  break;
-				case 12: setw = "Expanded";      break;
+			
+			if (fhdr->fh_cflgs && fhdr->fh_famcl) {
+				spcg[0] = (fhdr->fh_cflgs & 2 ? fhdr->fh_famcl == 3 ? 'C' : 'M'
+				                          : 'P');
+				slnt[0] = (fhdr->fh_cflgs & 1 ? 'I' : 'R');
 			}
 			
+			if (info.format == 2) {  //___Speedo___
+			
+				if (!strncasecmp (fmly, "Bits ", 5)) {
+					fndr =  "Bitstream";
+					fmly += 5;
+				} else if ((p = strstr (fhdr->fh_cpyrt, "opyright"))) {
+					if ((p = strstr (p, "by "))) {
+						fndr = p +3;
+						if ((p = strchr (fndr, ' '))) *p = '\0';
+					}
+				}
+				if ((p = strpbrk (fmly, " -*?"))) {
+					char * q = p;
+					char   c;
+					do {
+						if ((c = *(p++)) != ' ') {
+							*(q++) = (c == '-' || c == '?' || c == '*' ? '_' : c);
+						}
+					} while (c);
+				}
+				if (fhdr->fh_cflgs & 0x04  ||  fhdr->fh_famcl == 1) {
+					astl = "Serif";
+				} else if (fhdr->fh_famcl == 2) {
+					astl = "Sans";
+				} else if (fhdr->fh_famcl == 4) {
+					astl = "Script";
+				} else if (fhdr->fh_famcl == 5) {
+					astl = "Decorated";
+				}
+				switch (fhdr->fh_frmcl >> 4) {
+					case  1: wght = "Thin";       break;
+					case  2: wght = "UltraLight"; break;
+					case  3: wght = "ExtraLight"; break;
+					case  4: wght = "Light";      break;
+					case  5: wght = "Book";       break;
+					case  6: //wght = "Normal";     break;
+					case  7: wght = "Medium";     break;
+					case  8: wght = "Semibold";   break;
+					case  9: wght = "Demibold";   break;
+					case 10: wght = "Bold";       break;
+					case 11: wght = "ExtraBold";  break;
+					case 12: wght = "UltraBold";  break;
+					case 13: wght = "Heavy";      break;
+					case 14: wght = "Black";      break;
+				}
+				switch (fhdr->fh_frmcl & 0x0F) {
+					case  4: setw = "Condensed";     break;
+					case  6: setw = "SemiCondensed"; break;
+					case  8: setw = "Normal";        break;
+					case 10: setw = "SemiExpanded";  break;
+					case 12: setw = "Expanded";      break;
+				}
+			
+			} else { //___TrueType_Type1___
+				
+				BOOL chk = xTrue;
+				char * m = NULL;
+			#if 0
+				if (f_db) {
+					fprintf (f_db, "# cflgs %02X   famcl %02X   frmcl %02X \n",
+					         fhdr->fh_cflgs, fhdr->fh_famcl, fhdr->fh_frmcl);
+					fprintf (f_db, "# fmver |%.9s|\n", fhdr->fh_fmver);
+					fflush  (f_db);
+					fprintf (f_db, "# fntnm |%.71s|\n", fhdr->fh_fntnm);
+					fflush  (f_db);
+					fprintf (f_db, "# mdate |%.11s|\n", fhdr->fh_mdate);
+					fflush  (f_db);
+					fprintf (f_db, "# laynm |%.71s|\n", fhdr->fh_laynm);
+					fflush  (f_db);
+					fprintf (f_db, "# cpyrt |%.79s|\n", fhdr->fh_cpyrt);
+					fflush  (f_db);
+					fprintf (f_db, "# sfntn |%.33s|\n", fhdr->fh_sfntn);
+					fflush  (f_db);
+					fprintf (f_db, "# sfacn |%.17s|\n", fhdr->fh_sfacn);
+					fflush  (f_db);
+					fprintf (f_db, "# fntfm |%.15s|\n", fhdr->fh_fntfm);
+					fflush  (f_db);
+				}
+			#endif
+				
+				if (!strcasecmp (wght, "Regular")) {
+					if ((m = strrchr (fmly, '-'))) wght = m +1;
+					else                           wght = "";
+					slnt[0] = 'R';
+				}
+				if (!wght[0]) {
+					wght = NULL;
+				} else if (!strcasecmp (wght, "Normal") ||
+				           !strcasecmp (wght, "Medium") ||
+				           !strcasecmp (wght, "Plain")) {
+					setw = (toupper(wght[0]) == 'N' ? "Normal" : NULL);
+					wght = (toupper(wght[0]) == 'M' ? "Medium" : NULL);
+					chk  = xFalse;
+					if (m) {
+						*m = '\0';
+						m  = NULL;
+					}
+				} else if (!strcasecmp (wght, "Outline")) {
+					astl = "Outline";
+					wght = NULL;
+					if (m) {
+						*m = '\0';
+						m  = NULL;
+					}
+				} else {
+					const char * q;
+					int          n;
+					while (wght) {
+						if ((p = strstr (wght, q = "Normal")) ||
+						           (p = strstr (wght, q = "normal"))) {
+							setw    = "Normal";
+						} else if ((p = strstr (wght, q = "Italic")) ||
+						           (p = strstr (wght, q = "italic"))) {
+							slnt[0] = 'I';
+						} else if ((p = strstr (wght, q = "Oblique")) ||
+						           (p = strstr (wght, q = "oblique")) ||
+						           (p = strstr (wght, q = "Obl"))) {
+							slnt[0] = 'O';
+						} else if ((p = strstr (wght, q = "Regular")) ||
+						           (p = strstr (wght, q = "regular")) ||
+						           (p = strstr (wght, q = "Reg"))) {
+							slnt[0] = 'R';
+						} else {
+							break;
+							if (m) wght = NULL;
+							q = NULL;
+						}
+						n = strlen (q);
+						while (p > wght && (p[-1] == ' ' || p[-1] == '-')) {
+							p--;
+							n++;
+						}
+						if      (!wght[n]) wght = NULL;
+						else if (!p[n])    *p   = '\0';
+						else               strcpy (p, p + n);
+					}
+				}
+				if (wght) {
+					if (!*wght) {
+						wght = NULL;
+					} else if (m && *m) {
+						if (strcasecmp (wght, "Thin") &&
+						    strcasecmp (wght, "UltraLight") &&
+						    strcasecmp (wght, "ExtraLight") &&
+						    strcasecmp (wght, "Light") &&
+						    strcasecmp (wght, "Book") &&
+						    strcasecmp (wght, "Medium") &&
+						    strcasecmp (wght, "Semibold") &&
+						    strcasecmp (wght, "Demibold") &&
+						    strcasecmp (wght, "Bold") &&
+						    strcasecmp (wght, "ExtraBold") &&
+						    strcasecmp (wght, "UltraBold") &&
+						    strcasecmp (wght, "Heavy") &&
+						    strcasecmp (wght, "Black")) {
+							wght = NULL;
+						} else {
+							chk = xFalse;
+							*m  = '\0';
+						}
+					}
+				}
+				if (!setw) {
+					const char * q;
+					if ((p = strstr (fmly, q = "Condensed")) ||
+					    (p = strstr (fmly, q = "condensed")) ||
+					    ((p = strstr (fmly, q = "Cond")) && !islower(p[4]))) {
+						setw = "Condensed";
+					} else {
+						q = NULL;
+					}
+					if (q) {
+						int n = strlen (q);
+						while (p > fmly && (p[-1] == ' ' || p[-1] == '-')) {
+							p--;
+							n++;
+						}
+						if (!p[n]) *p = '\0';
+						else       strcpy (p, p + n);
+					}
+				}
+				if (!astl) {
+					const char * q;
+					if ((p = strstr (fmly, q = "Sans")) ||
+					    (p = strstr (fmly, q = "sans"))) {
+						astl = "Sans";
+					} else if ((p = strstr (fmly, q = "Outline")) ||
+					           (p = strstr (fmly, q = "outline"))) {
+						astl = "Outline";
+					} else {
+						q = NULL;
+					}
+					if (q) {
+						int n = strlen (q);
+						while (p > fmly && (p[-1] == ' ' || p[-1] == '-')) {
+							p--;
+							n++;
+						}
+						if (!p[n]) *p = '\0';
+						else       strcpy (p, p + n);
+					}
+				}
+				if ((p = strpbrk (fmly, " -*?"))) {
+					char * q = p;
+					char   c;
+					do {
+						if ((c = *(p++)) != ' ') {
+							*(q++) = (c == '-' || c == '?' || c == '*' ? '_' : c);
+						}
+					} while (c);
+				}
+				if ((p = strchr (fmly, '('))) {
+					char * q = strchr (p +1, ')');
+					if (q) {
+						int n = (q - p) -1;
+						if (n) memcpy (fhdr->fh_cpyrt, p +1, n);
+						fhdr->fh_cpyrt[n] = '\0';
+						if (*(fndr = fhdr->fh_cpyrt) == '©') fndr++;
+						if (!*(++q)) *p = '\0';
+						else         strcpy (p, q);
+					}
+				}
+				if (wght && chk) {
+					if ((p = strpbrk (wght, " *?"))) {
+						char * q = p;
+						char   c;
+						do {
+							if ((c = *(p++)) != ' ') {
+								*(q++) = (c == '?' || c == '*' ? '_' : c);
+							}
+						} while (c);
+					}
+					while ((p = strchr (wght, '-'))) {
+						if (p[1]) {
+							wght = p +1;
+						} else {
+							*p = '\0';
+						}
+					}
+					if (!*wght) wght = NULL;
+				}
+				if (wght && (p = strstr (fmly, wght))) {
+					int n = strlen (wght);
+					while (p > fmly && (p[-1] == ' ' || p[-1] == '-')) {
+						p--;
+						n++;
+					}
+					if (p > fmly) {
+						if (!p[n]) *p = '\0';
+						else       strcpy (p, p + n);
+					}
+				}
+			}
+			resx = 0;
+			resy = 0;
+			
 		} else if (latn) {
+			
 			do {
 				fndr = info.font_name +2;
 				if (!(p = strchr (fndr, '-'))) break;
@@ -628,13 +858,7 @@ FontInit (short count)
 			resy = 75;
 			
 		} else {
-			if (!*spcg) {
-				spcg[0] = (isMono ? 'C' : 'P');
-			}
-			if (isSymbol) {
-				creg = "Gdos";
-				cenc = "FONTSPECIFIC";
-			}
+			
 			if (!*fmly) {
 				fmly = info.font_name;
 			}
@@ -651,19 +875,20 @@ FontInit (short count)
 					if (!*slnt) slnt[0] = 'I';
 				}
 			}
-			if (info.format == 1) {
-				if (!*slnt)          slnt[0] = '*';
-				if (!wght || !*wght) wght    = "*";
-			} else {
-				if (!*slnt)          slnt[0] = 'R';
-				if (!wght || !*wght) wght    = "Medium";
+			if (fmly) {
+				while ((p = strchr (fmly, ' '))) strcpy (p, p +1);
 			}
-			if (!setw) setw = "Normal";
+			if (wght && !*wght) wght = NULL;
 		}
 		
-		if (fmly) {
-			while ((p = strchr (fmly, ' '))) strcpy (p, p +1);
+		if (isSymbol) {
+			creg = "Gdos";
+			cenc = "FONTSPECIFIC";
 		}
+		if (!spcg[0]) spcg[0] = (isMono ? 'C' : 'P');
+		if (!slnt[0]) slnt[0] = 'R';
+		if (!wght)    wght    = "Medium";
+		if (!setw)    setw    = "Normal";
 		
 		sprintf (info.file_name1,
 		         "-%s-%s-%s-%s-%s-%s-%%u-%%u0-%u-%u-%s-%%u-%s-%s",
