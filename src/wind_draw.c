@@ -186,10 +186,10 @@ WindDrawPmap (PIXMAP * pmap, PXY orig, p_PRECT sect)
 				s_rd.x = s_lu.x + d;
 			}
 			if (pmap->Depth == 1) {
-				vrt_cpyfm_p (GRPH_Vdi, MD_REPLACE,
-				             pxy, PmapMFDB(pmap), &scrn, color);
+				vrt_cpyfm (GRPH_Vdi, MD_REPLACE,
+				           (short*)pxy, PmapMFDB(pmap), &scrn, color);
 			} else {
-				vro_cpyfm_p (GRPH_Vdi, S_ONLY, pxy, PmapMFDB(pmap), &scrn);
+				vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, PmapMFDB(pmap), &scrn);
 			}
 			d_lu.x += pmap->W - s_lu.x;
 			s_lu.x =  0;
@@ -232,7 +232,7 @@ WindDrawBgnd (WINDOW * wind, PXY orig, PRECT * area,
 		do {
 			PRECT rect = *area;
 			if (GrphIntersectP (&rect, sect++)) {
-				v_bar_p (GRPH_Vdi, &rect.lu);
+				v_bar (GRPH_Vdi, (short*)&rect.lu);
 				if (exps) {
 					exps->w = rect.rd.x - rect.lu.x +1;
 					exps->h = rect.rd.y - rect.lu.y +1;
@@ -285,7 +285,7 @@ draw_brdr (WINDOW * wind, PRECT * work, PRECT * area, PRECT * sect, int num)
 	v_hide_c  (GRPH_Vdi);
 	do {
 		vs_clip_p (GRPH_Vdi, (PXY*)sect++);
-		for (i = 0; i < n; v_bar_p (GRPH_Vdi, &brdr[i++].lu));
+		for (i = 0; i < n; v_bar (GRPH_Vdi, (short*)&brdr[i++].lu));
 	} while (--num);
 	v_show_c    (GRPH_Vdi, 1);
 	vs_clip_off (GRPH_Vdi);
@@ -367,24 +367,24 @@ draw_deco (PRECT * work, PRECT * area, PRECT * sect, int num)
 	v_hide_c  (GRPH_Vdi);
 	do {
 		vs_clip_p (GRPH_Vdi, (PXY*)sect++);
-		for (i = 0; i < n; v_bar_p (GRPH_Vdi, &brdr[i++].lu));
-		v_pline_p (GRPH_Vdi, 4, pxy);
+		for (i = 0; i < n; v_bar (GRPH_Vdi, (short*)&brdr[i++].lu));
+		v_pline (GRPH_Vdi, 4, (short*)pxy);
 		if (lft || rgt) {
 			vsl_color (GRPH_Vdi, G_WHITE);
 			if (lft) {
-				v_pline_p (GRPH_Vdi, sizeof(l_a) / sizeof(PXY), l_a);
-				v_pline_p (GRPH_Vdi, sizeof(l_b) / sizeof(PXY), l_b);
+				v_pline (GRPH_Vdi, sizeof(l_a) / sizeof(PXY), (short*)l_a);
+				v_pline (GRPH_Vdi, sizeof(l_b) / sizeof(PXY), (short*)l_b);
 			}
 			if (rgt) {
-				v_pline_p (GRPH_Vdi, sizeof(r_a) / sizeof(PXY), r_a);
+				v_pline (GRPH_Vdi, sizeof(r_a) / sizeof(PXY), (short*)r_a);
 			}
 			vsl_color (GRPH_Vdi, G_LBLACK);
 			if (lft) {
-				v_pline_p (GRPH_Vdi, sizeof(l_c) / sizeof(PXY), l_c);
-				v_pline_p (GRPH_Vdi, sizeof(l_d) / sizeof(PXY), l_d);
+				v_pline (GRPH_Vdi, sizeof(l_c) / sizeof(PXY), (short*)l_c);
+				v_pline (GRPH_Vdi, sizeof(l_d) / sizeof(PXY), (short*)l_d);
 			}
 			if (rgt) {
-				v_pline_p (GRPH_Vdi, sizeof(r_b) / sizeof(PXY), r_b);
+				v_pline (GRPH_Vdi, sizeof(r_b) / sizeof(PXY), (short*)r_b);
 			}
 		}
 	} while (--num);
@@ -537,7 +537,7 @@ WindPutMono (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 				p[1].x += p[0].x -1;
 				p[1].y += p[0].y -1;
 				v_hide_c  (GRPH_Vdi);
-				vrt_cpyfm_p (GRPH_Vdi, mode, p, src, &dst, colors);
+				vrt_cpyfm (GRPH_Vdi, mode, (short*)p, src, &dst, colors);
 				v_show_c  (GRPH_Vdi, 1);
 			}
 			wind_get_next (hdl, &sec);
@@ -569,7 +569,7 @@ WindPutColor (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 				p[1].x += p[0].x -1;
 				p[1].y += p[0].y -1;
 				v_hide_c  (GRPH_Vdi);
-				vro_cpyfm_p (GRPH_Vdi, gc->Function, p, src, &dst);
+				vro_cpyfm (GRPH_Vdi, gc->Function, (short*)p, src, &dst);
 				v_show_c  (GRPH_Vdi, 1);
 			}
 			wind_get_next (hdl, &sec);

@@ -222,8 +222,8 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 				vsf_color (hdl, color);
 			}
 			do {
-				vs_clip_p    (hdl, (PXY*)(sect++));
-				v_fillarea_p (hdl, len, pxy);
+				vs_clip_p  (hdl, (PXY*)(sect++));
+				v_fillarea (hdl, len, (short*)pxy);
 			} while (--nClp);
 			vs_clip_off (hdl);
 			
@@ -424,7 +424,7 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 			}
 			do {
 				vs_clip_p (hdl, (PXY*)(sect++));
-				v_pline_p (hdl, len, pxy);
+				v_pline   (hdl, len, (short*)pxy);
 			} while (--nClp);
 			vs_clip_off (hdl);
 			
@@ -496,8 +496,8 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 				vsm_color (hdl, color);
 			}
 			do {
-				vs_clip_p   (hdl, (PXY*)(sect++));
-				v_pmarker_p (hdl, len, pxy);
+				vs_clip_p (hdl, (PXY*)(sect++));
+				v_pmarker (hdl, len, (short*)pxy);
 			} while (--nClp);
 			vs_clip_off (hdl);
 			
@@ -583,7 +583,7 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 				for (i = 0; i < len; i++) {
 					PRECT clip = *(PRECT*)(rec +i);
 					if (GrphIntersectP (&clip, sect)) {
-						v_bar_p (hdl, &clip.lu);
+						v_bar (hdl, (short*)&clip.lu);
 					}
 				}
 				sect++;
@@ -666,7 +666,7 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 					p[0].y = p[1].y          = rec[i].y + orig.y;
 					p[2].y = p[3].y = p[0].y + rec[i].h -1;
 					p[4].y          = p[0].y + d;
-					v_pline_p (hdl, 5, p);
+					v_pline (hdl, 5, (short*)p);
 				}
 			} while (--nClp);
 			vs_clip_off (hdl);
@@ -732,7 +732,7 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 				int   i;
 				vs_clip_p (hdl, (PXY*)(sect++));
 				for (i = 0; i < len; i += 2) {
-					v_pline_p (hdl, 2, &pxy[i]);
+					v_pline (hdl, 2, (short*)&pxy[i]);
 				}
 			} while (--nClp);
 			vs_clip_off (hdl);

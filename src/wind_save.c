@@ -67,8 +67,8 @@ WindSaveFlush (BOOL restore)
 			MFDB scrn = { NULL, };
 			v_hide_c (GRPH_Vdi);
 			if (_WIND_SaveHandle <= 0) {
-				vro_cpyfm_p (GRPH_Vdi, S_ONLY,
-				             (PXY*)&WIND_SaveArea[1], &_WIND_SaveMfdb, &scrn);
+				vro_cpyfm (GRPH_Vdi, S_ONLY,
+				           (short*)&WIND_SaveArea[1], &_WIND_SaveMfdb, &scrn);
 				WIND_SaveDone = xTrue;
 			} else {
 				PRECT * src = &WIND_SaveArea[1];
@@ -83,8 +83,8 @@ WindSaveFlush (BOOL restore)
 						src->lu.y = dst->lu.y - WIND_SaveArea[0].lu.y;
 						src->rd.x = dst->rd.x - WIND_SaveArea[0].lu.x;
 						src->rd.y = dst->rd.y - WIND_SaveArea[0].lu.y;
-						vro_cpyfm_p (GRPH_Vdi, S_ONLY,
-						             (PXY*)&WIND_SaveArea[1], &_WIND_SaveMfdb, &scrn);
+						vro_cpyfm (GRPH_Vdi, S_ONLY,
+						           (short*)&WIND_SaveArea[1], &_WIND_SaveMfdb, &scrn);
 					}
 					wind_get_next (_WIND_SaveHandle, (GRECT*)dst);
 				}

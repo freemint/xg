@@ -630,7 +630,7 @@ desktop_fill (PARMBLK *pblk)
 	if (GrphIntersectP ((PRECT*)&pblk->pb_xc, (PRECT*)&pblk->pb_x)) {
 		vswr_mode (GRPH_Vdi, MD_REPLACE);
 		vsf_color (GRPH_Vdi, pblk->pb_parm);
-		v_bar_p   (GRPH_Vdi, (PXY*)&pblk->pb_xc);
+		v_bar     (GRPH_Vdi, (short*)&pblk->pb_xc);
 	}
 	return pblk->pb_currstate;
 }
@@ -781,7 +781,7 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 	while (sect.w > 0  &&  sect.h > 0) {
 		if (GrphIntersect (&sect, &work)) {
 			vs_clip_r (GRPH_Vdi, &sect);
-			v_bar_p   (GRPH_Vdi, rec);
+			v_bar     (GRPH_Vdi, (short*)rec);
 			vrt_cpyfm (GRPH_Vdi, MD_TRANS, pxy, &_WMGR_Icon, &screen, col);
 		}
 		wind_get_next (wind->Handle, &sect);
@@ -1022,8 +1022,8 @@ WmgrButton (void)
 		vsl_type  (GRPH_Vdi, USERLINE);
 		v_hide_c (GRPH_Vdi);
 		do {
-			v_pline_p (GRPH_Vdi, 5, pc);
-			v_pline_p (GRPH_Vdi, 5, pw);
+			v_pline (GRPH_Vdi, 5, (short*)pc);
+			v_pline (GRPH_Vdi, 5, (short*)pw);
 			v_show_c (GRPH_Vdi, 1);
 			ev = evnt_multi_s (&ev_i, dummy, &ev_o);
 			mx = (ev_o.evo_mouse.x <= ml ? ml :
@@ -1031,8 +1031,8 @@ WmgrButton (void)
 			my = (ev_o.evo_mouse.y <= mu ? mu :
 			      ev_o.evo_mouse.y >= md ? md : ev_o.evo_mouse.y);
 			v_hide_c (GRPH_Vdi);
-			v_pline_p (GRPH_Vdi, 5, pw);
-			v_pline_p (GRPH_Vdi, 5, pc);
+			v_pline (GRPH_Vdi, 5, (short*)pw);
+			v_pline (GRPH_Vdi, 5, (short*)pc);
 			if (ev & MU_TIMER) {
 				ev_i.evi_flags &= ~MU_TIMER;
 			}
