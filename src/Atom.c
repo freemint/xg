@@ -2,7 +2,7 @@
 //
 // Atom.c -- Implementation of struct 'ATOM' related functions.
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-07 - Module released for beta state.
 // 2000-06-18 - Initial Version.
@@ -56,6 +56,7 @@ ATOM * ATOM_Table[MAX_ATOM +2] = {
 };
 CARD32 ATOM_Count = LAST_PREDEF_ATOM;
 
+// list of alphabetial sorted Atoms by name
 static short _ATOM_Order[] = {
 	WM_DELETE_WINDOW, WM_PROTOCOLS,        XA_ARC,           XA_ATOM,
 	XA_BITMAP,        XA_CAP_HEIGHT,       XA_CARDINAL,      XA_COLORMAP,
@@ -77,6 +78,7 @@ static short _ATOM_Order[] = {
 	XA_WM_ICON_NAME,  XA_WM_ICON_SIZE,     XA_WM_NAME,       XA_WM_NORMAL_HINTS,
 	XA_WM_SIZE_HINTS, XA_WM_TRANSIENT_FOR, XA_WM_ZOOM_HINTS, XA_X_HEIGHT
 };
+
 static ATOM * _ATOM_Sort[MAX_ATOM -1];
 
 
@@ -88,9 +90,11 @@ AtomInit (BOOL initNreset)
 	
 	// first call from Server initialization, fill in the name length for each
 	// predefined atom
+	//
 	if (initNreset) {
-		if ((sizeof(_ATOM_Order) /2) != (LAST_PREDEF_ATOM -1)) {
-			// error "FATAL"
+		if ((sizeof(_ATOM_Order)/sizeof(*_ATOM_Order)) != (LAST_PREDEF_ATOM -1)) {
+			printf ("pFATAL:q Internal failure in AtomInit()\n");
+			exit(1);
 		}
 		for (i = 1; i <= LAST_PREDEF_ATOM; ++i) {
 			ATOM_Table[i]->Id     = i;
@@ -98,6 +102,7 @@ AtomInit (BOOL initNreset)
 		}
 	
 	// later calls from server reset, delete all non-predefined atoms
+	//
 	} else {
 		for (i = LAST_PREDEF_ATOM +1; i <= ATOM_Count; ++i) {
 			free (ATOM_Table[i]);
@@ -110,9 +115,11 @@ AtomInit (BOOL initNreset)
 	}
 	
 	// always clear all empty table entries
+	//
 	memset (ATOM_Table + LAST_PREDEF_ATOM +1, 0,
 	         (MAX_ATOM - LAST_PREDEF_ATOM) * sizeof(ATOM*));
 	ATOM_Count = LAST_PREDEF_ATOM;
+	
 	for (i = 0; i < LAST_PREDEF_ATOM; ++i) {
 		_ATOM_Sort[i] = ATOM_Table[_ATOM_Order[i]];
 	}
