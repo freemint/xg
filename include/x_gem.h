@@ -22,6 +22,10 @@
 #endif
 
 
+#define K_LOCK    0x10   // bitmask returned by Kbshift()
+#define K_ALTGR   0x80
+
+
 void vs_clip_r   (int handle, const GRECT * rect);
 void vs_clip_p   (int handle, const PXY   * clip);
 void vs_clip_off (int handle);

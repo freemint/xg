@@ -126,9 +126,20 @@ main (int argc, char * argv[])
 				                 | (*kb_shift &  K_LSHIFT ? Mod3Mask|ShiftMask : 0)
 				                 | (*kb_shift &  K_LOCK   ? LockMask           : 0)
 				                 | (*kb_shift & (K_CTRL|K_ALT|K_ALTGR));
-				short  chng      = 0;
+				short  chng;
 				MAIN_KeyButMask  = meta | PntrMap(ev_o.evo_mbutton);
 				MAIN_TimeStamp   = (clock() * (1000 / CLOCKS_PER_SEC) - t_start);
+				
+				if (event & MU_KEYBD) {
+					chng = KybdEvent (ev_o.evo_kreturn, prev_mask);
+				} else if (meta != (prev_mask & 0xFF)) {
+					chng = KybdEvent (0, prev_mask);
+				} else {
+					chng = 0;
+				}
+				if (WMGR_Cursor && (chng &= K_ALT|K_CTRL)) {
+					WmgrKeybd (chng);
+				}
 				
 				if (event & MU_MESAG) {
 					if (msg[0] == MN_SELECTED) {
@@ -164,15 +175,6 @@ main (int argc, char * argv[])
 					ev_i.evi_bstate = ev_o.evo_mbutton;
 				}
 				*(PXY*)&ev_i.evi_m2 = ev_o.evo_mouse;
-				
-				if (event & MU_KEYBD) {
-					chng = KybdEvent (ev_o.evo_kreturn, prev_mask);
-				} else if (meta != (prev_mask & 0xFF)) {
-					chng = KybdEvent (0, prev_mask);
-				}
-				if (WMGR_Cursor && (chng &= K_ALT|K_CTRL)) {
-					WmgrKeybd (chng);
-				}
 				
 				{	long rd_set = MAIN_FDSET_rd, wr_set = MAIN_FDSET_wr;
 				if (reset || (Fselect (1, &rd_set, &wr_set, 0)

@@ -110,12 +110,13 @@ SrvrInit (int port)
 	MAIN_FDSET_rd = SRVR_RdSet = 1uL << SRVR_Socket;
 	
 	AtomInit (xTrue);
+	KybdInit ();
 	ClntInit (xTrue);
 	PmapInit (xTrue);
 	WindInit (xTrue);
 	
-	_SRVR_ConnMSB.conn.minKeyCode = KYBD_MapMin;
-	_SRVR_ConnMSB.conn.maxKeyCode = KYBD_MapMax;
+	_SRVR_ConnMSB.conn.minKeyCode = KYBD_CodeMin;
+	_SRVR_ConnMSB.conn.maxKeyCode = KYBD_CodeMax;
 	_SRVR_ConnMSB.conn.numFormats = i = GrphSetup (&_SRVR_ConnMSB.pfrm);
 	_SRVR_SetupBytes             += i * sizeof(xPixmapFormat);
 	_SRVR_ConnMSB.pref.length = Units (_SRVR_SetupBytes - sz_xConnSetupPrefix
@@ -145,6 +146,7 @@ SrvrReset()
 	WindInit (xFalse);
 	CrsrInit (xFalse);
 	PmapInit (xFalse);
+	KybdInit ();
 	AtomInit (xFalse);
 	PntrInit (xFalse);
 	WmgrInit (xFalse);
