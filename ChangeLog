@@ -1,0 +1,12 @@
+2000-12-19: 0.01.03
+   - short click at its sizer-frame tops an window now
+   - fixed setting to ParentRelative background, still not correct yet, but
+     proper workaround.
+2000-12-18: 0.01.02
+   - CloseFont request completed
+   - Font-aliasing implemented (/usr/X11/lib/X11/fonts.alias)
+   - Even more improved handling of '<W>x<H>' font names.
+2000-12-17: 0.01.01
+   - Improved handling of '<W>x<H>' font names.
+2000-12-15: 0.01
+   - Initial version of public beta.
