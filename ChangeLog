@@ -1,3 +1,17 @@
+   - if the server starts up and founds that there is no console installed (or
+     opened) it tryes to start xconsole instead.  this works only in case that
+     the xconout2.xdd is installed.
+   - implemented AV_START message handling to allow client programms to be
+     started with corrected command lines.
+   - implemented command line conversion from tos to unix path convention for
+     client execution.  this makes it possible to start client programs simply
+     from the desktop, where file parameters for the client are always given
+     in dos convention.
+2001-07-08: 0.10.3
+   - fixed a stupid bug from last release which stopped window resizing due to
+     not taking over the mouse control.
+   - improved arguments for executing of client processes.  therefor windows are
+     named correctly now, even if clients are started from desktop.
 2001-07-07: 0.10.2
    - completely reworked keyboard mapping, should now work correctly with
      different keyboard layouts, also for french and swedish.  Additional,

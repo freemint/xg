@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// wmgr.c -- Build-in window manager.
+// wmgr.c -- Built-in window manager.
 //
 // Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
@@ -25,8 +25,11 @@
 #include "x_mint.h"
 #include "Xapp.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <setjmp.h>
+#include <signal.h>
 
 #include <X11/Xatom.h>
 #include <X11/cursorfont.h>
@@ -920,15 +923,22 @@ WmgrSetFocus (short focus)
 	WMGR_Focus = focus;
 }
 
+//------------------------------------------------------------------------------
+static jmp_buf _jmp_sig_av;
+static void _Wmgr_SigAVptr (int sig)
+{
+	longjmp (_jmp_sig_av, sig);
+}
+
 //==============================================================================
 BOOL
 WmgrMessage (short * msg)
 {
 	static BOOL color_changed = xFalse;
 	
-	BOOL     reset    = xFalse;
-	BOOL     inv_save = WIND_SaveDone;
-	WINDOW * wind;
+	volatile BOOL reset    = xFalse;
+	BOOL          inv_save = WIND_SaveDone;
+	WINDOW      * wind;
 	
 	switch (msg[0]) {
 		
@@ -1048,9 +1058,63 @@ WmgrMessage (short * msg)
 		case COLORS_CHANGED:
 			color_changed = xTrue;
 			break;
+		
+		case 0x4711: if (!*(char**)(msg +3)) {
+			printf ("\33pIgnored\33q empty AV_START from #%i.\n", msg[1]);
+			
+		} else {
+			signal (SIGBUS,  _Wmgr_SigAVptr);
+			signal (SIGSEGV, _Wmgr_SigAVptr);
+			if (setjmp (_jmp_sig_av)) {
+				char  buf[150], name[50];
+				short typ, pid;
+				if (appl_search (-msg[1], buf, &typ, &pid)) {
+					char * b = buf, * e;
+					while (*b == ' ') b++;
+					e = strchr (b, '\0');
+					while (*(--e) == ' ');
+					e[1] = '\0';
+					sprintf (name, " (%i,'%s')", pid, b);
+				}
+				sprintf (buf, "[1]"
+				         "[ Application #%i%s"
+				         "| sent illegal pointer %p"
+				         "| in AV_START message.| ][Bummer!]",
+				         msg[1], name, *(char**)(msg +3));
+				form_alert (1, buf);
 
+				printf ("\33pBUMMER\33q"
+				        " Application #%i sent illegal pointer %p in AV_START.\n",
+				        msg[1], *(char**)(msg +3));
+			} else {
+				char  * str = *(char**)(msg +3);
+				char  * arg  = strchr (str, ' ');
+				char ** argv = (arg ? alloca (strlen (arg) / 2) : NULL);
+				int     argc = 0;
+				size_t  len  = (arg ? arg - str : strlen (str));
+				char  * prg  = alloca (len);
+				((char*)memcpy (prg, str, len))[len] = '\0';
+				while ((str = arg)) {
+					while (*(++str) == ' ');
+					if ((arg = strchr (str, ' '))) len = arg - str;
+					else                           len = strlen (str);
+					if (!len || !(argv[argc] = malloc (len))) break;
+					((char*)memcpy (argv[argc++], str, len))[len] = '\0';
+				}
+				
+				printf ("VA_START '%s'\n", *(char**)(msg +3));
+				msg[0] = 0x4738; // AV_STARTED
+				appl_write (msg[1], 16, msg);
+				
+				WmgrLaunch (prg, argc, (const char **)argv);
+				while (argc) free (argv[--argc]);
+			}
+		}	break;
+		
 		default:
-			printf ("event #%i %X \n", msg[0], MAIN_KeyButMask);
+			printf ("event #%i(%X) by #%i = %i/%X, %04X,%04X,%04X,%04X \n",
+			        msg[0], MAIN_KeyButMask, msg[1],
+			        msg[3],msg[3], msg[4],msg[5],msg[6],msg[7]);
 	}
 	
 	if (inv_save) WindSaveFlush (xFalse);
