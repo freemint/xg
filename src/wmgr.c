@@ -36,7 +36,7 @@ extern const short _app;
 
 BOOL    WMGR_Active = xFalse;;
 CARD16  WMGR_Cursor = 0x0000;
-#define WMGR_DECOR    5
+#define WMGR_DECOR    6
 short   WMGR_Decor  = WMGR_DECOR;
 #define A_WIDGETS     (NAME|MOVER|CLOSER|SMALLER)
 #define P_WIDGETS     0
@@ -694,12 +694,11 @@ WmgrWindIcon (WINDOW * wind)
 void
 WmgrCursor (WINDOW * wind, p_PXY pos)
 {
-	PROPERTIES * pool = (wind ? wind->Properties : NULL);
-	CARD16       type = 0x0000;
+	CARD16 type;
 	
 	if (!wind ||   (MAIN_KeyButMask & K_ALT)
-	          || (!(MAIN_KeyButMask & K_CTRL) && pool && pool->Min.valid
-	              && (pool->Min.valid == pool->Max.valid))) {
+	          || (!(MAIN_KeyButMask & K_CTRL)
+	              && wind->Properties && wind->Properties->FixedSize)) {
 		type = 0x1111;
 	
 	} else { // (wind || pos)
@@ -707,6 +706,7 @@ WmgrCursor (WINDOW * wind, p_PXY pos)
 			pos  = alloca (sizeof(*pos));
 			*pos = WindPointerPos (wind);
 		}
+		type = 0x0000;
 		if (pos->y >= 0) {
 			if      (pos->x <  0)            type =  0x100;
 			else if (pos->x >= wind->Rect.w) type =  0x001;
@@ -997,6 +997,12 @@ WmgrMessage (short * msg)
 				color_changed = xFalse;
 			}
 			if (msg[3] == _WMGR_FocusHolder) {
+				WINDOW * w = WIND_Root.StackTop;
+				while (w) if (w->isMapped || w->GwmIcon) {
+					wind_set (w->Handle, WF_TOP, 0,0,0,0);
+					_WMGR_HasFocus++;
+					break;
+				}
 				wind_set (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
 			} else {
 				_WMGR_HasFocus++;
@@ -1089,8 +1095,6 @@ WmgrButton (WINDOW * wind)
 		cursor = WMGR_Cursor;
 		
 		wind_get_curr (wind->Handle, (GRECT_lib*)pc);
-printf ("W:%X #%i [%i,%i/%i,%i]\n",
-wind->Id, wind->Handle, pc[0].x,pc[0].y,pc[1].x,pc[1].y);
 		pc[2].x = pc[1].x += (pc[3].x = pc[4].x = pc[0].x) -1;
 		pc[2].y = pc[3].y =   pc[0].y + pc[1].y            -1;
 		pc[4].y =            (pc[1].y = pc[0].y)           +1;

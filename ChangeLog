@@ -1,3 +1,10 @@
+   - added new control:  holding down the ALT key and pressing the left mouse
+     button somewhere inside a X window with allows to move this window, same as
+     handled by other X servers.  a short mouse click instead tops/bottoms the
+     window.
+   - changed window decoration to view if a window is normally resizeable or
+     not.
+   - improved window (un)topping, should now always react as expected.
 2001-07-01: 0.09.4
    - activated the 'About' box (as wished by lp_ and other :-) ) to display the
      version number.

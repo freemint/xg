@@ -31,7 +31,7 @@ SRC = Atom.c Cursor.c Pointer.c Property.c Prop_ICCC.c Request.c \
       event.c font.c font_init.c fontable.c gcontext.c grph.c keyboard.c \
       main.c pixm_mono.c pixmap.c selection.c srvr.c \
       wind_draw.c wind_grab.c wind_pntr.c wind_save.c wind_util.c \
-      window.c wmgr.c x_gem.c xrsc.c
+      window.c wmgr.c wmgr_draw.c x_gem.c xrsc.c
 
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 

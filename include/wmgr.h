@@ -37,6 +37,9 @@ void WmgrCursorOff  (p_CURSOR new_crsr);
 
 void WmgrSetDesktop (BOOL onNoff);
 
+void WmgrDrawDeco (p_WINDOW, p_PRECT work, p_PRECT area, p_PRECT sect, int num);
+void WmgrDrawIcon (p_WINDOW, p_GRECT clip);
+
 void WmgrSetFocus (short focus);
 
 BOOL WmgrMenu    (short title, short entry, short meta);

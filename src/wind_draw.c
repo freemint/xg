@@ -443,107 +443,6 @@ draw_brdr (WINDOW * wind, PRECT * work, PRECT * area, PRECT * sect, int num)
 }
 
 //------------------------------------------------------------------------------
-static void
-draw_deco (PRECT * work, PRECT * area, PRECT * sect, int num)
-{
-	BOOL  lft = xFalse, rgt = xFalse;
-	int   n = 0, i;
-	PRECT brdr[3];
-	PXY   pxy[4], l_a[3], l_b[2], l_c[2], l_d[3], r_a[5], r_b[3];
-	short deco_size = (WMGR_Decor *3) /2;
-	
-	brdr[0].lu.x = 0;
-	brdr[0].lu.y = 0;
-	brdr[0].rd.x = work->lu.x -1;
-	brdr[0].rd.y = work->rd.y;
-	if (GrphIntersectP (brdr, area)) {
-		if (brdr[0].rd.y >= work->rd.y - deco_size) lft = xTrue;
-		n++;
-	}
-	brdr[n].lu.x = work->rd.x + 1;
-	brdr[n].lu.y = 0;
-	brdr[n].rd.x = 0x7FFF;
-	brdr[n].rd.y = work->rd.y;
-	if (GrphIntersectP (brdr + n, area)) {
-		if (brdr[n].rd.y >= work->rd.y - deco_size) rgt = xTrue;
-		n++;
-	}
-	brdr[n].lu.x = 0;
-	brdr[n].lu.y = work->rd.y +1;
-	brdr[n].rd.x = 0x7FFF;
-	brdr[n].rd.y = 0x7FFF;
-	if (GrphIntersectP (brdr + n, area)) {
-		if (!lft && brdr[n].lu.x <= work->lu.x + deco_size) lft = xTrue;
-		if (!rgt && brdr[n].rd.x >= work->rd.x - deco_size) rgt = xTrue;
-		n++;
-	} else if (!n) {
-		return;
-	}
-	
-	if (lft) {
-		l_a[0].x = l_a[1].x = work->lu.x - WMGR_Decor;
-		l_a[2].x =            work->lu.x              -3;
-		l_a[0].y =            work->rd.y + WMGR_Decor -1;
-		l_a[1].y = l_a[2].y = work->rd.y - deco_size;
-		l_b[0].x =            work->lu.x              -1;
-		l_b[1].x =            work->lu.x + deco_size  -1;
-		l_b[0].y = l_b[1].y = work->rd.y              +2;
-		l_c[0].x = l_c[1].x = work->lu.x              -2;
-		l_c[0].y =            work->rd.y - deco_size  +1;
-		l_c[1].y =            work->rd.y              +1;
-		l_d[0].x =            work->lu.x - WMGR_Decor +1;
-		l_d[1].x = l_d[2].x = work->lu.x + deco_size;
-		l_d[0].y = l_d[1].y = work->rd.y + WMGR_Decor;
-		l_d[2].y =            work->rd.y              +3;
-	}
-	if (rgt) {
-		r_a[0].x = r_a[1].x = work->rd.x - deco_size;
-		r_a[2].x = r_a[3].x = work->rd.x              +2;
-		r_a[4].x =            work->rd.x + WMGR_Decor -1;
-		r_a[0].y =            work->rd.y + WMGR_Decor -1;
-		r_a[1].y = r_a[2].y = work->rd.y              +2;
-		r_a[3].y = r_a[4].y = work->rd.y - deco_size;
-		r_b[0].x =            work->rd.x - deco_size  +1;
-		r_b[1].x = r_b[2].x = work->rd.x + WMGR_Decor;
-		r_b[0].y = r_b[1].y = work->rd.y + WMGR_Decor;
-		r_b[2].y =            work->rd.y - deco_size  +1;
-	}
-	pxy[0].x = pxy[1].x = work->lu.x -1;
-	pxy[2].x = pxy[3].x = work->rd.x +1;
-	pxy[0].y = pxy[3].y = work->lu.y;
-	pxy[1].y = pxy[2].y = work->rd.y +1;
-	
-	vsf_color (GRPH_Vdi, G_LWHITE);
-	vsl_color (GRPH_Vdi, G_LBLACK);
-	v_hide_c  (GRPH_Vdi);
-	do {
-		vs_clip_p (GRPH_Vdi, (PXY*)sect++);
-		for (i = 0; i < n; v_bar (GRPH_Vdi, (short*)&brdr[i++].lu));
-		v_pline (GRPH_Vdi, 4, (short*)pxy);
-		if (lft || rgt) {
-			vsl_color (GRPH_Vdi, G_WHITE);
-			if (lft) {
-				v_pline (GRPH_Vdi, sizeof(l_a) / sizeof(PXY), (short*)l_a);
-				v_pline (GRPH_Vdi, sizeof(l_b) / sizeof(PXY), (short*)l_b);
-			}
-			if (rgt) {
-				v_pline (GRPH_Vdi, sizeof(r_a) / sizeof(PXY), (short*)r_a);
-			}
-			vsl_color (GRPH_Vdi, G_LBLACK);
-			if (lft) {
-				v_pline (GRPH_Vdi, sizeof(l_c) / sizeof(PXY), (short*)l_c);
-				v_pline (GRPH_Vdi, sizeof(l_d) / sizeof(PXY), (short*)l_d);
-			}
-			if (rgt) {
-				v_pline (GRPH_Vdi, sizeof(r_b) / sizeof(PXY), (short*)r_b);
-			}
-		}
-	} while (--num);
-	v_show_c    (GRPH_Vdi, 1);
-	vs_clip_off (GRPH_Vdi);
-}
-
-//------------------------------------------------------------------------------
 static BOOL
 draw_wind (WINDOW * wind, PRECT * work,
            PRECT * area, PRECT * sect, int nClp)
@@ -608,7 +507,7 @@ WindDrawSection (WINDOW * wind, const GRECT * clip)
 			PRECT work = { base, {
 			               base.x + wind->Rect.w -1, base.y + wind->Rect.h -1 } };
 			area = (sect + nClp);
-			draw_deco (&work, area, sect, nClp);
+			WmgrDrawDeco (wind, &work, area, sect, nClp);
 			if (draw_wind (wind, &work, area, sect, nClp)
 			     && (wind = wind->StackBot)) {
 				*area = work;
