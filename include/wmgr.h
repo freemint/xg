@@ -50,11 +50,12 @@ void WmgrKeybd   (short chng_meta);
 short WmgrLaunch (const char * prg, int argc, const char * argv[]);
 
 
-extern CONST CARD16 WMGR_OpenCounter;
+extern CONST BOOL   WMGR_ExitFlag;
 extern CONST BOOL   WMGR_Active;
 extern CONST CARD16 WMGR_Cursor;
 extern CONST short  WMGR_Decor;
 
+extern CONST CARD16 WMGR_OpenCounter;
 extern CONST short  WMGR_Focus;
 extern CONST short  WMGR_FocusHolder;
 

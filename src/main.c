@@ -215,7 +215,14 @@ main (int argc, char * argv[])
 				
 				if (event & MU_MESAG) {
 					if (msg[0] == MN_SELECTED) {
-						run = WmgrMenu (msg[3], msg[4], ev_o.evo_kmeta);
+						if (WmgrMenu (msg[3], msg[4], ev_o.evo_kmeta)) {
+							if (WMGR_ExitFlag) {
+								run = xFalse;
+								break;
+							} else if (!WMGR_Active) {
+								reset = xTrue;
+							}
+						}
 					} else if (msg[0] == AP_TERM) {
 						run = xFalse;
 						break;

@@ -243,7 +243,7 @@ SrvrSelect (short exclusive)
 					if (n == SRVR_Conn.Fd) {
 						rd_set = 0;
 						mask   = (CARD32)wr_set >> n;
-					} else if (SRVR_ConnNum == 1) {
+					} else if (!WMGR_Active) {
 						left = xTrue;
 					}
 				}
