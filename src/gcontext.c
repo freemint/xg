@@ -302,7 +302,7 @@ RQ_CreateGC (CLIENT * clnt, xCreateGCReq * q)
 	} else if (q->mask & ~((2uL << GCLastBit) -1)) {
 		Bad(Value, q->mask, CreateGC, "invalid value mask 0x%lX.", q->mask);
 	
-	} else if (!(gc = XrscCreate (GC, q->gc, clnt->Fontables))) {
+	} else if (!(gc = XrscCreate (GC, q->gc, clnt->Fontables,))) {
 		Bad(Alloc,, CreateGC,);
 	
 	} else { //..................................................................

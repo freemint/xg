@@ -206,7 +206,7 @@ RQ_CreateCursor (CLIENT * clnt, xCreateCursorReq * q)
 		            "          mask size %i,%i differes from source %i,%i.",
 		            q->cid, bgnd->W,bgnd->H, fgnd->W,fgnd->H);
 	
-	} else if (!(crsr = XrscCreate (CURSOR, q->cid, clnt->Cursors))) {
+	} else if (!(crsr = XrscCreate (CURSOR, q->cid, clnt->Cursors,))) {
 		Bad(Alloc,, CreateCursor,"(C:%lX)", q->cid);
 	
 	} else { //..................................................................
@@ -264,7 +264,7 @@ RQ_CreateGlyphCursor (CLIENT * clnt, xCreateGlyphCursorReq * q)
 		Bad(Value, q->sourceChar,CreateGlyphCursor,"(C:%lX):\n"
 		           "          source glyph not defined.", q->cid);
 	
-	} else if (!(crsr = XrscCreate (CURSOR, q->cid, clnt->Cursors))) {
+	} else if (!(crsr = XrscCreate (CURSOR, q->cid, clnt->Cursors,))) {
 		Bad(Alloc,, CreateGlyphCursor,"(C:%lX).", q->cid);
 	
 	} else { //..................................................................

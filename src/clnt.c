@@ -173,7 +173,7 @@ ClntInit (BOOL initNreset)
 int
 ClntCreate (int fd, const char * name, const char * addr, int port)
 {
-	CLIENT * clnt = XrscCreate(CLIENT, ++_CLNT_RidCounter, CLNT_Pool);
+	CLIENT * clnt = XrscCreate(CLIENT, ++_CLNT_RidCounter, CLNT_Pool,);
 	
  	printf ("[%s:%i] Request from %s\n", addr, port, name);
 	

@@ -310,7 +310,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 			Bad(Name,, OpenFont,"('%.*s')\n          -> '%s'",
 			           (int)q->nbytes, patt, buf);
 		
-		} else if (!(font = XrscCreate (FONT, q->fid, clnt->Fontables))) {
+		} else if (!(font = XrscCreate (FONT, q->fid, clnt->Fontables,))) {
 			Bad(Alloc,, OpenFont,);
 		
 		} else {

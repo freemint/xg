@@ -268,8 +268,7 @@ RQ_CreatePixmap (CLIENT * clnt, xCreatePixmapReq * q)
 	
 	// else check depth 
 	
-	} else if (!(pmap = (PIXMAP*)_xrsc_create(&clnt->Drawables.xrsc, q->pid,
-	                                          sizeof(PIXMAP) + size -2))) {
+	} else if (!(pmap = XrscCreate (PIXMAP, q->pid, clnt->Drawables, size -2))) {
 		Bad(Alloc,, CreatePixmap,);
 	
 	} else {
