@@ -27,6 +27,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -37,12 +38,13 @@
 
 extern const short _app;
 
-BOOL    WMGR_Active = xFalse;;
-CARD16  WMGR_Cursor = 0x0000;
-#define WMGR_DECOR    6
-short   WMGR_Decor  = WMGR_DECOR;
-#define A_WIDGETS     (NAME|MOVER|CLOSER|SMALLER)
-#define P_WIDGETS     0
+BOOL    WMGR_ExitFlag = xFalse;
+BOOL    WMGR_Active   = xFalse;;
+CARD16  WMGR_Cursor   = 0x0000;
+#define WMGR_DECOR      6
+short   WMGR_Decor    = WMGR_DECOR;
+#define A_WIDGETS       (NAME|MOVER|CLOSER|SMALLER)
+#define P_WIDGETS       0
 
 CARD16       WMGR_OpenCounter  = 0;
 short        WMGR_Focus        = 0;
@@ -78,9 +80,9 @@ static FUNCTABL _WMGR_Table = {
 	FT_Grph_ShiftArc_MSB, FT_Grph_ShiftPnt_MSB, FT_Grph_ShiftR2P_MSB
 };
 static CLIENT _WMGR_Client = {
-	NULL, xFalse, 0x00000ul,            //NULL,
-	-1, -1, 0, NULL,
-	0u, xFalse, RetainPermanent,
+	NULL, xFalse, 0x00000ul, //NULL,
+	-1, -1, 0L, NULL,
+	NULL,  0u, xFalse, RetainPermanent,
 	(char*)"localhost", (char*)"127.0.0.1",
 	{ 0ul, 0ul, (char*)&_WMGR_Obuf }, { 0ul, 0ul, NULL },
 	NULL, &_WMGR_Table, 0ul,
@@ -276,6 +278,13 @@ WmgrActivate (BOOL onNoff)
 		}
 		if (_app) menu_icheck (_WMGR_Menu, MENU_GWM, 1);
 	
+		if (!CLNT_BaseNum &&
+		    !access ("/etc/X11/Xmodmap",     R_OK) &&
+		    !access ("/usr/X11/bin/xmodmap", X_OK)) {
+			const char * argv[] = { "/etc/X11/Xmodmap", NULL };
+			WmgrLaunch ("/usr/X11/bin/xmodmap", 1, argv);
+		}
+	
 	} else {
 		WmgrCursorOff (NULL);
 		WMGR_Active = xFalse;
@@ -339,7 +348,6 @@ WmgrActivate (BOOL onNoff)
 			w = w->NextSibl;
 		}
 		if (_app) menu_icheck (_WMGR_Menu, MENU_GWM, 0);
-		
 	}
 }
 
@@ -813,7 +821,7 @@ WmgrSetDesktop (BOOL onNoff)
 BOOL
 WmgrMenu (short title, short entry, short meta)
 {
-	BOOL run = xTrue;
+	BOOL trigger = xFalse;
 	
 	switch (entry) {
 		
@@ -847,14 +855,20 @@ WmgrMenu (short title, short entry, short meta)
 		case MENU_GWM:
 			WmgrActivate (!WMGR_Active);
 			WindPointerWatch (xFalse);
+			trigger = !CLNT_BaseNum;
 			break;
 		
 		case MENU_QUIT:
-			run = (!(_WMGR_Menu[MENU_CLNT].ob_state & OS_DISABLED) &&
-			       form_alert (1, "[2]"
-			                   "[Really quit the server|and all runng clients?]"
-			                   "[ quit |continue]")
-			       != 1);
+			if (!CLNT_BaseNum) {
+				trigger = xTrue;
+			} else {
+				const char * question =
+					"[2]"
+					"[Really quit the server|and all runng clients?]"
+					"[ quit |continue]";
+				trigger = (form_alert (1, question) == 1);
+			}
+			WMGR_ExitFlag = trigger;
 			break;
 		
 		case MENU_CLNT_FRST ... MENU_CLNT_LAST: {
@@ -867,12 +881,13 @@ WmgrMenu (short title, short entry, short meta)
 					ClntDelete (clnt);
 				}
 			}
+			trigger = !CLNT_BaseNum;
 		}	break;
 	}
 	if (title) {
 		menu_tnormal (_WMGR_Menu, title, 1);
 	}
-	return run;
+	return trigger;
 }
 
 
