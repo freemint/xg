@@ -205,17 +205,28 @@ EvntClient (WINDOW * wind, CARD32 mask)
 }
 
 
+//------------------------------------------------------------------------------
+static inline xEvent *
+Evnt_Buffer (O_BUFF * buf, size_t need) {
+	void   * r;
+	size_t   n = buf->Done + buf->Left;
+	if (n + need <= buf->Size) r = buf->Mem + n;
+	else                       r = ClntOutBuffer (buf, need, 0, 0);
+	return r;
+}
+
 //==============================================================================
 void
 EvntExpose (WINDOW * wind, short len, const struct s_GRECT * rect)
 {
 	CARD16     num = (wind->u.List.AllMasks < 0 ? wind->u.List.p->Length : 1);
 	WINDEVNT * lst = (num > 1 ? wind->u.List.p->Event : &wind->u.Event);
+	size_t     spc = sizeof(xEvent) * len;
+	xEvent   * evn;
 	
 	while (num--) {
-		if (lst->Mask & ExposureMask) {
-			O_BUFF      * buf = &lst->Client->oBuf;
-			xEvent      * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
+		if ((lst->Mask & ExposureMask)
+		    &&  (evn = Evnt_Buffer (&lst->Client->oBuf, spc))) {
 			const GRECT * rct = rect;
 			int           cnt = len;
 			if (lst->Client->DoSwap) {
@@ -241,8 +252,8 @@ EvntExpose (WINDOW * wind, short len, const struct s_GRECT * rect)
 					evn++;
 				}
 			}
-			buf->Left     += sizeof(xEvent) * len;
-			MAIN_FDSET_wr |= lst->Client->FdSet;
+			lst->Client->oBuf.Left += spc;
+			MAIN_FDSET_wr          |= lst->Client->FdSet;
 		}
 		lst++;
 	}
@@ -253,75 +264,76 @@ void
 EvntGraphExp (CLIENT * clnt, p_DRAWABLE draw,
               CARD16 major, short len, const struct s_GRECT * rect)
 {
-	O_BUFF * buf = &clnt->oBuf;
-	xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
-	int      cnt = len;
-	if (clnt->DoSwap) {
-		CARD16 seq = Swap16(clnt->SeqNum);
-		CARD32 did = Swap32(draw.p->Id);
-		major      = Swap16(major);
-		while (cnt--) {
-			evn->u.u.type                      = GraphicsExpose;
-			evn->u.u.sequenceNumber            = seq;
-			evn->u.graphicsExposure.drawable   = did;
-			evn->u.graphicsExposure.count      = Swap16(cnt);
-			evn->u.graphicsExposure.minorEvent = 0;
-			evn->u.graphicsExposure.majorEvent = major;
-			SwapRCT ((GRECT*)&evn->u.graphicsExposure.x, rect++);
-			evn++;
+	size_t   spc = sizeof(xEvent) * len;
+	xEvent * evn = Evnt_Buffer (&clnt->oBuf, spc);
+	if (evn) {
+		if (clnt->DoSwap) {
+			CARD16 seq = Swap16(clnt->SeqNum);
+			CARD32 did = Swap32(draw.p->Id);
+			major      = Swap16(major);
+			while (len--) {
+				evn->u.u.type                      = GraphicsExpose;
+				evn->u.u.sequenceNumber            = seq;
+				evn->u.graphicsExposure.drawable   = did;
+				evn->u.graphicsExposure.count      = Swap16(len);
+				evn->u.graphicsExposure.minorEvent = 0;
+				evn->u.graphicsExposure.majorEvent = major;
+				SwapRCT ((GRECT*)&evn->u.graphicsExposure.x, rect++);
+				evn++;
+			}
+		} else {
+			CARD16 seq = clnt->SeqNum;
+			CARD32 did = draw.p->Id;
+			while (len--) {
+				evn->u.u.type                       = GraphicsExpose;
+				evn->u.u.sequenceNumber             = seq;
+				evn->u.graphicsExposure.drawable    = did;
+				evn->u.graphicsExposure.count       = len;
+				evn->u.graphicsExposure.minorEvent  = 0;
+				evn->u.graphicsExposure.majorEvent  = major;
+				*(GRECT*)&evn->u.graphicsExposure.x = *(rect++);
+				evn++;
+			}
 		}
-	} else {
-		CARD16 seq = clnt->SeqNum;
-		CARD32 did = draw.p->Id;
-		while (cnt--) {
-			evn->u.u.type                       = GraphicsExpose;
-			evn->u.u.sequenceNumber             = seq;
-			evn->u.graphicsExposure.drawable    = did;
-			evn->u.graphicsExposure.count       = cnt;
-			evn->u.graphicsExposure.minorEvent  = 0;
-			evn->u.graphicsExposure.majorEvent  = major;
-			*(GRECT*)&evn->u.graphicsExposure.x = *(rect++);
-			evn++;
-		}
+		clnt->oBuf.Left += spc;
+		MAIN_FDSET_wr   |= clnt->FdSet;
 	}
-	buf->Left     += sizeof(xEvent) * len;
-	MAIN_FDSET_wr |= clnt->FdSet;
 }
 
 //==============================================================================
 void
 EvntClientMsg (CLIENT * clnt, Window id, Atom type, BYTE format, void * data)
 {
-	O_BUFF * buf = &clnt->oBuf;
-	xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
-	
-	evn->u.u.type   = ClientMessage;
-	evn->u.u.detail = format;
-	if (clnt->DoSwap) {
-		evn->u.u.sequenceNumber       = Swap16(clnt->SeqNum);
-		evn->u.clientMessage.window   = Swap32(id);
-		evn->u.clientMessage.u.l.type = Swap32(type);
-	} else {
-		evn->u.u.sequenceNumber       = clnt->SeqNum;
-		evn->u.clientMessage.window   = id;
-		evn->u.clientMessage.u.l.type = type;
-		format = 0;
+	xEvent * evn = Evnt_Buffer (&clnt->oBuf, sizeof(xEvent));
+	if (evn) {
+		evn->u.u.type   = ClientMessage;
+		evn->u.u.detail = format;
+		if (clnt->DoSwap) {
+			evn->u.u.sequenceNumber       = Swap16(clnt->SeqNum);
+			evn->u.clientMessage.window   = Swap32(id);
+			evn->u.clientMessage.u.l.type = Swap32(type);
+		} else {
+			evn->u.u.sequenceNumber       = clnt->SeqNum;
+			evn->u.clientMessage.window   = id;
+			evn->u.clientMessage.u.l.type = type;
+			format = 0;
+		}
+		if (format == 32) {
+			CARD32 * src = data;
+			CARD32 * dst = &evn->u.clientMessage.u.l.longs0;
+			int      num = 5;
+			do { *(dst++) = Swap32(*(src++)); } while (--num);
+		} else if (format == 16) {
+			CARD16 * src = data;
+			CARD16 * dst = &evn->u.clientMessage.u.s.shorts0;
+			int      num = 10;
+			do { *(dst++) = Swap16(*(src++)); } while (--num);
+		} else {
+			memcpy (evn->u.clientMessage.u.b.bytes, data, 20);
+		}
+		clnt->oBuf.Left += sizeof(xEvent);
+		MAIN_FDSET_wr   |= clnt->FdSet;
 	}
-	if (format == 32) {
-		CARD32 * src = data;
-		CARD32 * dst = &evn->u.clientMessage.u.l.longs0;
-		int      num = 5;
-		do { *(dst++) = Swap32(*(src++)); } while (--num);
-	} else if (format == 16) {
-		CARD16 * src = data;
-		CARD16 * dst = &evn->u.clientMessage.u.s.shorts0;
-		int      num = 10;
-		do { *(dst++) = Swap16(*(src++)); } while (--num);
-	} else {
-		memcpy (evn->u.clientMessage.u.b.bytes, data, 20);
-	}
-	buf->Left     += sizeof(xEvent);
-	MAIN_FDSET_wr |= clnt->FdSet;
 }
 
 //==============================================================================
@@ -427,17 +439,18 @@ void
 EvntMappingNotify (CARD8 request, CARD8 first, CARD8 count)
 {
 	CLIENT * clnt = (CLIENT*)CLNT_Base;
+	xEvent * evn;
 	while (clnt) {
-		O_BUFF * buf = &clnt->oBuf;
-		xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
-		evn->u.u.type           = MappingNotify;
-		evn->u.u.sequenceNumber = (clnt->DoSwap ? Swap16(clnt->SeqNum)
-		                                        :        clnt->SeqNum);
-		evn->u.mappingNotify.request      = request;
-		evn->u.mappingNotify.firstKeyCode = first;
-		evn->u.mappingNotify.count        = count;
-		buf->Left     += sizeof(xEvent);
-		MAIN_FDSET_wr |= clnt->FdSet;
+		if ((evn = Evnt_Buffer (&clnt->oBuf, sizeof(xEvent)))) {
+			evn->u.u.type           = MappingNotify;
+			evn->u.u.sequenceNumber = (clnt->DoSwap ? Swap16(clnt->SeqNum)
+			                                        :        clnt->SeqNum);
+			evn->u.mappingNotify.request      = request;
+			evn->u.mappingNotify.firstKeyCode = first;
+			evn->u.mappingNotify.count        = count;
+			clnt->oBuf.Left += sizeof(xEvent);
+			MAIN_FDSET_wr   |= clnt->FdSet;
+		}
 		clnt = clnt->Next;
 	}
 }
@@ -586,71 +599,75 @@ void
 FT_Evnt_send_MSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 {
 	const char * frm = _EVNT_Form[evnt];
-	O_BUFF     * buf = &clnt->oBuf;
-	xEvent     * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
-	char       * ptr = ((char*)evn) +4;
-	#define ARG(t)   { *(t*)ptr = va_arg (vap, t); ptr += sizeof(t); }
-	
-	evn->u.u.type = evnt;
-	evn->u.u.sequenceNumber = clnt->SeqNum;
-	
-	while (*frm) switch (*(frm++)) {
-		case 'W': if (wind) { *(Window*)ptr = wind->Id; ptr += 4; break; }
-		case 'w': ARG (Window);   break;
-		case 'd': ARG (Drawable); break;
-		case 'a': ARG (Atom);     break;
-		case 'l': ARG (CARD32);   break;
-		case 's': ARG (CARD16);   break;
-		case 'c': ARG (CARD8);    break;
-		case 'b': ARG (BOOL);     break;
-		case 'p': ARG (PXY);      break;
-		case 'r': *(GRECT*)ptr      = *va_arg (vap, GRECT*); ptr += 8; break;
-		case 'D': evn->u.u.detail   =  va_arg (vap, CARD8);            break;
-		case 'X': *(Window*)ptr     = ROOT_WINDOW;           ptr += 4; break;
-		case 'S': *(Time*)ptr       = MAIN_TimeStamp;        ptr += 4; break;
-		case 'M': *(KeyButMask*)ptr = MAIN_KeyButMask;       ptr += 2; break;
-		case 'T': *ptr              = xTrue;                 ptr += 1; break;
-		case 'F': *ptr              = xFalse;                ptr += 1; break;
-		case '*':                                            ptr += 4; break;
+	xEvent     * evn = Evnt_Buffer (&clnt->oBuf, sizeof(xEvent));
+	if (evn) {
+		char * ptr = ((char*)evn) +4;
+		
+		#define ARG(t)   { *(t*)ptr = va_arg (vap, t); ptr += sizeof(t); }
+		
+		evn->u.u.type = evnt;
+		evn->u.u.sequenceNumber = clnt->SeqNum;
+		
+		while (*frm) switch (*(frm++)) {
+			case 'W': if (wind) { *(Window*)ptr = wind->Id; ptr += 4; break; }
+			case 'w': ARG (Window);   break;
+			case 'd': ARG (Drawable); break;
+			case 'a': ARG (Atom);     break;
+			case 'l': ARG (CARD32);   break;
+			case 's': ARG (CARD16);   break;
+			case 'c': ARG (CARD8);    break;
+			case 'b': ARG (BOOL);     break;
+			case 'p': ARG (PXY);      break;
+			case 'r': *(GRECT*)ptr      = *va_arg (vap, GRECT*); ptr += 8; break;
+			case 'D': evn->u.u.detail   =  va_arg (vap, CARD8);            break;
+			case 'X': *(Window*)ptr     = ROOT_WINDOW;           ptr += 4; break;
+			case 'S': *(Time*)ptr       = MAIN_TimeStamp;        ptr += 4; break;
+			case 'M': *(KeyButMask*)ptr = MAIN_KeyButMask;       ptr += 2; break;
+			case 'T': *ptr              = xTrue;                 ptr += 1; break;
+			case 'F': *ptr              = xFalse;                ptr += 1; break;
+			case '*':                                            ptr += 4; break;
+		}
+		clnt->oBuf.Left += sizeof(xEvent);
+		MAIN_FDSET_wr   |= clnt->FdSet;
 	}
-	buf->Left     += sizeof(xEvent);
-	MAIN_FDSET_wr |= clnt->FdSet;
 }
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void
 FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 {
 	const char * frm = _EVNT_Form[evnt];
-	O_BUFF     * buf = &clnt->oBuf;
-	xEvent     * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
-	char       * ptr = ((char*)evn) +4;
-	#define ARG32(t) { *(t*)ptr = Swap32(va_arg (vap, t)); ptr += 4; }
-	#define ARG16(t) { *(t*)ptr = Swap16(va_arg (vap, t)); ptr += 2; }
-	
-	evn->u.u.type = evnt;
-	evn->u.u.sequenceNumber = Swap16(clnt->SeqNum);
-	
-	while (*frm) switch (*(frm++)) {
-		case 'W': if (wind) {*(Window*)ptr = Swap32(wind->Id); ptr += 4; break; }
-		case 'w': ARG32 (Window);   break;
-		case 'd': ARG32 (Drawable); break;
-		case 'a': ARG32 (Atom);     break;
-		case 'l': ARG32 (CARD32);   break;
-		case 's': ARG16 (CARD16);   break;
-		case 'c': ARG   (CARD8);    break;
-		case 'b': ARG   (BOOL);     break;
-		case 'p': SwapPXY ((PXY*)ptr,  &va_arg (vap, PXY));    ptr += 4; break;
-		case 'r': SwapRCT ((GRECT*)ptr, va_arg (vap, GRECT*)); ptr += 8; break;
-		case 'D': evn->u.u.detail   =   va_arg (vap, CARD8);             break;
-		case 'X': *(Window*)ptr     = SWAP32(ROOT_WINDOW);     ptr += 4; break;
-		case 'S': *(Time*)ptr       = Swap32(MAIN_TimeStamp);  ptr += 4; break;
-		case 'M': *(KeyButMask*)ptr = Swap16(MAIN_KeyButMask); ptr += 2; break;
-		case 'T': *ptr              = xTrue;                   ptr += 1; break;
-		case 'F': *ptr              = xFalse;                  ptr += 1; break;
-		case '*':                                              ptr += 4; break;
+	xEvent     * evn = Evnt_Buffer (&clnt->oBuf, sizeof(xEvent));
+	if (evn) {
+		char * ptr = ((char*)evn) +4;
+		
+		#define ARG32(t) { *(t*)ptr = Swap32(va_arg (vap, t)); ptr += 4; }
+		#define ARG16(t) { *(t*)ptr = Swap16(va_arg (vap, t)); ptr += 2; }
+		
+		evn->u.u.type = evnt;
+		evn->u.u.sequenceNumber = Swap16(clnt->SeqNum);
+		
+		while (*frm) switch (*(frm++)) {
+			case 'W': if (wind) {*(Window*)ptr = Swap32(wind->Id); ptr += 4; break; }
+			case 'w': ARG32 (Window);   break;
+			case 'd': ARG32 (Drawable); break;
+			case 'a': ARG32 (Atom);     break;
+			case 'l': ARG32 (CARD32);   break;
+			case 's': ARG16 (CARD16);   break;
+			case 'c': ARG   (CARD8);    break;
+			case 'b': ARG   (BOOL);     break;
+			case 'p': SwapPXY ((PXY*)ptr,  &va_arg (vap, PXY));    ptr += 4; break;
+			case 'r': SwapRCT ((GRECT*)ptr, va_arg (vap, GRECT*)); ptr += 8; break;
+			case 'D': evn->u.u.detail   =   va_arg (vap, CARD8);             break;
+			case 'X': *(Window*)ptr     = SWAP32(ROOT_WINDOW);     ptr += 4; break;
+			case 'S': *(Time*)ptr       = Swap32(MAIN_TimeStamp);  ptr += 4; break;
+			case 'M': *(KeyButMask*)ptr = Swap16(MAIN_KeyButMask); ptr += 2; break;
+			case 'T': *ptr              = xTrue;                   ptr += 1; break;
+			case 'F': *ptr              = xFalse;                  ptr += 1; break;
+			case '*':                                              ptr += 4; break;
+		}
+		clnt->oBuf.Left += sizeof(xEvent);
+		MAIN_FDSET_wr   |= clnt->FdSet;
 	}
-	buf->Left     += sizeof(xEvent);
-	MAIN_FDSET_wr |= clnt->FdSet;
 }
 
 //==============================================================================
@@ -728,47 +745,47 @@ RQ_SendEvent (CLIENT * clnt, xSendEventReq * q)
 		} else while (num--) {
 			if (lst->Mask & mask) {
 				CLIENT * rcp = lst->Client;
-				O_BUFF * buf = &rcp->oBuf;
-				xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
-				
-				evn->u.u.type           = q->event.u.u.type | 0x80;
-				evn->u.u.detail         = q->event.u.u.detail;
-				evn->u.u.sequenceNumber = (rcp->DoSwap ? Swap16(rcp->SeqNum)
-				                                       :        rcp->SeqNum );
-				if (rcp->DoSwap == clnt->DoSwap) {
-					memcpy (&evn->u.clientMessage.window,
-					        &q->event.u.clientMessage.window, 28);
-				} else {
-					const char * frm = _EVNT_Form[q->event.u.u.type];
-					char       * dst = ((char*)evn) +4;
-					char       * src = ((char*)&q->event) +4;
-					while (*frm) switch (*(frm++)) {
-						case 'c': case 'b': case 'T': case 'F':
-							*(dst++) = *(src++);
-							break;
-						case 's': case 'M':
-							*(short*)dst = Swap16 (*(short*)src);
-							dst += 2; src += 2;
-							break;
-						case 'X': case 'W': case 'w': case 'd':case 'a': case 'l':
-						case 'S':
-							*(long*)dst = Swap32 (*(long*)src);
-						case '*':
-							dst += 4; src += 4;
-						case 'D':
-							break;
-						case 'p':
-							SwapPXY ((PXY*)dst, (PXY*)src);
-							dst += 4; src += 4;
-							break;
-						case 'r':
-							SwapRCT ((GRECT*)dst, (GRECT*)src);
-							dst += 8; src += 8;
-							break;
+				xEvent * evn = Evnt_Buffer (&rcp->oBuf, sizeof(xEvent));
+				if (evn) {
+					evn->u.u.type           = q->event.u.u.type | 0x80;
+					evn->u.u.detail         = q->event.u.u.detail;
+					evn->u.u.sequenceNumber = (rcp->DoSwap ? Swap16(rcp->SeqNum)
+					                                       :        rcp->SeqNum );
+					if (rcp->DoSwap == clnt->DoSwap) {
+						memcpy (&evn->u.clientMessage.window,
+						        &q->event.u.clientMessage.window, 28);
+					} else {
+						const char * frm = _EVNT_Form[q->event.u.u.type];
+						char       * dst = ((char*)evn) +4;
+						char       * src = ((char*)&q->event) +4;
+						while (*frm) switch (*(frm++)) {
+							case 'c': case 'b': case 'T': case 'F':
+								*(dst++) = *(src++);
+								break;
+							case 's': case 'M':
+								*(short*)dst = Swap16 (*(short*)src);
+								dst += 2; src += 2;
+								break;
+							case 'X': case 'W': case 'w': case 'd':case 'a': case 'l':
+							case 'S':
+								*(long*)dst = Swap32 (*(long*)src);
+							case '*':
+								dst += 4; src += 4;
+							case 'D':
+								break;
+							case 'p':
+								SwapPXY ((PXY*)dst, (PXY*)src);
+								dst += 4; src += 4;
+								break;
+							case 'r':
+								SwapRCT ((GRECT*)dst, (GRECT*)src);
+								dst += 8; src += 8;
+								break;
+						}
 					}
+					rcp->oBuf.Left += sizeof(xEvent);
+					MAIN_FDSET_wr  |= rcp->FdSet;
 				}
-				buf->Left     += sizeof(xEvent);
-				MAIN_FDSET_wr |= lst->Client->FdSet;
 			}
 			lst++;
 		}
