@@ -267,9 +267,8 @@ PmapFillRects (p_PIXMAP pmap, p_GC gc, p_GRECT rec, int num)
 void
 RQ_CreatePixmap (CLIENT * clnt, xCreatePixmapReq * q)
 {
-	CARD16   pads = (q->width + (PADD_BITS -1)) / 16;
-	size_t   size = ((size_t)pads *2) * q->height
-	              * (q->depth == 15 ? 16 : q->depth);
+	CARD16   pads = (q->width + 15) / 16;
+	size_t   size = ((size_t)pads *2) * q->depth * q->height;
 	PIXMAP * pmap = NULL;
 	
 	if (DrawFind(q->pid).p) {
