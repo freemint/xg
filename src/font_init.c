@@ -56,7 +56,17 @@ static const short _FONT_Poto[] = {
 	'p','q','r','s','t','u','v','w', 'x','y','z','{','|','}','~'
 };
 
-FONTFACE  * _FONT_List  = NULL;
+
+static struct {
+	FONTFACE Font;
+	char     Name[6];
+} _FONT_Cursor = {
+	{	NULL, 1, 0x00, 0, xTrue, xTrue, 10,
+		16,16,  0,16, 16, 16,0, 0,0l,  0,16, 16, 16,0, 0,
+		0, 153, 16,0,  NULL,  6,{'c'} },
+	{	"ursor" }
+};
+FONTFACE  * _FONT_List  = &_FONT_Cursor.Font;
 FONTALIAS * _FONT_Subst = NULL;
 FONTALIAS * _FONT_Alias = NULL;
 
@@ -143,6 +153,8 @@ FontInit (short count)
 	FILE      * f_db;
 	char        buf[258];
 	int i, j, k;
+	
+	while (*list) list = &(*list)->Next;
 	
 	if ((f_db = fopen ("/etc/X11/fonts.alias", "r"))) {
 		FONTALIAS ** subst = &_FONT_Subst;

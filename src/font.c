@@ -177,7 +177,7 @@ RQ_ListFonts (CLIENT * clnt, xListFontsReq * q)
 	//...........................................................................
    
 	ClntReplyPtr (ListFonts, r);
-	FONTFACE  * face  = _FONT_List;
+	FONTFACE  * face  = _FONT_List->Next; // skip cursor font
 	char      * list  = (char*)(r +1);
 	size_t      size  = 0;
 	char        buf[500] = "";
@@ -279,7 +279,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 				}
 			}
 		}
-		if (!face && (strncasecmp (patt, "cursor", 6) || q->nbytes > 6)) {
+		if (!face) {
 			Bad(Name,, OpenFont,"('%.*s')", (int)q->nbytes, patt);
 		
 		} else if (!(font = XrscCreate (FONT, q->fid, clnt->Fontables))) {
