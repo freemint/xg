@@ -268,6 +268,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 						Bad(Alloc,, OpenFont," (generic)");
 						return;
 					}
+					face->CharSet = (*prot)->CharSet;
 					face->Index   = (*prot)->Index;
 					face->Effects = 0;
 					face->Points  = 0;
