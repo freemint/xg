@@ -226,6 +226,7 @@ WmgrInit (BOOL initNreset)
 void
 WmgrExit (void)
 {
+	WmgrSetDesktop (xFalse);
 	ClntInit (xFalse);
 	
 	if (_WMGR_Menu) {
@@ -613,6 +614,74 @@ WmgrWidgetOff (CURSOR * new_crsr)
 {
 	CrsrSelect (new_crsr);
 	WMGR_Cursor = 0;
+}
+
+
+//------------------------------------------------------------------------------
+static int
+desktop_fill (PARMBLK *pblk)
+{
+	pblk->pb_w  += pblk->pb_x  -1;
+	pblk->pb_h  += pblk->pb_y  -1;
+	pblk->pb_wc += pblk->pb_xc -1;
+	pblk->pb_hc += pblk->pb_yc -1;
+	
+	if (GrphIntersectP ((PRECT*)&pblk->pb_xc, (PRECT*)&pblk->pb_x)) {
+		vswr_mode (GRPH_Vdi, MD_REPLACE);
+		vsf_color (GRPH_Vdi, pblk->pb_parm);
+		v_bar_p   (GRPH_Vdi, (PXY*)&pblk->pb_xc);
+	}
+	return pblk->pb_currstate;
+}
+
+//------------------------------------------------------------------------------
+static int
+desktop_pmap (PARMBLK *pblk)
+{
+	pblk->pb_w  += pblk->pb_x  -1;
+	pblk->pb_h  += pblk->pb_y  -1;
+	pblk->pb_wc += pblk->pb_xc -1;
+	pblk->pb_hc += pblk->pb_yc -1;
+	
+	if (GrphIntersectP ((PRECT*)&pblk->pb_xc, (PRECT*)&pblk->pb_x)) {
+		WindDrawPmap (WIND_Root.Back.Pixmap,
+		              *(PXY*)&pblk->pb_x, (PRECT*)&pblk->pb_xc);
+	}
+	return pblk->pb_currstate;
+}
+
+//==============================================================================
+OBJECT  WMGR_Desktop = { -1,-1,-1, 000, LASTOB, NORMAL, {0l}, 0,0, };
+
+void
+WmgrSetDesktop (BOOL onNoff)
+{
+	static USERBLK ublk;
+	
+	if (onNoff) {
+		WIND_UPDATE_BEG;
+		WMGR_Desktop.ob_width  = GRPH_ScreenW;
+		WMGR_Desktop.ob_height = GRPH_ScreenH;
+		if (WIND_Root.hasBackPix) {
+			ublk.ub_code = desktop_pmap;
+			WMGR_Desktop.ob_type         = G_USERDEF;
+			WMGR_Desktop.ob_spec.userblk = &ublk;
+		} else if (WIND_Root.Back.Pixel >= 16) {
+			ublk.ub_code = desktop_fill;
+			ublk.ub_parm = WIND_Root.Back.Pixel;
+			WMGR_Desktop.ob_type         = G_USERDEF;
+			WMGR_Desktop.ob_spec.userblk = &ublk;
+		} else {
+			WMGR_Desktop.ob_type       = G_BOX;
+			WMGR_Desktop.ob_spec.index = 0x000011F0L | WIND_Root.Back.Pixel;
+		}
+		wind_set (0, WF_NEWDESK, (int)&WMGR_Desktop, 0, 0,0);
+		WIND_UPDATE_END;
+	
+	} else if (WMGR_Desktop.ob_type) {
+		wind_set (0, WF_NEWDESK, 0,0, 0, 0);
+		WMGR_Desktop.ob_type = 000;
+	}
 }
 
 

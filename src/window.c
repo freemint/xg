@@ -88,6 +88,15 @@ WindInit (BOOL initNreset)
 			CrsrFree (WIND_Root.Cursor, NULL);
 			WIND_Root.Cursor = NULL;
 		}
+		if (WIND_Root.hasBackGnd) {
+			WmgrSetDesktop (xFalse);
+			if (WIND_Root.hasBackPix) {
+				WIND_Root.hasBackPix = xFalse;
+				PmapFree (WIND_Root.Back.Pixmap, NULL);
+			}
+			WIND_Root.hasBackGnd = xFalse;
+			WIND_Root.Back.Pixel = WHITE;
+		}
 	}
 	_MAP_IncX = 0;
 	_MAP_IncY = 0;
@@ -137,6 +146,34 @@ WindButton (CARD16 prev_mask, int count)
 	                   MAIN_KeyButMask & Button2Mask ? Button2 :
 	                   MAIN_KeyButMask & Button3Mask ? Button3 :
 	                   None);
+	
+	if ((MAIN_KeyButMask & K_ALT) && (MAIN_KeyButMask & Button2Mask) && wind) {
+		int dmy;
+		printf ("W:%X [%i,%i/%i,%i/%i] * %i \n", wind->Id,
+		        wind->Rect.x, wind->Rect.y, wind->Rect.w, wind->Rect.h,
+		        wind->BorderWidth, wind->Depth);
+		if (wind->hasBorder || wind->hasBackGnd) {
+			if (wind->hasBorder) {
+				printf ("border = %li   ", wind->BorderPixel);
+			}
+			if (wind->hasBackPix) {
+				printf ("backgnd: P:%X [%i,%i] * %i", wind->Back.Pixmap->Id,
+				        wind->Back.Pixmap->W, wind->Back.Pixmap->H,
+				        wind->Back.Pixmap->Depth);
+			} else if (wind->hasBackGnd) {
+				printf ("backgnd: %li", wind->Back.Pixel);
+			}
+			printf ("\n");
+		}
+		if (wind->Parent) {
+			printf("parent: W:%X", wind->Parent->Id);
+			if (wind->PrevSibl) printf ("   prev: W:%X", wind->PrevSibl->Id);
+			if (wind->NextSibl) printf ("   next: W:%X", wind->NextSibl->Id);
+			printf ("\n");
+		}
+		evnt_button (1, 2, 0, &dmy, &dmy, &dmy, &dmy);
+		return xTrue;
+	}
 	
 	if (_WIND_PgrabWindow) {
 		CARD32 w_id = 0;
@@ -1049,6 +1086,8 @@ RQ_ChangeWindowAttributes (CLIENT * clnt, xChangeWindowAttributesReq * q)
 		Bad(Window, q->window, ChangeWindowAttributes,);
 	
 	} else {
+		PIXMAP * desktop = NULL;
+		
 //		PRINT (ChangeWindowAttributes,"- W:%lX ", q->window);
 		
 		if ((q->valueMask & CWCursor) && wind->Cursor) {
@@ -1056,7 +1095,11 @@ RQ_ChangeWindowAttributes (CLIENT * clnt, xChangeWindowAttributesReq * q)
 			wind->Cursor = NULL;
 		}
 		if ((q->valueMask & (CWBackPixmap|CWBackPixel)) && wind->hasBackPix) {
-			PmapFree (wind->Back.Pixmap, NULL);
+			if (wind->Id == ROOT_WINDOW) {
+				desktop = wind->Back.Pixmap;
+			} else {
+				PmapFree (wind->Back.Pixmap, NULL);
+			}
 			wind->Back.Pixmap = NULL;
 			wind->hasBackPix  = xFalse;
 			wind->hasBackGnd  = xFalse;
@@ -1082,6 +1125,11 @@ RQ_ChangeWindowAttributes (CLIENT * clnt, xChangeWindowAttributesReq * q)
 			} else if (_Wind_IsInferior (wind, _WIND_PointerRoot)) {
 				_Wind_Cursor (_WIND_PointerRoot);
 			}
+		}
+		if ((q->valueMask & (CWBackPixmap|CWBackPixel))
+		    && wind->Id == ROOT_WINDOW) {
+			WmgrSetDesktop (wind->hasBackGnd);
+			if (desktop) PmapFree (desktop, NULL);
 		}
 	}
 }

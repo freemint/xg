@@ -2,7 +2,7 @@
 //
 // wmgr.h
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-09-01 - Initial Version.
@@ -32,6 +32,8 @@ void WmgrWindMap    (p_WINDOW wind, p_GRECT );
 void WmgrWindName   (p_WINDOW wind, const char * name, BOOL windNicon);
 void WmgrWidget     (p_WINDOW wind, p_PXY rel_pos);
 void WmgrWidgetOff  (p_CURSOR new_crsr);
+
+void WmgrSetDesktop (BOOL onNoff);
 
 BOOL WmgrMenu    (short title, short entry, short meta);
 BOOL WmgrMessage (short * msg);
