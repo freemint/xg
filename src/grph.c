@@ -307,12 +307,12 @@ GrphIntersectP (p_PRECT dst, const struct s_PRECT * src)
 	);
 	return res;
 # else
-	if (dst[0].x < src[0].x) dst[0].x = src[0].x;
-	if (dst[0].y < src[0].y) dst[0].y = src[0].y;
-	if (dst[1].x > src[1].x) dst[1].x = src[1].x;
-	if (dst[1].y > src[1].y) dst[1].y = src[1].y;
+	if (dst->lu.x < src->lu.x) dst->lu.x = src->lu.x;
+	if (dst->lu.y < src->lu.y) dst->lu.y = src->lu.y;
+	if (dst->rd.x > src->rd.x) dst->rd.x = src->rd.x;
+	if (dst->rd.y > src->rd.y) dst->rd.y = src->rd.y;
 	
-	return (dst[0].x <= dst[1].x  &&  dst[0].y <= dst[1].y);
+	return (dst->lu.x <= dst->rd.x  &&  dst->lu.y <= dst->rd.y);
 # endif
 }
 
