@@ -347,8 +347,8 @@ return;
 					exps = (gc->GraphExpos ? (GRECT*)(sect + nSct +1) : NULL);
 					nExp = WindScroll (wind, gc, rect, diff,
 							              orig, sect, nSct, exps);
-					debug = xFalse;
 				}
+				debug = xFalse;
 			}
 		
 		} else {
