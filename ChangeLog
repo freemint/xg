@@ -1,3 +1,7 @@
+2001-03-19: 0.06.3
+   - improved font handling: Ascent, Descent and Halfline should now be correct
+     for Speedo and TrueType fonts also.
+   - supplied some more Latin-1 encoded fonts.
 2001-03-11: 0.06.2
    - implemented real scrolling for CopyArea() request to reduce redraws.
    - fixed a bug that caused the PolyFillRectangle() request to perform only the
