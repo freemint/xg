@@ -278,7 +278,17 @@ RQ_AllocNamedColor (CLIENT * clnt, xAllocNamedColorReq * q)
 void
 RQ_AllocColorCells (CLIENT * clnt, xAllocColorCellsReq * q)
 {
-	PRINT (- X_AllocColorCells," M:%lX %i*%i", q->cmap, q->colors, q->planes);
+//	ClntReplyPtr (AllocColorCells, r);
+	
+	PRINT (- X_AllocColorCells," M:%lX %i/%i", q->cmap, q->colors, q->planes);
+	
+	Bad(Alloc,, AllocColorCells,);
+	/*
+	r->nPixels = q->colors;
+	r->nMasks  = q->planes;
+	
+	ClntReply (AllocColorCells, (r->nPixels + r->nPixels) *4, ":");
+	*/
 }
 
 
