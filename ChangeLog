@@ -1,3 +1,4 @@
+2000-12-20: 0.02
    - NoExpose event added, needed by Copy...() requests
    - QueryFont() extended to provide font-property 'FONT'.
 2000-12-19: 0.01.03
@@ -10,5 +11,6 @@
    - Even more improved handling of '<W>x<H>' font names.
 2000-12-17: 0.01.01
    - Improved handling of '<W>x<H>' font names.
+
 2000-12-15: 0.01
    - Initial version of public beta.
