@@ -165,9 +165,9 @@ WmgrInit (BOOL initNreset)
 		XrscPoolInit (_WMGR_Client.Fontables);
 		XrscPoolInit (_WMGR_Client.Cursors);
 		
-		if (!rsrc_load ((char*)"Xapp.rsc")) {
+		if (!rsrc_load ("Xapp.rsc")) {
 			WmgrIntro (xFalse);
-			form_alert (1, (char*)"[3][Can't load RSC file!][ Quit ]");
+			form_alert (1, "[3][Can't load RSC file!][ Quit ]");
 			ok = xFalse;
 			
 		} else {
@@ -286,10 +286,10 @@ WmgrActivate (BOOL onNoff)
 					}
 					if (w->isMapped) {
 						WindClrMapped (w, xFalse);
-						wind_get_curr (hdl, &curr);
+						wind_get_curr (hdl, (GRECT_lib*)&curr);
 					} else {
 						w->GwmIcon = xFalse;
-						wind_get_r (hdl, WF_UNICONIFY, &curr);
+						wind_get_grect (hdl, WF_UNICONIFY, (GRECT_lib*)&curr);
 					}
 				#	define clnt &_WMGR_Client
 					PRINT (ReparentWindow, "(W:%X) revert", w->Id);
@@ -421,7 +421,8 @@ WmgrCalcBorder (GRECT * curr, WINDOW * wind)
 		work.x -= WMGR_DECOR;
 		work.w += WMGR_DECOR *2;
 		work.h += WMGR_DECOR;
-		wind_calc_r (WC_BORDER, A_WIDGETS, &work, curr);
+		wind_calc_grect (WC_BORDER, A_WIDGETS,
+		                 (GRECT_lib*)&work, (GRECT_lib*)curr);
 	
 	} else {
 		CARD16 b = wind->BorderWidth;
@@ -434,7 +435,8 @@ WmgrCalcBorder (GRECT * curr, WINDOW * wind)
 			work.w += b *2;
 			work.h += b *2;
 		}
-		wind_calc_r (WC_BORDER, P_WIDGETS, &work, curr);
+		wind_calc_grect (WC_BORDER, P_WIDGETS,
+		                 (GRECT_lib*)&work, (GRECT_lib*)curr);
 	}
 }
 
@@ -459,7 +461,8 @@ BOOL
 WmgrWindHandle (WINDOW * wind)
 {
 	BOOL decor = WMGR_Active && !wind->Override;
-	short hdl = wind_create_r ((decor ? A_WIDGETS : P_WIDGETS), &WIND_Root.Rect);
+	short hdl = wind_create_grect ((decor ? A_WIDGETS : P_WIDGETS),
+	                               (GRECT_lib*)&WIND_Root.Rect);
 	if (hdl > 0) {
 		OBJECT *icons;
 		wind_set (hdl, WF_BEVENT, 0x0001, 0,0,0);
@@ -576,8 +579,9 @@ WmgrWindMap (WINDOW * wind, GRECT * curr)
 		} else {
 			_WMGR_HasFocus = 2;
 		}
-		if (action > 0) wind_open_r (wind->Handle, curr);
-		else            wind_set_r  (wind->Handle, WF_UNICONIFY, curr);
+		if (action > 0) wind_open_grect (wind->Handle, (GRECT_lib*)curr);
+		else            wind_set_grect  (wind->Handle, WF_UNICONIFY,
+		                                 (GRECT_lib*)curr);
 		WindSetMapped (wind, xTrue);
 	}
 	return (WMGR_OpenCounter > 1);
@@ -639,7 +643,7 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 		}
 	}
 	WindUpdate (xTrue);
-	wind_get_work (wind->Handle, &work);
+	wind_get_work (wind->Handle, (GRECT_lib*)&work);
 	pxy[2] = icon->fd_w -1;
 	pxy[3] = icon->fd_h -1;
 	pxy[4] = work.x + ((work.w - icon->fd_w) /2);
@@ -653,7 +657,7 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 		vswr_mode (GRPH_Vdi, MD_REPLACE);
 		vsf_color (GRPH_Vdi, G_LWHITE);
 		v_hide_c  (GRPH_Vdi);
-		wind_get_first (wind->Handle, &sect);
+		wind_get_first (wind->Handle, (GRECT_lib*)&sect);
 		while (sect.w > 0  &&  sect.h > 0) {
 			if (GrphIntersect (&sect, &work)) {
 				vs_clip_r (GRPH_Vdi, &sect);
@@ -661,7 +665,7 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 				if (mask) vrt_cpyfm (GRPH_Vdi, MD_TRANS, pxy, mask, &screen, col +1);
 				(*cpyfm) (GRPH_Vdi, mode, pxy, icon, &screen, col);
 			}
-			wind_get_next (wind->Handle, &sect);
+			wind_get_next (wind->Handle, (GRECT_lib*)&sect);
 		}
 		vs_clip_r (GRPH_Vdi, NULL);
 		v_show_c  (GRPH_Vdi, 1);
@@ -675,7 +679,7 @@ void
 WmgrWindName (WINDOW * wind, const char * name, BOOL windNicon)
 {
 	if (wind->GwmIcon == windNicon) {
-		wind_set_str (wind->Handle, WF_NAME, (char*)name);
+		wind_set_str (wind->Handle, WF_NAME, name);
 	}
 }
 
@@ -832,7 +836,7 @@ WmgrMenu (short title, short entry, short meta)
 		
 		case MENU_QUIT:
 			run = (!(_WMGR_Menu[MENU_CLNT].ob_state & OS_DISABLED) &&
-			       form_alert (1, (char*)"[2]"
+			       form_alert (1, "[2]"
 			                   "[Really quit the server|and all runng clients?]"
 			                   "[ quit |continue]")
 			       != 1);
@@ -933,11 +937,11 @@ WmgrMessage (short * msg)
 		}	break;
 		
 		case WM_MOVED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
-			wind_set_r (msg[3], WF_CURRXYWH, (GRECT*)(msg +4));
+			wind_set_curr (msg[3], (GRECT_lib*)(msg +4));
 			if (!wind->GwmIcon) {
 				CARD32 above = (wind->PrevSibl ? wind->PrevSibl->Id : None);
 				GRECT work;
-				wind_get_work (msg[3], &work);
+				wind_get_work (msg[3], (GRECT_lib*)&work);
 				work.x -= WIND_Root.Rect.x - WMGR_DECOR;
 				work.y -= WIND_Root.Rect.y;
 				*(PXY*)&wind->Rect = *(PXY*)&work;
@@ -1009,9 +1013,9 @@ WmgrMessage (short * msg)
 			}
 			_Wmgr_SetWidgets (msg[3], 0);
 			WindClrMapped (wind, xFalse);
-			wind_set_r (msg[3], WF_ICONIFY, (GRECT*)(msg +4));
-			wind_set   (msg[3], WF_BEVENT, 0x0000, 0,0,0);
-			wind_set   (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
+			wind_set_grect (msg[3], WF_ICONIFY, (GRECT_lib*)(msg +4));
+			wind_set       (msg[3], WF_BEVENT, 0x0000, 0,0,0);
+			wind_set       (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
 			wind->GwmIcon = xTrue;
 			WindClrMapped (wind, xFalse);
 			if (!--WMGR_OpenCounter) {
@@ -1106,7 +1110,7 @@ WmgrButton (void)
 			}
 		}
 		
-		wind_get_curr (wind->Handle, (GRECT*)pc);
+		wind_get_curr (wind->Handle, (GRECT_lib*)pc);
 		pc[2].x = pc[1].x += (pc[3].x = pc[4].x = pc[0].x) -1;
 		pc[2].y = pc[3].y =   pc[0].y + pc[1].y            -1;
 		pc[4].y =            (pc[1].y = pc[0].y)           +1;

@@ -68,7 +68,7 @@ WindPointerWatch (BOOL movedNreorg)
 {
 	CARD8    evnt, next, last;
 	GRECT    sect;
-	WINDOW * stack[32] = { _WIND_PointerRoot }, * widget = NULL;
+	WINDOW * stack[32], * widget = NULL;
 	int      anc = 0, top, bot;
 	short    hdl;
 	PXY      e_p = // pointer coordinates relative to the event windows origin
@@ -83,7 +83,29 @@ WindPointerWatch (BOOL movedNreorg)
 	
 	/*--- flatten the leave path to the stack list ---*/
 	
-	if (!*stack) {
+#if 0
+{	WINDOW * w = WIND_Root.StackBot;
+	int      n = 0;
+	
+	while (w) {
+		if (w->isMapped) n++;
+		w = w->NextSibl;
+	}
+	if (n != WMGR_OpenCounter) {
+		printf ("\n*****\n\n   WMGR_OpenCounter %i != %i  !!!\n\n*****\n\n",
+		        WMGR_OpenCounter, n);
+	}
+	if (!WMGR_OpenCounter && _WIND_PointerRoot) {
+		if (_WIND_PointerRoot == &WIND_Root) {
+			printf ("\n*****\n\n   _WIND_PointerRoot == Desktop\n\n*****\n\n");
+		} else {
+			printf ("\n*****\n\n   _WIND_PointerRoot != NULL  !!!\n\n*****\n\n");
+		}
+	}
+}
+#endif
+
+	if (!(*stack = _WIND_PointerRoot)) {
 		// noting to leave
 		e_p.x -= WIND_Root.Rect.x;
 		e_p.y -= WIND_Root.Rect.y;
@@ -144,14 +166,14 @@ WindPointerWatch (BOOL movedNreorg)
 		if (!stack[top]  &&  hdl == wind_get_top()) {
 			// over the top gem window, can be watched including widgets
 			
-			wind_get_curr (hdl, &sect);
+			wind_get_curr (hdl, (GRECT_lib*)&sect);
 			watch = xFalse;
 			
 		} else {
 			// find section
-			wind_get_first (hdl, &sect);
+			wind_get_first (hdl, (GRECT_lib*)&sect);
 			while (sect.w && sect.h && !PXYinRect (MAIN_PointerPos, &sect)) {
-				wind_get_next (hdl, &sect);
+				wind_get_next (hdl, (GRECT_lib*)&sect);
 			}
 			if (!sect.w || !sect.h) {
 				// the pointer is outside of all work areas, so it's over a gem widget
@@ -401,7 +423,8 @@ RQ_QueryPointer (CLIENT * clnt, xQueryPointerReq * q)
 	WINDOW * wind;
 	GRECT    work;
 	
-	if (!(wind = WindFind(q->id)) && !wind_get_work (q->id & 0x7FFF, &work)) {
+	if (!(wind = WindFind(q->id))
+	    && !wind_get_work (q->id & 0x7FFF, (GRECT_lib*)&work)) {
 		Bad(Window, q->id, QueryPointer,);
 	
 	} else { //..................................................................
@@ -486,7 +509,7 @@ RQ_TranslateCoords (CLIENT * clnt, xTranslateCoordsReq * q)
 		}
 	} else {
 		GRECT work;
-		if ((ok = wind_get_work (q->srcWid & 0x7FFF, &work))) {
+		if ((ok = wind_get_work (q->srcWid & 0x7FFF, (GRECT_lib*)&work))) {
 			p_src.x = work.x - WIND_Root.Rect.x;
 			p_src.y = work.y - WIND_Root.Rect.y;
 		}
@@ -500,7 +523,7 @@ RQ_TranslateCoords (CLIENT * clnt, xTranslateCoordsReq * q)
 		}
 	} else {
 		GRECT work;
-		if ((ok = wind_get_work (q->dstWid & 0x7FFF, &work))) {
+		if ((ok = wind_get_work (q->dstWid & 0x7FFF, (GRECT_lib*)&work))) {
 			p_dst.x = work.x - WIND_Root.Rect.x;
 			p_dst.y = work.y - WIND_Root.Rect.y;
 		}

@@ -241,7 +241,7 @@ WindClipLock (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 	wind_get (0, WF_SCREEN, &a, &b, &n,&n);
 	*pBuf = sect = (PRECT*)(((long)a << 16) | (b & 0xFFFF));
 	
-	wind_get_first (twnd->Handle, &rect);
+	wind_get_first (twnd->Handle, (GRECT_lib*)&rect);
 	while (rect.w > 0  &&  rect.h > 0) {
 		PRECT * c = p_clip;
 		n         = n_clip;
@@ -258,7 +258,7 @@ WindClipLock (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 				nClp++;
 			}
 		} while (--n);
-		wind_get_next (twnd->Handle, &rect);
+		wind_get_next (twnd->Handle, (GRECT_lib*)&rect);
 	}
 	if (!nClp) {
 		*pBuf = NULL;

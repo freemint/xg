@@ -13,12 +13,12 @@
 
 #include "types.h"
 
-# define GRECT   GRECTint
+# define GRECT   GRECT_lib
 # include <gem.h>
 # undef GRECT
 
-#if !defined(__GEMLIB__) || (__GEMLIB_MAJOR__ == 0 && __GEMLIB_MINOR__ < 40)
-#error You need a more recent GEMLib (at least 0.40.0)!
+#if !defined(__GEMLIB__) || (__GEMLIB_MAJOR__ == 0 && __GEMLIB_MINOR__ < 41)
+# error You need a more recent GEMLib (at least 0.41.0)!
 #endif
 
 
@@ -56,28 +56,23 @@ short evnt_multi_s (const EVMULTI_IN * ev_i, short * msg, EVMULTI_OUT * ev_o);
 
 void  graf_mkstate_p (PXY * mxy, short * btn, short * meta);
 
-short wind_calc_r   (int Type, int Parts, const GRECT * r_in, GRECT * r_out);
-short wind_create_r (int Parts, const GRECT * curr);
-short wind_get_r    (int WindowHandle, int What, GRECT * rec);
-#define wind_get_curr(h,r)        wind_get_r   (h, WF_CURRXYWH,      r)
-#define wind_get_first(h,r)       wind_get_r   (h, WF_FIRSTXYWH,     r)
-#define wind_get_full(h,r)        wind_get_r   (h, WF_FULLXYWH,      r)
-#define wind_get_next(h,r)        wind_get_r   (h, WF_NEXTXYWH,      r)
-#define wind_get_prev(h,r)        wind_get_r   (h, WF_PREVXYWH,      r)
-#define wind_get_uniconify(h,r)   wind_get_r   (h, WF_UNICONIFYXYWH, r)
-#define wind_get_work(h,r)        wind_get_r   (h, WF_WORKXYWH,      r)
+#define wind_get_curr(h,r)        wind_get_grect (h, WF_CURRXYWH,      r)
+#define wind_get_first(h,r)       wind_get_grect (h, WF_FIRSTXYWH,     r)
+#define wind_get_full(h,r)        wind_get_grect (h, WF_FULLXYWH,      r)
+#define wind_get_next(h,r)        wind_get_grect (h, WF_NEXTXYWH,      r)
+#define wind_get_prev(h,r)        wind_get_grect (h, WF_PREVXYWH,      r)
+#define wind_get_uniconify(h,r)   wind_get_grect (h, WF_UNICONIFYXYWH, r)
+#define wind_get_work(h,r)        wind_get_grect (h, WF_WORKXYWH,      r)
 short wind_get_one  (int WindowHandle, int What);
-#define wind_get_bottom()         wind_get_one (0, WF_BOTTOM)
-#define wind_get_top()            wind_get_one (0, WF_TOP)
-#define wind_get_bevent(h)        wind_get_one (h, WF_BEVENT)
-#define wind_get_hslide(h)        wind_get_one (h, WF_HSLIDE)
-#define wind_get_hslsize(h)       wind_get_one (h, WF_HSLSIZE)
-#define wind_get_kind(h)          wind_get_one (h, WF_KIND)
-#define wind_get_vslide(h)        wind_get_one (h, WF_VSLIDE)
-#define wind_get_vslsize(h)       wind_get_one (h, WF_VSLSIZE)
-short wind_open_r   (int WindowHandle, const GRECT * curr);
-short wind_set_r    (int WindowHandle, int What, GRECT * rec);
-#define wind_set_curr(h,r)        wind_set_r (h, WF_CURRXYWH, r)
+#define wind_get_bottom()         wind_get_one   (0, WF_BOTTOM)
+#define wind_get_top()            wind_get_one   (0, WF_TOP)
+#define wind_get_bevent(h)        wind_get_one   (h, WF_BEVENT)
+#define wind_get_hslide(h)        wind_get_one   (h, WF_HSLIDE)
+#define wind_get_hslsize(h)       wind_get_one   (h, WF_HSLSIZE)
+#define wind_get_kind(h)          wind_get_one   (h, WF_KIND)
+#define wind_get_vslide(h)        wind_get_one   (h, WF_VSLIDE)
+#define wind_get_vslsize(h)       wind_get_one   (h, WF_VSLSIZE)
+#define wind_set_curr(h,r)        wind_set_grect (h, WF_CURRXYWH, r)
 short wind_set_proc (int WindowHandle, CICONBLK *icon);
 #define WIND_UPDATE_BEG           wind_update (BEG_UPDATE); {
 #define WIND_UPDATE_END           } wind_update (END_UPDATE);

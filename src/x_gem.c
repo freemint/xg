@@ -144,64 +144,6 @@ graf_mkstate_p (PXY * mxy, short * btn, short * meta)
 
 //==============================================================================
 short
-wind_calc_r (int Type, int Parts, const GRECT * r_in, GRECT * r_out)
-{
-	aes_intin[0]            = Type;
-	aes_intin[1]            = Parts;
-	*(GRECT*)(aes_intin +2) = *r_in;
-	
-   aes_control[0] = 108;
-   aes_control[1] = 6;
-   aes_control[2] = 5;
-   aes_control[3] = 0;
-   aes_control[4] = 0;
-   aes(&aes_params);
-   
-	*r_out = *(GRECT*)(aes_intout +1);
-	
-	return aes_intout[0];
-}
-
-//==============================================================================
-short
-wind_create_r (int Parts, const GRECT * curr)
-{
-	aes_intin[0]            = Parts;
-	*(GRECT*)(aes_intin +1) = *curr;
-	
-   aes_control[0] = 100;
-   aes_control[1] = 5;
-   aes_control[2] = 1;
-   aes_control[3] = 0;
-   aes_control[4] = 0;
-   aes(&aes_params);
-   
-	return aes_intout[0];
-}
-
-//==============================================================================
-short
-wind_get_r (int WindowHandle, int What, GRECT * rec)
-{
-	aes_intin[0] = WindowHandle;
-	aes_intin[1] = What;
-	if(What == WF_DCOLOR || What == WF_COLOR)
-		aes_intin[2] = rec->x;
-   
-   aes_control[0] = 104;
-   aes_control[1] = 2;
-   aes_control[2] = 5;
-   aes_control[3] = 0;
-   aes_control[4] = 0;
-   aes (&aes_params);
-	
-	*rec = *(GRECT*)(aes_intout +1);
-	
-	return aes_intout[0];
-}
-
-//==============================================================================
-short
 wind_get_one (int WindowHandle, int What)
 {
 	aes_intin[0] = WindowHandle;
@@ -216,42 +158,6 @@ wind_get_one (int WindowHandle, int What)
 	
 	return (aes_intout[0] ? aes_intout[1] : -1);
 }
-
-//==============================================================================
-short
-wind_open_r (int WindowHandle, const GRECT * curr)
-{
-	aes_intin[0]            = WindowHandle;
-	*(GRECT*)(aes_intin +1) = *curr;
-	
-   aes_control[0] = 101;
-   aes_control[1] = 5;
-   aes_control[2] = 1;
-   aes_control[3] = 0;
-   aes_control[4] = 0;
-   aes(&aes_params);
-	
-	return aes_intout[0];
-}
-
-//==============================================================================
-short
-wind_set_r (int WindowHandle, int What, GRECT * rec)
-{
-	aes_intin[0]            = WindowHandle;
-	aes_intin[1]            = What;
-	*(GRECT*)(aes_intin +2) = *rec;
-   
-   aes_control[0] = 105;
-   aes_control[1] = 6;
-   aes_control[2] = 1;
-   aes_control[3] = 0;
-   aes_control[4] = 0;
-   aes (&aes_params);
-	
-	return aes_intout[0];
-}
-
 
 //==============================================================================
 short

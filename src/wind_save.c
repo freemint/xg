@@ -74,7 +74,7 @@ WindSaveFlush (BOOL restore)
 				PRECT * src = &WIND_SaveArea[1];
 				PRECT * dst = &WIND_SaveArea[2];
 				WIND_UPDATE_BEG;
-				wind_get_first (_WIND_SaveHandle, (GRECT*)dst);
+				wind_get_first (_WIND_SaveHandle, (GRECT_lib*)dst);
 				while (dst->rd.x > 0  &&  dst->rd.y > 0) {
 					dst->rd.x += dst->lu.x -1;
 					dst->rd.y += dst->lu.y -1;
@@ -86,7 +86,7 @@ WindSaveFlush (BOOL restore)
 						vro_cpyfm (GRPH_Vdi, S_ONLY,
 						           (short*)&WIND_SaveArea[1], &_WIND_SaveMfdb, &scrn);
 					}
-					wind_get_next (_WIND_SaveHandle, (GRECT*)dst);
+					wind_get_next (_WIND_SaveHandle, (GRECT_lib*)dst);
 				}
 				WIND_UPDATE_END;
 			}

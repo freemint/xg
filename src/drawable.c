@@ -144,7 +144,7 @@ RQ_GetGeometry (CLIENT * clnt, xGetGeometryReq * q)
 		r->root = ROOT_WINDOW;
 		
 		if (!draw) {
-			wind_get_work (q->id & 0x7FFF, (GRECT*)&r->x);
+			wind_get_work (q->id & 0x7FFF, (GRECT_lib*)&r->x);
 			r->depth       = WIND_Root.Depth;
 			r->x          -= WIND_Root.Rect.x +1;
 			r->y          -= WIND_Root.Rect.y +1;
