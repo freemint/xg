@@ -260,9 +260,8 @@ WmgrActivate (BOOL onNoff)
 				WindSetHandles (w);
 				if (w->isMapped) {
 					GRECT dummy;
-					WindUnmap   (w, xFalse);
-					WmgrWindMap (w, &dummy);
-					WindMap     (w, xTrue);
+					WindClrMapped (w, xFalse);
+					WmgrWindMap   (w, &dummy);
 				} else {
 				#	define clnt &_WMGR_Client
 					PRINT (ReparentWindow, "(W:%X) active", w->Id);
@@ -288,7 +287,7 @@ WmgrActivate (BOOL onNoff)
 						wind_set_str (w->Handle, WF_NAME, title);
 					}
 					if (w->isMapped) {
-						WindUnmap (w, xFalse);
+						WindClrMapped (w, xFalse);
 						wind_get_curr (hdl, &curr);
 					} else {
 						w->GwmIcon = xFalse;
@@ -328,7 +327,6 @@ WmgrActivate (BOOL onNoff)
 						                    w->Id, ROOT_WINDOW,
 						                    *(PXY*)&w->Rect, w->Override);
 					}
-					WindMap (w, xTrue);
 				} else {
 				#	define clnt &_WMGR_Client
 					PRINT (ReparentWindow, "(W:%X) passive", w->Id);
@@ -467,9 +465,9 @@ WmgrWindHandle (WINDOW * wind)
 	if (hdl > 0) {
 		OBJECT *icons;
 		wind_set (hdl, WF_BEVENT, 0x0001, 0,0,0);
-		wind->Handle    = hdl;
-		wind->GwmDecor  = decor;
-		wind->GwmParent = xFalse;
+		wind->Handle      = hdl;
+		wind->GwmDecor    = decor;
+		wind->GwmParented = xFalse;
 		if(rsrc_gaddr (R_TREE, ICONS, &icons)) {
 			wind_set_proc(hdl, icons[ICONS_NAME_X].ob_spec.ciconblk);
 		}
@@ -484,18 +482,45 @@ WmgrWindHandle (WINDOW * wind)
 BOOL
 WmgrWindMap (WINDOW * wind, GRECT * curr)
 {
+	short action = 0;
+	
 	WmgrCalcBorder (curr, wind);
 	
 	if (wind->GwmIcon) {
-			char * title = PropValue (wind, XA_WM_NAME, XA_STRING, 1);
-			if (title) {
-				wind_set_str (wind->Handle, WF_NAME, title);
-			}
-			wind_set_r (wind->Handle, WF_UNICONIFY, curr);
-			wind->GwmIcon = xFalse;
+		char * title = PropValue (wind, XA_WM_NAME, XA_STRING, 1);
+		if (title) {
+			wind_set_str (wind->Handle, WF_NAME, title);
+		}
+		wind_set (wind->Handle, WF_BEVENT, 0x0001, 0,0,0);
+		_Wmgr_SetWidgets (wind->Handle, -1);
+		wind->GwmIcon = xFalse;
+		action        = -1;
 	
-	} else if (wind->GwmDecor) {
-		if (!wind->GwmParent) {
+	} else if (!wind->isMapped) {
+		
+		if (!wind->GwmDecor) {
+			if (curr->y < 0) {
+				CARD32 above = (wind->PrevSibl ? wind->PrevSibl->Id : None);
+				GRECT  work;
+				wind->Rect.y -= curr->y;
+				curr->y       = 0;
+				WmgrCalcBorder (curr, wind);
+				work.x = wind->Rect.x - wind->BorderWidth;
+				work.y = wind->Rect.y - wind->BorderWidth;
+				work.w = wind->Rect.w;
+				work.h = wind->Rect.h;
+				EvntConfigureNotify (wind, wind->Id, above,
+				                     &work, wind->BorderWidth, wind->Override);
+			}
+			if (wind->SaveUnder && wind->Override) {
+				GRECT rect = *curr;
+				rect.w += 2;
+				rect.h += 2;
+				WindSaveUnder (wind->Id, &rect, 0);
+			}
+			wind->GwmParented = xFalse;
+						
+		} else if (!wind->GwmParented) {
 			CARD16 b  = wind->BorderWidth;
 			int    dx = wind->Rect.x - curr->x, dy = wind->Rect.y - curr->y, d;
 			PXY    pos;
@@ -542,57 +567,47 @@ WmgrWindMap (WINDOW * wind, GRECT * curr)
 				EvntReparentNotify (&WIND_Root, SubstructureNotifyMask,
 				                    wind->Id, ROOT_WINDOW, pos, wind->Override);
 			}
-			
-			wind->GwmParent = xTrue;
+			wind->GwmParented = xTrue;
 		}
-	
-	} else {
-		if (curr->y < 0) {
-			CARD32 above = (wind->PrevSibl ? wind->PrevSibl->Id : None);
-			GRECT  work;
-			wind->Rect.y -= curr->y;
-			curr->y       = 0;
-			WmgrCalcBorder (curr, wind);
-			work.x = wind->Rect.x - wind->BorderWidth;
-			work.y = wind->Rect.y - wind->BorderWidth;
-			work.w = wind->Rect.w;
-			work.h = wind->Rect.h;
-			EvntConfigureNotify (wind, wind->Id, above,
-			                     &work, wind->BorderWidth, wind->Override);
-		}
-		if (wind->SaveUnder && wind->Override) {
-			GRECT rect = *curr;
-			rect.w += 2;
-			rect.h += 2;
-			WindSaveUnder (wind->Id, &rect, 0);
-		}
-		wind->GwmParent = xFalse;
+		action = +1;
 	}
 	
-	if (!WMGR_OpenCounter++) {
-		wind_open   (_WMGR_FocusHolder, -100, -100, 10, 10);
-		_WMGR_HasFocus = 1;
-	} else {
-		_WMGR_HasFocus = 2;
+	if (action) {
+		if (!WMGR_OpenCounter++) {
+			wind_open   (_WMGR_FocusHolder, -100, -100, 10, 10);
+			_WMGR_HasFocus = 1;
+		} else {
+			_WMGR_HasFocus = 2;
+		}
+		if (action > 0) wind_open_r (wind->Handle, curr);
+		else            wind_set_r  (wind->Handle, WF_UNICONIFY, curr);
+		WindSetMapped (wind, xTrue);
 	}
-	wind_open_r (wind->Handle, curr);
-	
 	return (WMGR_OpenCounter > 1);
 }
 
 //==============================================================================
 BOOL
-WmgrWindUnmap (WINDOW * wind, BOOL no_check)
+WmgrWindUnmap (WINDOW * wind, BOOL destroy)
 {
-	if (no_check || wind->isMapped || wind->GwmIcon) {
+	if (wind->GwmIcon) {
+		wind_close (wind->Handle);
+		wind->GwmIcon = xFalse;
+	
+	} else if (wind->isMapped) {
 		wind_close (wind->Handle);
 		if (!--WMGR_OpenCounter) {
 			wind_close (_WMGR_FocusHolder);
-			
-			return xFalse;
 		}
+		WindClrMapped (wind, xFalse);
 	}
-	return xTrue;
+	
+	if (destroy) {
+		wind_delete (wind->Handle);
+		wind->Handle = -1;
+	}
+	
+	return (WMGR_OpenCounter > 0);
 }
 
 //==============================================================================
@@ -956,27 +971,22 @@ WmgrMessage (short * msg)
 				WMGR_Focus = 0;
 			}
 			_Wmgr_SetWidgets (msg[3], 0);
-			WindUnmap (wind, xFalse);
+			WindClrMapped (wind, xFalse);
 			wind_set_r (msg[3], WF_ICONIFY, (GRECT*)(msg +4));
 			wind_set   (msg[3], WF_BEVENT, 0x0000, 0,0,0);
 			wind_set   (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
 			wind->GwmIcon = xTrue;
+			WindClrMapped (wind, xFalse);
+			if (!--WMGR_OpenCounter) {
+				wind_close (_WMGR_FocusHolder);
+			}
 			WindPointerWatch (xFalse);
 		}	break;
 		
 		case WM_UNICONIFY: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
-			char * title = PropValue (wind, XA_WM_NAME, XA_STRING, 1);
 			GRECT  curr;
-			if (title) {
-				wind_set_str (wind->Handle, WF_NAME, title);
-			}
-			WmgrCalcBorder (&curr, wind);
-			_Wmgr_SetWidgets (msg[3], -1);
-			wind_set_r (msg[3], WF_UNICONIFY, &curr);
-			wind_set   (msg[3], WF_BEVENT, 0x0001, 0,0,0);
-			wind->GwmIcon = xFalse;
-			WindMap (wind, xTrue);
-			WindPointerWatch (xFalse);
+			if (WmgrWindMap (wind, &curr)) WindPointerWatch (xFalse);
+			else                           MainSetWatch (&curr, MO_ENTER);
 		}	break;
 		
 		case COLORS_CHANGED:
