@@ -459,7 +459,7 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, FillPoly,);
 	
-	} else if (len) {
+	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
 		short   hdl = 0;
@@ -469,7 +469,9 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			if ((nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect))) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
@@ -518,7 +520,7 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, PolyLine,);
 	
-	} else if (len) {
+	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
 		short   hdl = 0;
@@ -528,7 +530,9 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			if ((nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect))) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
@@ -578,7 +582,7 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, PolyPoint,);
 	
-	} else if (len) {
+	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
 		short   hdl = 0;
@@ -588,7 +592,9 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			if ((nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect))) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
@@ -644,7 +650,7 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, PolyFillRectangle,);
 	
-	} else if (len) {
+	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		GRECT * rec = (GRECT*)(q +1);
 		short   hdl = 0;
@@ -654,7 +660,9 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			if ((nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect))) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
 				clnt->Fnct->shift_r2p (&orig, rec, len);
 				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
@@ -719,7 +727,7 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, PolyRectangle,);
 	
-	} else if (len) {
+	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		GRECT * rec = (GRECT*)(q +1);
 		short   hdl = 0;
@@ -729,7 +737,9 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 		CARD32  color;
 		
 		if (draw.p->isWind) {
-			if ((nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect))) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
 				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
@@ -793,7 +803,7 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, PolySegment,);
 	
-	} else if (len) {
+	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
 		short   hdl = 0;
@@ -803,7 +813,9 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			if ((nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect))) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, CoordModeOrigin);
 				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
@@ -851,7 +863,9 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 	CARD16  nClp;
 	
 	if (draw.p->isWind) {
-		if ((nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect))) {
+		nClp = WindClipLock (draw.Window, 0,
+		                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+		if (nClp) {
 			int dmy;
 			orig.x += pos->x;
 			orig.y += pos->y;
@@ -912,7 +926,7 @@ RQ_ImageText8 (CLIENT * clnt, xImageTextReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, ImageText8,);
 	
-	} else if (q->nChars) {
+	} else if (q->nChars  &&  gc->ClipNum >= 0) {
 		DEBUG (ImageText8," %c:%lX G:%lX (%i,%i)",
 		       (draw.p->isWind ? 'W' : 'P'), q->drawable, q->gc, q->x, q->y);
 		
@@ -933,7 +947,7 @@ RQ_ImageText16 (CLIENT * clnt, xImageTextReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, ImageText16,);
 	
-	} else if (q->nChars) {
+	} else if (q->nChars  &&  gc->ClipNum >= 0) {
 		DEBUG (ImageText16," %c:%lX G:%lX (%i,%i)",
 		       (draw.p->isWind ? 'W' : 'P'), q->drawable, q->gc, q->x, q->y);
 		
@@ -953,7 +967,9 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 		CARD16  nClp;
 		
 		if (draw.p->isWind) {
-			if ((nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect))) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
 				int dmy;
 				orig.x += pos->x;
 				orig.y += pos->y;
@@ -1010,7 +1026,7 @@ RQ_PolyText8 (CLIENT * clnt, xPolyTextReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, PolyText8,);
 	
-	} else {
+	} else if (gc->ClipNum >= 0) {
 		DEBUG (PolyText8," %c:%lX G:%lX (%i,%i)",
 		       (draw.p->isWind ? 'W' : 'P'), q->drawable, q->gc, q->x, q->y);
 		
@@ -1031,7 +1047,7 @@ RQ_PolyText16 (CLIENT * clnt, xPolyTextReq * q)
 	} else if (!gc) {
 		Bad(GC, q->drawable, PolyText16,);
 	
-	} else {
+	} else if (gc->ClipNum >= 0) {
 		DEBUG (PolyText16," %c:%lX G:%lX (%i,%i)",
 		       (draw.p->isWind ? 'W' : 'P'), q->drawable, q->gc, q->x, q->y);
 		
