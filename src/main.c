@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// main.c
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-05-30 - Initial Version.
+//==============================================================================
+//
 #include "main.h"
 #include "server.h"
 #include "Pointer.h"
@@ -150,6 +160,11 @@ main (int argc, char * argv[])
 				*(PXY*)&ev_i.evi_m2 = ev_o.evo_mouse;
 				
 				if (event & MU_KEYBD) {
+					if (ev_o.evo_kreturn == 0x0E08
+					    &&  MAIN_KeyButMask & (K_CTRL|K_ALT)) {
+						// Panic Key
+						exit (1);
+					}
 					KybdEvent (ev_o.evo_kreturn, prev_mask);
 				} else if (meta != (prev_mask & 0xFF)) {
 					KybdEvent (0, prev_mask);
