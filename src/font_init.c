@@ -194,6 +194,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 		if (hdl > 0) {
 			short pxy[4] = { 0, 0, 31, hgt -1 };
 			PXY   p      = { 14, 0 };
+			short i;
 			
 			vst_load_fonts(hdl, 0);
 			vs_clip       (hdl, 1, pxy);
@@ -206,28 +207,28 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 			} else {
 				vst_point  (hdl, face->Points, pxy, pxy, pxy, pxy);
 			}
-			memset (buf, 0, sizeof(long) * hgt);
+			for (i = 0; i < hgt; buf[i++] = 0);
 			
 			if (face->MaxDesc > face->Ascent /2) {
 				short txt[] = {'g','p','q','y'};
-				short i     = sizeof(txt) /2;
-				while (--i) v_gtext16n (hdl, p, &txt[i], 1);
+				i = sizeof(txt) /2;
+				while (i) v_gtext16n (hdl, p, &txt[--i], 1);
 				i = hgt;
-				while (--i && !buf[i]);
+				while (--i > 0 && !buf[i]);
 				face->MaxDesc = i - face->Ascent +1;
 			}
 			if (face->HalfLine >= face->Ascent) {
 				short txt[] = {'a','c','e','m','n','o','r','s','z'};
-				short i     = sizeof(txt) /2;
-				while (--i) v_gtext16n (hdl, p, &txt[i], 1);
+				i = sizeof(txt) /2;
+				while (i) v_gtext16n (hdl, p, &txt[--i], 1);
 				i = -1;
 				while (++i < hgt && !buf[i]);
 				face->HalfLine = face->MinAsc = face->Ascent - i;
 			}
 			if (face->MaxAsc >= face->Ascent) {
 				short txt[] = {'A','O','T'};
-				short i     = sizeof(txt) /2;
-				while (--i) v_gtext16n (hdl, p, &txt[0], 1);
+				i = sizeof(txt) /2;
+				while (i) v_gtext16n (hdl, p, &txt[--i], 1);
 				i = -1;
 				while (++i < hgt && !buf[i]);
 				face->MaxAsc = face->Ascent - i;
