@@ -50,7 +50,7 @@ short
 WindGeometry (WINDOW * wind, GRECT * dst, CARD16 border)
 {
 	// Sets dst to the rectangle of the window in absolute screen coordinates,
-	// including the gven border width, and returns the AES handle of its
+	// including the given border width, and returns the AES handle of its
 	// anchestor that is a top window.
 	//...........................................................................
 	

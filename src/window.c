@@ -163,7 +163,7 @@ WindButton (CARD16 prev_mask, int count)
 	if ((MAIN_KeyButMask & K_ALT) && (MAIN_KeyButMask & Button2Mask) && wind) {
 		short dmy;
 		printf ("\nW:%X #%i [%i,%i/%i,%i/%i] * %i \n",
-		        wind->Id, WindHandle (wind),
+		        wind->Id, wind->Handle,
 		        wind->Rect.x, wind->Rect.y, wind->Rect.w, wind->Rect.h,
 		        wind->BorderWidth, wind->Depth);
 		if (wind->hasBorder || wind->hasBackGnd) {
