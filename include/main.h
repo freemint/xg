@@ -90,5 +90,17 @@ static inline void WindMctrl (onNoff) {
 }
 
 
+//___constants_from_config.c___
+
+extern CARD32 CNFG_MaxReqLength;                      // length in units (longs)
+#define       CNFG_MaxReqBytes (CNFG_MaxReqLength *4) // same in bytes
+extern const char * GLBL_Version, * GLBL_Build;
+extern const char   PATH_DEBUG_OUT[];
+extern const char   PATH_XBIN_RSRC[], * PATH_RSRC;
+extern const char   PATH_Xconsole[];
+extern const char   PATH_Xmodmap[],     PATH_XmodmapRc[];
+extern const char   PATH_FontsAlias[],  PATH_LibDir[],   PATH_FontsDb[];
+
+
 # undef CONST
 #endif __MAIN_H__

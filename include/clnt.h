@@ -132,10 +132,6 @@ void *  ClntOutBuffer (O_BUFF * buf, size_t need, size_t copy_n, BOOL refuse);
 #endif
 
 
-extern CARD32 CNFG_MaxReqLength;                      // length in units (longs)
-#define       CNFG_MaxReqBytes (CNFG_MaxReqLength *4) // same in bytes
-
-
 static inline void * _clnt_r_ptr (O_BUFF * buf, size_t need) {
 	void   * r;
 	size_t   n = buf->Done + buf->Left;

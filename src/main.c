@@ -9,6 +9,7 @@
 //==============================================================================
 //
 #include "main.h"
+#include "tools.h"
 #include "server.h"
 #include "Pointer.h"
 #include "keyboard.h"
@@ -31,10 +32,8 @@
 
 void set_printf (BOOL buffer);
 
-extern const short  _app;
-extern const char * GLBL_Version;
-extern const char * GLBL_Build;
-extern const BOOL   WIND_ChngTrigger;
+extern const short _app;
+extern const BOOL  WIND_ChngTrigger;
 
 static void sig_child (int sig);
 static void shutdown  (void);
@@ -83,8 +82,7 @@ main (int argc, char * argv[])
 			const char * args[] = {
 					"-g","-0-0", "-fn","6x10",
 					"-exitOnFail", "-notify", "-file", "/dev/xconout2" };
-			_MAIN_Xcons = WmgrLaunch ("/usr/X11/bin/xconsole",
-			                          sizeof(args) / sizeof(*args), args);
+			_MAIN_Xcons = WmgrLaunch (PATH_Xconsole, numberof(args), args);
 			if (_MAIN_Xcons > 0) {
 				set_printf (xTrue);
 				redir = 0;
@@ -94,10 +92,8 @@ main (int argc, char * argv[])
 			Fclose (xcon);
 		}
 		if (redir) {
-			char  r_cmd[] = "U:\\usr\\bin\\xcat", r_tail[] = "";
-			if ((redir = shel_write (1, 0, 0, r_cmd, r_tail))) {
-				sleep (1);
-			}
+			redir = shel_write (1, 0, 0, (char*)PATH_DEBUG_OUT, (char*)"");
+			if (redir) sleep (1);
 		}
 		atexit (shutdown);
 		WmgrIntro (xTrue);

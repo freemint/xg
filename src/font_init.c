@@ -256,7 +256,7 @@ FontInit (short count)
 	
 	/*--- read font.alias --*/
 	
-	if ((f_db = fopen ("/etc/X11/fonts.alias", "r"))) {
+	if ((f_db = fopen (PATH_FontsAlias, "r"))) {
 		FONTALIAS ** subst = &_FONT_Subst;
 		FONTALIAS ** alias = &_FONT_Alias;
 		while (fgets (buf, sizeof(buf), f_db)) {
@@ -299,11 +299,11 @@ FontInit (short count)
 	
 	/*--- read fonts.db ---*/
 	
-	if (   (access ("/var/lib/Xapp", R_OK|W_OK|X_OK) &&
-	        mkdir ("/var/lib/Xapp", S_IRWXU|S_IRWXG|S_IRWXO))
-	    || (!access ("/var/lib/Xapp/fonts.db", F_OK) &&
-	        (   access ("/var/lib/Xapp/fonts.db", W_OK)
-	         || !(f_db = fopen ("/var/lib/Xapp/fonts.db", "r"))))) {
+	if (   (access (PATH_LibDir, R_OK|W_OK|X_OK) &&
+	        mkdir  (PATH_LibDir, S_IRWXU|S_IRWXG|S_IRWXO))
+	    || (!access (PATH_FontsDb, F_OK) &&
+	        (   access (PATH_FontsDb, W_OK)
+	         || !(f_db = fopen (PATH_FontsDb, "r"))))) {
 		printf ("  \33pERROR\33q: Can't acess /var/lib/.\n");
 		return;
 		
@@ -395,8 +395,7 @@ FontInit (short count)
 	
 	/*--- scan VDI fonts ---*/
 	
-	if ((f_db = fopen ("/var/lib/Xapp/fonts.db", "w"))) {
-		extern const char * GLBL_Version;
+	if ((f_db = fopen (PATH_FontsDb, "w"))) {
 		fprintf (f_db, "# fonts.db; %s\n", GLBL_Version);
 	}
 	printf ("  loaded %i font%s\n", count, (count == 1 ? "" : "s"));

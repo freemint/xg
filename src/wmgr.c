@@ -171,7 +171,7 @@ WmgrInit (BOOL initNreset)
 		XrscPoolInit (_WMGR_Client.Fontables);
 		XrscPoolInit (_WMGR_Client.Cursors);
 		
-		if (!rsrc_load ("Xapp.rsc")) {
+		if (!rsrc_load (PATH_RSRC) && !rsrc_load (PATH_XBIN_RSRC)) {
 			WmgrIntro (xFalse);
 			form_alert (1, "[3][Can't load RSC file!][ Quit ]");
 			ok = xFalse;
@@ -279,11 +279,10 @@ WmgrActivate (BOOL onNoff)
 		}
 		if (_app) menu_icheck (_WMGR_Menu, MENU_GWM, 1);
 	
-		if (!CLNT_BaseNum &&
-		    !access ("/etc/X11/Xmodmap",     R_OK) &&
-		    !access ("/usr/X11/bin/xmodmap", X_OK)) {
-			const char * argv[] = { "/etc/X11/Xmodmap", NULL };
-			WmgrLaunch ("/usr/X11/bin/xmodmap", 1, argv);
+		if (!CLNT_BaseNum && !access (PATH_XmodmapRc, R_OK)
+		                  && !access (PATH_Xmodmap,   X_OK)) {
+			const char * argv[] = { PATH_XmodmapRc, NULL };
+			WmgrLaunch (PATH_Xmodmap, 1, argv);
 		}
 	
 	} else {
@@ -830,8 +829,6 @@ WmgrMenu (short title, short entry, short meta)
 			OBJECT * form = NULL;
 			GRECT    rect;
 			if (rsrc_gaddr (R_TREE, ABOUT, &form) && form) {
-				extern const char * GLBL_Version;
-				extern const char * GLBL_Build;
 				GRECT sbox = WIND_Root.Rect;
 				sprintf (form[ABOUT_VERSN].ob_spec.tedinfo->te_ptext,
 				         "Version %s", GLBL_Version);
