@@ -351,7 +351,7 @@ GrphCombine (GRECT * a, const GRECT * b)
 		a->w += d;
 	}
 	if ((d = a->y - b->y) > 0) {
-		a->w += d;
+		a->h += d;
 		a->y =  b->y;
 		if (a->h < b->h) a->h = b->h;
 	} else if ((d = (b->y + b->h) - (a->y + a->h)) > 0) {
