@@ -1,7 +1,16 @@
+//==============================================================================
+//
+// clnt_swap.c
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #include "main.h"
 #include "tools.h"
 #include "clnt.h"
-#include "x_gem.h" // for GRECT,PXY
 
 #include <stdio.h>
 #include <ctype.h>
