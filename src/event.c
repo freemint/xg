@@ -288,6 +288,7 @@ FT_Evnt_send_MSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 	evn->u.u.sequenceNumber = clnt->SeqNum;
 	
 	while (*frm) switch (*(frm++)) {
+		case 'W': if (wind) { *(Window*)ptr = wind->Id; ptr += 4; break; }
 		case 'w': ARG (Window); break;
 		case 'a': ARG (Atom);   break;
 		case 'l': ARG (CARD32); break;
@@ -303,7 +304,6 @@ FT_Evnt_send_MSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 			ptr += 8;
 			break;
 		case 'd': evn->u.u.detail   = va_arg (vap, CARD8);       break;
-		case 'W': *(Window*)ptr     = wind->Id;        ptr += 4; break;
 		case 'S': *(Time*)ptr       = MAIN_TimeStamp;  ptr += 4; break;
 		case 'M': *(KeyButMask*)ptr = MAIN_KeyButMask; ptr += 2; break;
 		case 'T': *ptr              = xTrue;           ptr += 1; break;
@@ -327,6 +327,7 @@ FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 	evn->u.u.sequenceNumber = Swap16(clnt->SeqNum);
 	
 	while (*frm) switch (*(frm++)) {
+		case 'W': if (wind) {*(Window*)ptr = Swap32(wind->Id); ptr += 4; break; }
 		case 'w': ARG32 (Window); break;
 		case 'a': ARG32 (Atom);   break;
 		case 'l': ARG32 (CARD32); break;
@@ -338,7 +339,6 @@ FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 		case 'r':
 			SwapRCT ((GRECT*)ptr, va_arg (vap, GRECT*));        ptr += 8; break;
 		case 'd': evn->u.u.detail   = va_arg (vap, CARD8);               break;
-		case 'W': *(Window*)ptr     = Swap32(wind->Id);        ptr += 4; break;
 		case 'S': *(Time*)ptr       = Swap32(MAIN_TimeStamp);  ptr += 4; break;
 		case 'M': *(KeyButMask*)ptr = Swap16(MAIN_KeyButMask); ptr += 2; break;
 		case 'T': *ptr              = xTrue;                   ptr += 1; break;
