@@ -2,7 +2,7 @@
 //
 // colormap.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-07-27 - Initial Version.
@@ -69,6 +69,10 @@ CmapInit(void)
 			int j = (i == fix_i[f] ? fix_c[f++] : c--);
 			rgb[0] = rgb[1] = rgb[2] = (1001 * i) /31;
 			vs_color (GRPH_Vdi, _CMAP_TransGrey[i] = j, rgb);
+		}
+		/*if (1)*/ {
+			short mbuf[8] = { COLORS_CHANGED, ApplId(0), 0,0,0,0,0,0 };
+			shel_write (SWM_BROADCAST, 0, 0, (void*)mbuf, NULL);
 		}
 		
 	} else { // TrueColor
