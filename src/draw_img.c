@@ -182,53 +182,60 @@ RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
 		
 		short  dpth = (draw.p ? draw.p->Depth : GRPH_Depth);
 		size_t size = (q->width * dpth +7) /8 * q->height;
-		ClntReplyPtr (GetImage, r);
-		MFDB   dst = { (r +1), q->width, q->height, 
-		               (q->width + PADD_BITS -1) /16, 0, dpth, 0,0,0 };
-		MFDB * src = NULL;
+		ClntReplyPtr (GetImage, r, size);
 		
-		PRINT (- X_GetImage,
-		       " D:%lX [%i,%i/%u,%u] form=%i mask=%lX -> dpth = %i size = %lu",
-		       q->drawable, q->x,q->y, q->width, q->height, q->format,
-		       q->planeMask, dpth, size);
+		if (!r) {
+			Bad(Match,, GetImage,
+			    " memory exhausted in output buffer (%li).", size);
 		
-		if (!draw.p) {
-			rec[0].rd.x += (rec[0].lu.x += rec[1].lu.x);
-			rec[0].rd.y += (rec[0].lu.y += rec[1].lu.y);
-			rec[1].lu.x = rec[1].lu.y = 0;
-		} else if (draw.p->isWind) {
-			PXY pos;
-			pos = WindOrigin (draw.Window);
-			rec[0].rd.x += (rec[0].lu.x += pos.x);
-			rec[0].rd.y += (rec[0].lu.y += pos.y);
 		} else {
-			src = PmapMFDB(draw.Pixmap);
-		}
-		
-		if (dpth == 1) {   // all possible formats are matching
-			if (!src) {
-				src = alloca (sizeof(MFDB));
-				src->fd_addr = NULL;
-			}
-			vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)rec, src, &dst);
+			MFDB   dst = { (r +1), q->width, q->height, 
+			               (q->width + PADD_BITS -1) /16, 0, dpth, 0,0,0 };
+			MFDB * src = NULL;
 			
-		} else if (!GrphRasterGet (&dst, rec, src)) {
-			printf ("GetImage: Can't allocate buffer.\n");
-		
-		} else {
-			if (dst.fd_addr != (q +1)) free (dst.fd_addr);
+			PRINT (- X_GetImage,
+			       " D:%lX [%i,%i/%u,%u] form=%i mask=%lX -> dpth = %i size = %lu",
+			       q->drawable, q->x,q->y, q->width, q->height, q->format,
+			       q->planeMask, dpth, size);
+			
+			if (!draw.p) {
+				rec[0].rd.x += (rec[0].lu.x += rec[1].lu.x);
+				rec[0].rd.y += (rec[0].lu.y += rec[1].lu.y);
+				rec[1].lu.x = rec[1].lu.y = 0;
+			} else if (draw.p->isWind) {
+				PXY pos;
+				pos = WindOrigin (draw.Window);
+				rec[0].rd.x += (rec[0].lu.x += pos.x);
+				rec[0].rd.y += (rec[0].lu.y += pos.y);
+			} else {
+				src = PmapMFDB(draw.Pixmap);
+			}
+			
+			if (dpth == 1) {   // all possible formats are matching
+				if (!src) {
+					src = alloca (sizeof(MFDB));
+					src->fd_addr = NULL;
+				}
+				vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)rec, src, &dst);
+				
+			} else if (!GrphRasterGet (&dst, rec, src)) {
+				printf ("GetImage: Can't allocate buffer.\n");
+			
+			} else {
+				if (dst.fd_addr != (q +1)) free (dst.fd_addr);
+			}
+			
+			if (!draw.p) {
+				r->visual = (GRPH_Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
+			} else if (draw.p->isWind) {
+				r->visual = (draw.p->Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
+			} else {
+				r->visual = None;
+			}
+			r->depth = dpth;
+			
+			ClntReply (GetImage, size, NULL);
 		}
-		
-		if (!draw.p) {
-			r->visual = (GRPH_Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
-		} else if (draw.p->isWind) {
-			r->visual = (draw.p->Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
-		} else {
-			r->visual = None;
-		}
-		r->depth = dpth;
-		
-		ClntReply (GetImage, size, NULL);
 	}
 }
 

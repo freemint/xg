@@ -140,7 +140,7 @@ RQ_GetGeometry (CLIENT * clnt, xGetGeometryReq * q)
 		Bad(Drawable, q->id, GetGeometry,);
 	
 	} else {
-		ClntReplyPtr (GetGeometry, r);
+		ClntReplyPtr (GetGeometry, r,);
 		r->root = ROOT_WINDOW;
 		
 		if (!draw) {

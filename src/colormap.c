@@ -402,7 +402,7 @@ RQ_ListInstalledColormaps (CLIENT * clnt, xListInstalledColormapsReq * q)
 void
 RQ_AllocColor (CLIENT * clnt, xAllocColorReq * q)
 {
-	ClntReplyPtr (AllocColor, r);
+	ClntReplyPtr (AllocColor, r,);
 	
 	r->pixel = CmapLookup ((RGB*)&r->red, (RGB*)&q->red);
 	
@@ -417,13 +417,13 @@ RQ_AllocColor (CLIENT * clnt, xAllocColorReq * q)
 void
 RQ_AllocNamedColor (CLIENT * clnt, xAllocNamedColorReq * q)
 {
-	ClntReplyPtr (AllocNamedColor, r);
 	const RGB * rgb = _Cmap_LookupName ((char*)(q +1), q->nbytes);
 	
 	if (!rgb) {
 		Bad(Name,, AllocNamedColor,);
 	
 	} else {
+		ClntReplyPtr (AllocNamedColor, r,);
 		r->exactRed     = rgb->r;
 		r->exactGreen   = rgb->g;
 		r->exactBlue    = rgb->b;
@@ -496,7 +496,7 @@ RQ_QueryColors (CLIENT * clnt, xQueryColorsReq * q)
 {
 	size_t   len = ((q->length *4) - sizeof (xQueryColorsReq)) / sizeof(CARD32);
 	CARD32 * pix = (CARD32*)(q +1);
-	ClntReplyPtr (QueryColors, r);
+	ClntReplyPtr (QueryColors, r, sizeof(CARD32) * len);
 	xrgb * dst = (xrgb*)(r +1);
 	int i;
 	
@@ -560,13 +560,13 @@ RQ_QueryColors (CLIENT * clnt, xQueryColorsReq * q)
 void
 RQ_LookupColor (CLIENT * clnt, xLookupColorReq * q)
 {
-	ClntReplyPtr (LookupColor, r);
 	const RGB * rgb = _Cmap_LookupName ((char*)(q +1), q->nbytes);
 	
 	if (!rgb) {
 		Bad(Name,, LookupColor,);
 	
 	} else {
+		ClntReplyPtr (LookupColor, r,);
 		r->exactRed     = rgb->r;
 		r->exactGreen   = rgb->g;
 		r->exactBlue    = rgb->b;

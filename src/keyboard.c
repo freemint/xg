@@ -657,7 +657,7 @@ RQ_GetKeyboardControl (CLIENT * clnt, xGetKeyboardControlReq * q)
 	// BYTE   map[32]:         bit masks start here
 	//...........................................................................
 	
-	ClntReplyPtr (GetKeyboardControl, r);
+	ClntReplyPtr (GetKeyboardControl, r,);
 	char conterm = Ssystem (S_GETBVAL, 0x484, 0);
 	
 	DEBUG (GetKeyboardControl," ");
@@ -686,7 +686,7 @@ RQ_GetModifierMapping (CLIENT * clnt, xGetModifierMappingReq * q)
 	// CARD8 numKeyPerModifier
 	//...........................................................................
 	
-	ClntReplyPtr (GetModifierMapping, r);
+	ClntReplyPtr (GetModifierMapping, r, sizeof(KYBD_ModMap));
 	
 	DEBUG (GetModifierMapping," ");
 	
@@ -720,10 +720,10 @@ RQ_GetKeyboardMapping (CLIENT * clnt, xGetKeyboardMappingReq * q)
 	
 	} else { //..................................................................
 	
-		ClntReplyPtr (GetKeyboardMapping, r);
 		KeySym * sym = KYBD_Symbol[q->firstKeyCode - KYBD_CodeMin];
 		int      num = q->count * 4;
 		size_t   len = num * sizeof(KeySym);
+		ClntReplyPtr (GetKeyboardMapping, r, len);
 		
 		DEBUG (GetKeyboardMapping," %i (%i)", q->firstKeyCode, q->count);
 		
@@ -815,7 +815,7 @@ RQ_QueryKeymap (CLIENT * clnt, xQueryKeymapReq * q)
 	// bit set to 1 indicates that the corresponding key is currently pressed.
 	//...........................................................................
 	
-	ClntReplyPtr (QueryKeymap, r);
+	ClntReplyPtr (QueryKeymap, r,);
 	
 	PRINT (QueryKeymap," ");
 	

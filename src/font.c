@@ -202,25 +202,41 @@ RQ_ListFonts (CLIENT * clnt, xListFontsReq * q)
 	// CARD16 nFonts: number of names found
 	//...........................................................................
    
-	ClntReplyPtr (ListFonts, r);
-	FONTFACE  * face  = _FONT_List->Next; // skip cursor font
-	char      * list  = (char*)(r +1);
-	size_t      size  = 0;
+	ClntReplyPtr (ListFonts, r,);
+	FONTFACE  * face = _FONT_List->Next; // skip cursor font
+	char      * list = (char*)(r +1);
+	CARD16      num  = 0;
+	size_t      size = 0;
+	size_t      have = clnt->oBuf.Size - (clnt->oBuf.Done + clnt->oBuf.Left)
+	                 - sz_xListFontsReply;
 	char        buf[500] = "";
 	
 	PRINT (ListFonts," '%.*s' max=%u",
 	       q->nbytes, (char*)(q +1), q->maxNames);
 	
 	_Font_Alias (buf, patt, q->nbytes);
-	r->nFonts = 0;
-	while (face  &&  r->nFonts < q->maxNames) {
+	
+	while (face  &&  num < q->maxNames) {
 		if (!fnmatch (buf, face->Name, FNM_NOESCAPE|FNM_CASEFOLD)) {
-			memcpy (list + size, &face->Length, face->Length +1);
-			size += face->Length +1;
-			r->nFonts++;
+			size_t len  = face->Length +1;
+			size_t need = size + len;
+			if (need > have) {
+				void * rr = ClntOutBuffer (&clnt->oBuf,
+				                           sz_xListFontsReply + need,
+				                           sz_xListFontsReply + size, xFalse);
+				if (!rr) break;
+				r    = rr;
+				list = (char*)(r +1);
+				have = clnt->oBuf.Size - (clnt->oBuf.Done + clnt->oBuf.Left)
+	              - sz_xListFontsReply;
+			}
+			memcpy (list + size, &face->Length, len);
+			size = need;
+			num++;
 		}
 		face = face->Next;
 	}
+	r->nFonts = num;
 	ClntReply (ListFonts, size, ".");
 }
 
@@ -385,11 +401,13 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 	
 	} else { //..................................................................
 	
-		FONTFACE *  face = font->FontFace;
-		size_t      size = 0;
+		FONTFACE *  face  = font->FontFace;
+		size_t      size  = 0;
+		CARD32      n_inf = face->MaxChr - face->MinChr +1;
 		xCharInfo * info;
 		short       asc[5], desc[5];
-		ClntReplyPtr (QueryFont, r);
+		ClntReplyPtr (QueryFont, r,
+		              (sizeof(Atom) *2) + (n_inf * sizeof(xCharInfo)));
 		
 		PRINT (QueryFont," F:%lX", q->id);
 		
@@ -404,6 +422,7 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 		r->fontAscent     = face->Ascent;
 		r->fontDescent    = face->Descent;
 		r->nFontProps     = 0;
+		
 		while (1) {
 			Atom * atom = (Atom*)(r +1);
 			if (!(*(atom++) = AtomGet ("FONT", 4, xFalse)) ||
@@ -420,9 +439,9 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 				a++;
 			}
 		}
-		info          =  (xCharInfo*)((char*)(r +1) + size);
-		r->nCharInfos =  face->MaxChr - face->MinChr +1;
-		size          += r->nCharInfos * sizeof(xCharInfo);
+		info          = (xCharInfo*)((char*)(r +1) + size);
+		r->nCharInfos = n_inf;
+		size         += r->nCharInfos * sizeof(xCharInfo);
 		if (face->isSymbol) {
 			asc[0]  = asc[1]  = asc[2]  = asc[3]  = asc[4]  = face->MaxAsc;
 			desc[0] = desc[1] = desc[2] = desc[3] = desc[4] = face->MaxDesc;
@@ -516,7 +535,7 @@ RQ_QueryTextExtents (CLIENT * clnt, xQueryTextExtentsReq * q)
 		                - (q->oddLength ? 1 : 0);
 		short str[size];
 		short ext[8];
-		ClntReplyPtr (QueryTextExtents, r);
+		ClntReplyPtr (QueryTextExtents, r,);
 		
 		PRINT (QueryTextExtents,"('%*s') F:%lX", (int)size, text, q->fid);
 		
@@ -569,8 +588,8 @@ RQ_GetFontPath (CLIENT * clnt, xGetFontPathReq * q)
 	// Reply:
 	// CARD16 nPaths: number of diretorys
 	
-	ClntReplyPtr (GetFontPath, r);
 	const char * src = "/c/gemsys";
+	ClntReplyPtr (GetFontPath, r, sizeof(src) -1);
 	char       * dst = (char*)(r +1);
 	
 	PRINT (- X_GetFontPath," ");
@@ -579,5 +598,5 @@ RQ_GetFontPath (CLIENT * clnt, xGetFontPathReq * q)
 	*dst      = (char)(sizeof(src) -1);
 	strncpy (dst +1, src, sizeof (src) -1);
 	
-	ClntReply (GetFontPath, sizeof (src) -1, ".");
+	ClntReply (GetFontPath, sizeof(src) -1, ".");
 }

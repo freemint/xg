@@ -300,7 +300,7 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 	
 	} else { //..................................................................
 		
-		ClntReplyPtr (GetProperty, r);
+		ClntReplyPtr (GetProperty, r,);
 		size_t len  = 0;
 		
 		if (!prop) {
@@ -316,10 +316,13 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 			r->nItems       = 0;
 			
 		} else {
-			CARD8 bytes = prop->Format /8;
+			CARD8  bytes = prop->Format /8;
 			len = (q->longLength *4) +offs;
 			len = (len <= prop->Length ? len : prop->Length) - offs;
-			
+			if (len) {
+				ClntReplyPtr (GetProperty, rr, len);
+				r = rr;
+			}
 			r->propertyType = prop->Type;
 			r->format       = prop->Format;
 			r->bytesAfter   = (prop->Length - offs) - len;
@@ -390,37 +393,39 @@ RQ_ListProperties (CLIENT * clnt, xListPropertiesReq * q)
 	
 	} else { //..................................................................
 		
-		ClntReplyPtr (ListProperties, r);
+		ClntReplyPtr (ListProperties, r,);
 		PROPERTIES * pool = wind->Properties;
 		Atom       * atom = (Atom*)(r +1);
-		
-		r->nProperties = 0;
+		CARD16       num  = 0;
+		size_t       size = 0;
+		size_t       bspc = clnt->oBuf.Size - (clnt->oBuf.Done + clnt->oBuf.Left)
+		                  - sz_xListPropertiesReply;
 		
 		if (pool) {
 			int i;
-			if (clnt->DoSwap) {
-				for (i = 0; i < XrscPOOLSIZE (pool->Pool); ++i) {
-					PROPERTY * prop = XrscPOOLITEM (pool->Pool, i);
-					while (prop) {
-						*(atom++) = Swap32(prop->Id);
-						r->nProperties++;
-						prop = prop->NextXRSC;
+			for (i = 0; i < XrscPOOLSIZE (pool->Pool); ++i) {
+				PROPERTY * prop = XrscPOOLITEM (pool->Pool, i);
+				while (prop) {
+					size_t need = size + sizeof(ATOM);
+					if (need > bspc) {
+						r = ClntOutBuffer (&clnt->oBuf,
+						                   sz_xListPropertiesReply + need,
+						                   sz_xListPropertiesReply + size, xTrue);
+						atom = (Atom*)(r +1) + num;
+						bspc = clnt->oBuf.Size - (clnt->oBuf.Done + clnt->oBuf.Left)
+						     - sz_xListPropertiesReply;
 					}
-				}
-			} else { // (!clnt->DoSwap)
-				for (i = 0; i < XrscPOOLSIZE (pool->Pool); ++i) {
-					PROPERTY * prop = XrscPOOLITEM (pool->Pool, i);
-					while (prop) {
-						*(atom++) = prop->Id;
-						r->nProperties++;
-						prop = prop->NextXRSC;
-					}
+					*(atom++) = (clnt->DoSwap ? Swap32(prop->Id) : prop->Id);
+					num++;
+					size = need;
+					prop = prop->NextXRSC;
 				}
 			}
 		}
-		DEBUG (ListProperties," of W:%lX (%u)", q->id, r->nProperties);
+		DEBUG (ListProperties," of W:%lX (%u)", q->id, num);
 		
-		ClntReply (ListProperties, (r->nProperties *4), ".");
+		r->nProperties = num;
+		ClntReply (ListProperties, size, ".");
 	}
 }
 

@@ -203,9 +203,11 @@ RQ_InternAtom (CLIENT * clnt, xInternAtomReq * q)
 			             ? "maximum number reached" : "memory exhausted"));
 		
 		} else {
-			ClntReplyPtr (InternAtom, r);
+			ClntReplyPtr (InternAtom, r,);
+			
 			DEBUG (InternAtom, "('%.*s') -> %lu%s",
 			       q->nbytes, name, atom, (cnt < ATOM_Count < 0 ? "+" : ""));
+			
 			r->atom = atom;
 			ClntReply (InternAtom,, "a");
 		}
@@ -230,12 +232,13 @@ RQ_GetAtomName (CLIENT * clnt, xGetAtomNameReq * q)
 	
 	} else { //..................................................................
 		
-		ClntReplyPtr (GetAtomName, r);
-		size_t len = r->nameLength = ATOM_Table[q->id]->Length;
+		size_t len = ATOM_Table[q->id]->Length;
+		ClntReplyPtr (GetAtomName, r, len);
 		
 		DEBUG (GetAtomName, "(%lu) ->'%.*s'",
 		       q->id, (int)len, ATOM_Table[q->id]->Name);
 		
+		r->nameLength = ATOM_Table[q->id]->Length;
 		memcpy (r +1, ATOM_Table[q->id]->Name, len);
 		ClntReply (GetAtomName, len, ".");
 	}

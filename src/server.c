@@ -400,7 +400,7 @@ RQ_Bell (CLIENT * clnt, xBellReq * q)
 void
 RQ_QueryExtension (CLIENT * clnt, xQueryExtensionReq * q)
 {
-	ClntReplyPtr (QueryExtension, r);
+	ClntReplyPtr (QueryExtension, r,);
 	
 	PRINT (- X_QueryExtension," '%.*s'", q->nbytes, (char*)(q +1));
 	
@@ -417,7 +417,7 @@ void
 RQ_ListExtensions (CLIENT * clnt, xListExtensionsReq * _unused_)
 {
 	char ext[] = "GEM-WM_PROPERTIES";
-	ClntReplyPtr (ListExtensions, r);
+	ClntReplyPtr (ListExtensions, r, sizeof(ext));
 	
 	PRINT (- X_ListExtensions," ");
 	
@@ -427,7 +427,7 @@ RQ_ListExtensions (CLIENT * clnt, xListExtensionsReq * _unused_)
 		q[0] =     (CARD8)(sizeof(ext) -1);
 		memcpy (q +1, ext, sizeof(ext) -1);
 	}
-	ClntReply (ListExtensions, (sizeof(ext)), "l");
+	ClntReply (ListExtensions, sizeof(ext), "l");
 }
 
 

@@ -64,7 +64,7 @@ RQ_SetPointerMapping (CLIENT * clnt, xSetPointerMappingReq * q)
 	
 	} else { //..................................................................
 	
-		ClntReplyPtr (SetPointerMapping, r);
+		ClntReplyPtr (SetPointerMapping, r,);
 		
 		if (MAIN_But_Mask) {
 			DEBUG (SetPointerMapping," ignored %i,%i,%i.", but[0], but[1], but[2]);
@@ -102,7 +102,7 @@ RQ_GetPointerMapping (CLIENT * clnt, xGetPointerMappingReq * _unused_)
 	// (CARD8*)(r +1): List of buttons
 	//...........................................................................
 	
-	ClntReplyPtr (GetPointerMapping, r);
+	ClntReplyPtr (GetPointerMapping, r, PNTR_MAP * sizeof(CARD8));
 	int i;
 	
 	DEBUG (GetPointerMapping," ");
@@ -149,7 +149,7 @@ RQ_GetPointerControl (CLIENT * clnt, xGetPointerControlReq * q)
 	// CARD16 threshold:
 	//...........................................................................
 	
-	ClntReplyPtr (GetPointerControl, r);
+	ClntReplyPtr (GetPointerControl, r,);
 	
 	DEBUG (GetPointerControl," ");
 	

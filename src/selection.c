@@ -131,7 +131,7 @@ RQ_GetSelectionOwner (CLIENT * clnt, xGetSelectionOwnerReq * q)
 	
 	} else { //..................................................................
 		
-		ClntReplyPtr (GetSelectionOwner, r);
+		ClntReplyPtr (GetSelectionOwner, r,);
 		ATOM * atom = ATOM_Table[q->id];
 		
 		DEBUG (GetSelectionOwner," of '%s' (W:%lX)",

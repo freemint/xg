@@ -29,6 +29,9 @@
 #include <sys/socket.h>
 
 
+#define O_BLOCK 8192
+
+
 CARD32  _CLNT_RidBase    = RID_MASK +1;
 CARD32  _CLNT_RidCounter = 0;
 
@@ -189,7 +192,7 @@ _Clnt_ConnRW (p_CONNECTION conn, BOOL rd, BOOL wr)
 			if (n < 0) {
 				longjmp (CLNT_Error, 1);
 			} else {
-				NETBUF * buf = &CLNT_Requestor->oBuf;
+				O_BUFF * buf = &CLNT_Requestor->oBuf;
 				if  (n > buf->Left)  n = buf->Left;
 				if ((n = Fwrite (fd, n,  buf->Mem + buf->Done)) > 0) {
 					if (!(buf->Left -= n)) {
@@ -197,10 +200,12 @@ _Clnt_ConnRW (p_CONNECTION conn, BOOL rd, BOOL wr)
 						MAIN_FDSET_wr &= ~(1uL << fd);
 					} else {
 						buf->Done += n;
-						if (buf->Left + buf->Done > CNFG_MaxReqBytes) {
-							memcpy (buf->Mem, buf->Mem + buf->Done, buf->Done);
-							buf->Done = 0;
-						}
+						
+						//___________________________________________________obsolete_
+					//	if (buf->Left + buf->Done > CNFG_MaxReqBytes) {
+					//		memcpy (buf->Mem, buf->Mem + buf->Done, buf->Done);
+					//		buf->Done = 0;
+					//	}
 					}
 				}
 			}
@@ -254,15 +259,16 @@ ClntCreate (int fd, const char * name, const char * addr, int port)
 		clnt->Addr      = strdup (addr);
 		clnt->oBuf.Left  = 0;
 		clnt->oBuf.Done  = 0;
-		clnt->oBuf.Mem   = malloc (CNFG_MaxReqBytes *2);
-		clnt->iBuf.Mem   = clnt->oBuf.Mem + CNFG_MaxReqBytes;
+		clnt->oBuf.Size  = O_BLOCK;
+		clnt->oBuf.Mem   = malloc (O_BLOCK);
+		clnt->iBuf.Mem   = malloc (CNFG_MaxReqBytes);
 		clnt->Fnct       = NULL;
 		clnt->EventReffs = 0;
 		XrscPoolInit (clnt->Drawables);
 		XrscPoolInit (clnt->Fontables);
 		XrscPoolInit (clnt->Cursors);
 		
-		if (clnt->Name && clnt->Addr && clnt->iBuf.Mem) {
+		if (clnt->Name && clnt->Addr && clnt->oBuf.Mem && clnt->iBuf.Mem) {
 			SrvrConnInsert ((p_CONNECTION)clnt);
 			clnt->Eval      = (RQSTCB)_Clnt_EvalInit;
 			clnt->iBuf.Left = sizeof(xConnClientPrefix);
@@ -342,7 +348,8 @@ ClntDelete (CLIENT * clnt)
 		
 		if (clnt->Name)     free  (clnt->Name);
 		if (clnt->Addr)     free  (clnt->Addr);
-		if (clnt->iBuf.Mem) free  (clnt->iBuf.Mem); // is also oBuf.Mem
+		if (clnt->oBuf.Mem) free  (clnt->oBuf.Mem);
+		if (clnt->iBuf.Mem) free  (clnt->iBuf.Mem);
 		XrscDelete (CLNT_Pool, clnt);
 	}
 	
@@ -351,23 +358,66 @@ ClntDelete (CLIENT * clnt)
 
 
 //------------------------------------------------------------------------------
+void *
+ClntOutBuffer (O_BUFF * buf, size_t need, size_t copy_n, BOOL refuse)
+{
+	char * m = NULL;
+	size_t s;
+	
+	if (need <= buf->Done) {
+		memmove (buf->Mem, buf->Mem + buf->Done, buf->Left + copy_n);
+		buf->Done = 0;
+		m         = buf->Mem + buf->Left;
+	
+	} else if ((m = malloc (s = ((buf->Size + need - buf->Done + O_BLOCK -1)
+	                             / O_BLOCK) * O_BLOCK) )) {
+		CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
+		ClntPrint (clnt, 0, "*** output buffer expanded to %li bytes.", s);
+		if (copy_n += buf->Left) {
+			memcpy (m, buf->Mem + buf->Done, copy_n);
+		}
+		free (buf->Mem);
+		buf->Mem  = m;
+		buf->Size = s;
+		buf->Done = 0;
+		m       += buf->Left;
+		
+	} else if (refuse) {
+		CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
+		ClntPrint (clnt, 0,
+		           "\33pERROR:\33q memory exhausted in output buffer (%li).",
+		           buf->Size + need);
+		longjmp (CLNT_Error, 3);
+		
+	} else {
+		CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
+		ClntPrint (clnt, 0,
+		           "\33pWARNING:\33q memory exhausted in output buffer (%li).",
+		           buf->Size + need);
+	}
+	return m;
+}
+
+//------------------------------------------------------------------------------
 static void
 FT_Clnt_reply_MSB (CLIENT * clnt, CARD32 size, const char * _unused)
 {
-	ClntReplyPtr (Generic, r);
+	O_BUFF        * b = &clnt->oBuf;
+	xGenericReply * r = (xGenericReply*)(b->Mem + b->Done + b->Left);
 	
 	r->type           = X_Reply;
 	r->sequenceNumber = clnt->SeqNum;
 	r->length         = Units(size - sizeof(xReply));
 	
-	clnt->oBuf.Left += Align(size);
-	MAIN_FDSET_wr   |= clnt->FdSet;
+	b->Left       += Align(size);
+	MAIN_FDSET_wr |= clnt->FdSet;
 }
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 static void
 FT_Clnt_reply_LSB (CLIENT * clnt, CARD32 size, const char * form)
 {
-	ClntReplyPtr (Generic, r);
+	O_BUFF        * b = &clnt->oBuf;
+	xGenericReply * r = (xGenericReply*)(b->Mem + b->Done + b->Left);
 	
 	r->type           = X_Reply;
 	r->sequenceNumber = Swap16(clnt->SeqNum);
@@ -375,17 +425,18 @@ FT_Clnt_reply_LSB (CLIENT * clnt, CARD32 size, const char * form)
 	
 	if (form) ClntSwap (&r->data00, form);
 	
-	clnt->oBuf.Left += Align(size);
-	MAIN_FDSET_wr   |= clnt->FdSet;
+	b->Left       += Align(size);
+	MAIN_FDSET_wr |= clnt->FdSet;
 }
 
 //------------------------------------------------------------------------------
+#define xErrorReply    xError
+#define sz_xErrorReply sz_xError
 static void
 FT_Clnt_error_MSB (p_CLIENT clnt,
                    CARD8 code, CARD8 majOp, CARD16 minOp, CARD32 val)
 {
-	xError * e = (xError*)(clnt->oBuf.Mem
-	                       + clnt->oBuf.Left + clnt->oBuf.Done);
+	ClntReplyPtr (Error, e,);
 	
 	e->type           = X_Error;
 	e->errorCode      = code;
@@ -402,8 +453,7 @@ static void
 FT_Clnt_error_LSB (p_CLIENT clnt,
                    CARD8 code, CARD8 majOp, CARD16 minOp, CARD32 val)
 {
-	xError * e = (xError*)(clnt->oBuf.Mem
-	                       + clnt->oBuf.Left + clnt->oBuf.Done);
+	ClntReplyPtr (Error, e,);
 	
 	e->type           = X_Error;
 	e->errorCode      = code;

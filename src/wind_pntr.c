@@ -414,7 +414,7 @@ RQ_QueryPointer (CLIENT * clnt, xQueryPointerReq * q)
 	
 	} else { //..................................................................
 		
-		ClntReplyPtr (QueryPointer, r);
+		ClntReplyPtr (QueryPointer, r,);
 		PXY pos = WindPointerPos (NULL);
 		
 		DEBUG (QueryPointer," W:%lX", q->id);
@@ -518,7 +518,7 @@ RQ_TranslateCoords (CLIENT * clnt, xTranslateCoordsReq * q)
 	
 	} else { //..................................................................
 		
-		ClntReplyPtr (TranslateCoords, r);
+		ClntReplyPtr (TranslateCoords, r,);
 		
 		DEBUG (TranslateCoords," %i/%i for W:%lX on W:%lX",
 		       q->srcX, q->srcY, q->dstWid, q->srcWid);

@@ -145,7 +145,7 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 	
 	} else { //..................................................................
 	
-		ClntReplyPtr (GrabPointer, r);
+		ClntReplyPtr (GrabPointer, r,);
 		CARD32 time = (q->time ? q->time : MAIN_TimeStamp);
 		
 		DEBUG (GrabPointer," W:%lX(W:%lX) evnt=0x%04X/%i mode=%i/%i"
@@ -363,7 +363,7 @@ RQ_GrabKeyboard (CLIENT * clnt, xGrabKeyboardReq * q)
 		Bad(Window, q->grabWindow, GrabKeyboard,);
 	
 	} else {
-		ClntReplyPtr (GrabKeyboard, r);
+		ClntReplyPtr (GrabKeyboard, r,);
 		
 		PRINT (- X_GrabKeyboard," W:%lX ownr=%i mode=%i/%i T:%lX",
 		       q->grabWindow, q->ownerEvents,
@@ -410,7 +410,7 @@ RQ_SetInputFocus (CLIENT * clnt, xSetInputFocusReq * q)
 void
 RQ_GetInputFocus (CLIENT * clnt, xGetInputFocusReq * q)
 {
-	ClntReplyPtr (GetInputFocus, r);
+	ClntReplyPtr (GetInputFocus, r,);
 	
 //	PRINT (- X_GetInputFocus," ");
 	

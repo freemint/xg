@@ -32,6 +32,13 @@ typedef struct {
 	char * Mem;
 } NETBUF;
 
+typedef struct {
+	size_t Left; // bytes to be read
+	size_t Done; // number of already written, empty space at beginning
+	size_t Size;
+	char * Mem;
+} O_BUFF;
+
 
 //--- Request Callback Functions ---
 typedef void (*RQSTCB)(p_CLIENT , p_xReq);
@@ -63,7 +70,7 @@ typedef struct s_CLIENT {
 	BYTE               CloseDown;
 	char             * Name;
 	char             * Addr;
-	NETBUF             oBuf;
+	O_BUFF             oBuf;
 	NETBUF             iBuf;
 	RQSTCB             Eval;
 	const FUNCTABL   * Fnct;
@@ -101,9 +108,10 @@ void   ClntPrint  (CLIENT *, int req, const char * form,
 void   ClntError  (CLIENT *, int err, CARD32 val, int req, const char * form,
                    ...) __attribute__ ((format (printf, 5, 6)));
 
-#define ClntReplyPtr(T,r) x##T##Reply * r = (x##T##Reply*)(clnt->oBuf.Mem \
-                                          + clnt->oBuf.Left + clnt->oBuf.Done)
-#define ClntReply(T,s,f)   clnt->Fnct->reply (clnt, sz_x##T##Reply + (s +0), f)
+void *  ClntOutBuffer (O_BUFF * buf, size_t need, size_t copy_n, BOOL refuse);
+#define ClntReplyPtr(T,r,s)  x##T##Reply * r = \
+                           _clnt_r_ptr (&clnt->oBuf, sz_x##T##Reply + (s +0))
+#define ClntReply(T,s,f)    clnt->Fnct->reply (clnt, sz_x##T##Reply + (s +0), f)
 
 
 #define X_   0
@@ -127,6 +135,14 @@ void   ClntError  (CLIENT *, int err, CARD32 val, int req, const char * form,
 extern CARD32 CNFG_MaxReqLength;                      // length in units (longs)
 #define       CNFG_MaxReqBytes (CNFG_MaxReqLength *4) // same in bytes
 
+
+static inline void * _clnt_r_ptr (O_BUFF * buf, size_t need) {
+	void   * r;
+	size_t   n = buf->Done + buf->Left;
+	if (n + need <= buf->Size) r = buf->Mem + n;
+	else                       r = ClntOutBuffer (buf, need, 0, 1);
+	return r;
+}
 
 #undef CONST
 

@@ -1257,7 +1257,7 @@ RQ_GetWindowAttributes (CLIENT * clnt, xGetWindowAttributesReq * q)
 		Bad(Window, q->id, GetWindowAttributes,);
 	
 	} else {
-		ClntReplyPtr (GetWindowAttributes, r);
+		ClntReplyPtr (GetWindowAttributes, r,);
 		
 		DEBUG (GetWindowAttributes," W:%lX", q->id);
 		
@@ -1451,7 +1451,7 @@ RQ_QueryTree (CLIENT * clnt, xQueryTreeReq * q)
 {
 	WINDOW * wind = WindFind (q->id);
 	
-	ClntReplyPtr (QueryTree, r);
+	ClntReplyPtr (QueryTree, r,);
 	
 	if (!wind) {
 		Bad(Window, q->id, QueryTree,);
@@ -1459,6 +1459,9 @@ RQ_QueryTree (CLIENT * clnt, xQueryTreeReq * q)
 	} else {
 		WINDOW * chld = wind->StackBot;
 		CARD32 * c_id = (CARD32*)(r +1);
+		size_t   size = 0;
+		size_t   bspc = clnt->oBuf.Size - (clnt->oBuf.Done + clnt->oBuf.Left)
+		              - sz_xQueryTreeReply;
 		
 		PRINT (QueryTree," W:%lX", q->id);
 		
@@ -1466,16 +1469,22 @@ RQ_QueryTree (CLIENT * clnt, xQueryTreeReq * q)
 		r->parent    = (wind->Parent ? wind->Parent->Id : None);
 		r->nChildren = 0;
 		
-		if (clnt->DoSwap) while (chld) {
-			*(c_id++) = Swap32(chld->Id);
+		while (chld) {
+			size_t need = size + sizeof(CARD32);
+			if (need > bspc) {
+				r = ClntOutBuffer (&clnt->oBuf,
+				                   sz_xQueryTreeReply + need,
+				                   sz_xQueryTreeReply + size, xTrue);
+				c_id = (CARD32*)(r +1) + r->nChildren;
+				bspc = clnt->oBuf.Size - (clnt->oBuf.Done + clnt->oBuf.Left)
+				     - sz_xQueryTreeReply;
+			}
+			*(c_id++) = (clnt->DoSwap ? Swap32(chld->Id) : chld->Id);
 			r->nChildren++;
-			chld = chld->NextSibl;
-		} else while (chld) {
-			*(c_id++) = chld->Id;
-			r->nChildren++;
+			size = need;
 			chld = chld->NextSibl;
 		}
-		ClntReply (QueryTree, (r->nChildren *4), "ww.");
+		ClntReply (QueryTree, size, "ww.");
 	}
 }
 

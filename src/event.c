@@ -214,7 +214,7 @@ EvntExpose (WINDOW * wind, short len, const struct s_GRECT * rect)
 	
 	while (num--) {
 		if (lst->Mask & ExposureMask) {
-			NETBUF      * buf = &lst->Client->oBuf;
+			O_BUFF      * buf = &lst->Client->oBuf;
 			xEvent      * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 			const GRECT * rct = rect;
 			int           cnt = len;
@@ -253,7 +253,7 @@ void
 EvntGraphExp (CLIENT * clnt, p_DRAWABLE draw,
               CARD16 major, short len, const struct s_GRECT * rect)
 {
-	NETBUF * buf = &clnt->oBuf;
+	O_BUFF * buf = &clnt->oBuf;
 	xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 	int      cnt = len;
 	if (clnt->DoSwap) {
@@ -292,7 +292,7 @@ EvntGraphExp (CLIENT * clnt, p_DRAWABLE draw,
 void
 EvntClientMsg (CLIENT * clnt, Window id, Atom type, BYTE format, void * data)
 {
-	NETBUF * buf = &clnt->oBuf;
+	O_BUFF * buf = &clnt->oBuf;
 	xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 	
 	evn->u.u.type   = ClientMessage;
@@ -428,7 +428,7 @@ EvntMappingNotify (CARD8 request, CARD8 first, CARD8 count)
 {
 	CLIENT * clnt = (CLIENT*)CLNT_Base;
 	while (clnt) {
-		NETBUF * buf = &clnt->oBuf;
+		O_BUFF * buf = &clnt->oBuf;
 		xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 		evn->u.u.type           = MappingNotify;
 		evn->u.u.sequenceNumber = (clnt->DoSwap ? Swap16(clnt->SeqNum)
@@ -586,7 +586,7 @@ void
 FT_Evnt_send_MSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 {
 	const char * frm = _EVNT_Form[evnt];
-	NETBUF     * buf = &clnt->oBuf;
+	O_BUFF     * buf = &clnt->oBuf;
 	xEvent     * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 	char       * ptr = ((char*)evn) +4;
 	#define ARG(t)   { *(t*)ptr = va_arg (vap, t); ptr += sizeof(t); }
@@ -621,7 +621,7 @@ void
 FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 {
 	const char * frm = _EVNT_Form[evnt];
-	NETBUF     * buf = &clnt->oBuf;
+	O_BUFF     * buf = &clnt->oBuf;
 	xEvent     * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 	char       * ptr = ((char*)evn) +4;
 	#define ARG32(t) { *(t*)ptr = Swap32(va_arg (vap, t)); ptr += 4; }
@@ -728,7 +728,7 @@ RQ_SendEvent (CLIENT * clnt, xSendEventReq * q)
 		} else while (num--) {
 			if (lst->Mask & mask) {
 				CLIENT * rcp = lst->Client;
-				NETBUF * buf = &rcp->oBuf;
+				O_BUFF * buf = &rcp->oBuf;
 				xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 				
 				evn->u.u.type           = q->event.u.u.type | 0x80;
