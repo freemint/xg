@@ -279,17 +279,49 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_CloseFont (CLIENT * clnt, xCloseFontReq * q)
 {
-	PRINT (- X_CloseFont," F:%lX", q->id);
+	// Deletes association between resource ID ans font.
+	//
+	// CARD32 id: font
+	//
+	//...........................................................................
+	
+	FONT * font = FontFind (q->id);
+	
+	if (!font) {
+		Bad(Font, q->id, CloseFont,);
+	
+	} else { //..................................................................
+	
+		DEBUG (CloseFont," F:%lX", q->id);
+		
+		FontDelete (font, ClntFind (q->id));
+	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 {
+	// Returns logical informations about a font
+	//
+	// CARD32 id: font
+	//
+	// Reply:
+	// xCharInfo minBounds, maxBounds
+	// CARD16    minCharOrByte2, maxCharOrByte2
+	// CARD8     minByte1, maxByte1
+	// INT16     fontAscent, fontDescent
+	// CARD16    defaultChar
+	// CARD8     drawDirection
+	// BOOL      allCharsExist
+	// CARD16    nFontProps:     followed by this many xFontProp structures
+	// CARD32    nCharInfos:     followed by this many xCharInfo structures
+	//...........................................................................
+	
 	FONT * font = FontFind (q->id);
 	
 	if (!font) {
