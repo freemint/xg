@@ -37,7 +37,7 @@ short GRPH_Vdi    = 0;
 short GRPH_ScreenW, GRPH_ScreenH, GRPH_Depth;
 short GRPH_muWidth, GRPH_muHeight;
 int   GRPH_DepthNum = 1;
-short GRPH_Format   = SCRN_INTERLEAVED;
+short GRPH_Format   = SCRN_Interleaved;
 short GRPH_Fonts    = 0x8000;
 
 struct {
@@ -104,9 +104,38 @@ GrphSetup (void * format_arr)
 	xPixmapFormat * pfrm   = format_arr;
 	CARD8           r_dpth = GRPH_DepthMSB[0]->dpth.depth;
 	VisualID        r_visl = GRPH_DepthMSB[0]->visl.visualID;
+	CARD32          wht_px = G_WHITE;
+	CARD32          blk_px = G_BLACK;
+	short           EdDI   = 0;
 	xWindowRoot   * root;
 	int             i;
 	
+	{	// search for EdDI ----------------------------------
+		short (*func)(short) = NULL;
+		if (!Getcookie (C_EdDI, (long*)&func) && func) {
+			short w_out[273];
+			register short ver = 0;
+			__asm__ volatile ("
+				clr.l		d0;
+				jsr		(%1);
+				move.w	d0, %0;
+				"
+				: "=d"(ver)                 // output
+				: "a"(func)                 // input
+				: "d0","d1","d2", "a0","a1" // clobbered
+			);
+			EdDI = ver;
+			vq_scrninfo (GRPH_Vdi, w_out);
+			if ((w_out[14] & 2)  &&  GRPH_Depth == 16) {
+				GRPH_Format = SCRN_FalconHigh;
+			} else {
+				GRPH_Format = w_out[0];
+			}
+		
+		} else if (GRPH_Depth > 8) {
+			GRPH_Format = -1;
+		}
+	}
 	CmapInit();
 	
 	pfrm->depth = pfrm->bitsPerPixel = 1;
@@ -120,14 +149,18 @@ GrphSetup (void * format_arr)
 		
 		GRPH_DepthNum++;
 		GRPH_DepthMSB[1]->dpth.depth = r_dpth  = GRPH_Depth;
-		GRPH_DepthMSB[1]->visl.colormapEntries = 1 << GRPH_Depth;
+	//	GRPH_DepthMSB[1]->visl.colormapEntries = 1 << GRPH_Depth;
 		if (GRPH_Depth >= 15) {
-			GRPH_DepthMSB[1]->visl.bitsPerRGB   = 5;
+			GRPH_DepthMSB[1]->visl.colormapEntries = 1 << 5;
+			GRPH_DepthMSB[1]->visl.bitsPerRGB   = 8;   // normally 5
 			GRPH_DepthMSB[1]->visl.redMask      = 0x0000F800uL;
-			GRPH_DepthMSB[1]->visl.greenMask    = 0x000003E0uL;
+			GRPH_DepthMSB[1]->visl.greenMask    = 0x000007C0uL;
 			GRPH_DepthMSB[1]->visl.blueMask     = 0x0000001FuL;
-			GRPH_DepthMSB[1]->visl.class        = DirectColor;
+			GRPH_DepthMSB[1]->visl.class        = TrueColor;
+			wht_px = (1uL << GRPH_Depth) -1;
+			blk_px = 0;
 		} else {
+			GRPH_DepthMSB[1]->visl.colormapEntries = 1 << GRPH_Depth;
 			GRPH_DepthMSB[1]->visl.bitsPerRGB   = pfrm->depth;
 		}
 		r_visl = GRPH_DepthMSB[1]->visl.visualID;
@@ -135,8 +168,8 @@ GrphSetup (void * format_arr)
 	root = (xWindowRoot*)(pfrm +1);
 	root->windowId         = ROOT_WINDOW;
 	root->defaultColormap  = DFLT_COLORMAP;
-	root->whitePixel       = G_WHITE;
-	root->blackPixel       = G_BLACK;
+	root->whitePixel       = wht_px;
+	root->blackPixel       = blk_px;
 	root->currentInputMask = DFLT_IMSK;
 	root->pixWidth         = WIND_Root.Rect.w;
 	root->pixHeight        = WIND_Root.Rect.h;
@@ -168,33 +201,14 @@ GrphSetup (void * format_arr)
 	        ApplId(0), GRPH_Handle, GRPH_Vdi, WIND_Root.Rect.w, WIND_Root.Rect.h,
 	        root->mmWidth,root->mmHeight,
 	        GRPH_Depth, (GRPH_Depth == 1 ? "" : "s"));
-	
-	{	// search for EdDI ----------------------------------
-		short (*func)(short) = NULL;
-		if (!Getcookie (C_EdDI, (long*)&func) && func) {
-			short w_out[273];
-			register short ver = 0;
-			__asm__ volatile ("
-				clr.l		d0;
-				jsr		(%1);
-				move.w	d0, %0;
-				"
-				: "=d"(ver)                 // output
-				: "a"(func)                 // input
-				: "d0","d1","d2", "a0","a1" // clobbered
-			);
-			
-			vq_scrninfo (GRPH_Vdi, w_out);
-			GRPH_Format = w_out[0];
-			
-			printf ("  screen format (EdDI %X.%02X) is %s \n",
-			        ver >>8, ver & 0xFF,
-			        (GRPH_Format == SCRN_INTERLEAVED ? "interleaved planes" :
-			         GRPH_Format == SCRN_STANDARD    ? "standard format" :
-			         GRPH_Format == SCRN_PACKEDPIXEL ? "packed pixels" :
-			         "<undefined>"));
-		}
-	}
+	printf ("  screen format");
+	if (EdDI) printf (" (EdDI %X.%02X)", EdDI >>8, EdDI & 0xFF);
+	printf (" is %s \n",
+	        GRPH_Format == SCRN_Interleaved ? "interleaved planes" :
+	        GRPH_Format == SCRN_Standard    ? "standard format" :
+	        GRPH_Format == SCRN_PackedPixel ? "packed pixels" :
+	        GRPH_Format == SCRN_FalconHigh  ? "falcon truecolor" :
+	        "<unknown>");
 	
 	GRPH_Fonts &= 0x7FFF;
 	GRPH_Fonts += vst_load_fonts (GRPH_Vdi, 0);
@@ -472,6 +486,39 @@ GrphRasterP8 (char * dst, char * src, CARD16 width, CARD16 height)
 		src += (width +1) & ~1;
 		dst += (width +15) & ~15;
 	}
+}
+
+//==============================================================================
+void
+GrphRaster15 (short * dst, short * src, CARD16 width, CARD16 height)
+{
+	int i;
+	while (height--) {
+		for (i = 0; i < width; i++) {
+			dst[i] = *(src++);
+		}
+		dst += (width +15) & ~15;
+	}
+}
+
+
+//==============================================================================
+void
+GrphError (void)
+{
+	const char txt[] = "[3]"
+	                   "[ X Server:"
+	                   "|==========="
+	                   "| "
+	                   "|Unsupported screen format!"
+	                   "|(%i planes)]"
+	                   "[ Abort ]";
+	char buf[sizeof(txt)+10];
+	
+	sprintf (buf, txt, GRPH_Depth);
+	form_alert (1, buf);
+	
+	exit (1);
 }
 
 

@@ -33,15 +33,19 @@ extern CONST short GRPH_Vdi;
 extern CONST short GRPH_ScreenW, GRPH_ScreenH, GRPH_Depth,
                    GRPH_muWidth, GRPH_muHeight;
 enum {
-	SCRN_INTERLEAVED = 0,
-	SCRN_STANDARD    = 1,
-	SCRN_PACKEDPIXEL = 2
+	SCRN_Interleaved = 0,
+	SCRN_Standard    = 1,
+	SCRN_PackedPixel = 2,
+	SCRN_FalconHigh  = 3
 };
 extern CONST short GRPH_Format;
 
-void GrphRasterI4 (short * dst, char * src, CARD16 width, CARD16 height);
-void GrphRasterI8 (short * dst, char * src, CARD16 width, CARD16 height);
-void GrphRasterP8 (char  * dst, char * src, CARD16 width, CARD16 height);
+void GrphRasterI4 (short * dst, char  * src, CARD16 width, CARD16 height);
+void GrphRasterI8 (short * dst, char  * src, CARD16 width, CARD16 height);
+void GrphRasterP8 (char  * dst, char  * src, CARD16 width, CARD16 height);
+void GrphRaster15 (short * dst, short * src, CARD16 width, CARD16 height);
+
+void GrphError (void);
 
 
 #ifndef __p_xArc
