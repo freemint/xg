@@ -37,6 +37,8 @@ void EvntPointer (p_WINDOW * stack, int anc, int top,
 void EvntGraphExp (p_CLIENT , p_DRAWABLE ,
                    CARD16 major, short len, const struct s_GRECT * rect);
 
+void EvntMappingNotify (CARD8 request, CARD8 first, CARD8 count);
+
 
 #define _Void   static inline void
 #define CLT    p_CLIENT clnt   // the client the event is sent to
@@ -97,7 +99,6 @@ _Void EvntVisibilityNotify(WND,      MOD);
 //ConfigureRequest
 //ResizeRequest
 //ColormapNotify
-//MappingNotify
 
 
 //___Inline_Funktions__________

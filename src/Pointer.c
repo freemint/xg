@@ -10,6 +10,7 @@
 //
 #include "main.h"
 #include "clnt.h"
+#include "event.h"
 #include "Pointer.h"
 
 #include <X11/X.h>
@@ -85,7 +86,7 @@ RQ_SetPointerMapping (CLIENT * clnt, xSetPointerMappingReq * q)
 			r->success = MappingSuccess;
 			ClntReply (SetPointerMapping,,NULL);
 			
-			// EvntMappingNotify()
+			EvntMappingNotify (MappingPointer, 0,0);
 		}
 	}
 }

@@ -422,9 +422,30 @@ EvntPointer (WINDOW ** stack, int anc, int top,
 }
 
 
-static const char * _EVNT_Form[];
+//==============================================================================
+void
+EvntMappingNotify (CARD8 request, CARD8 first, CARD8 count)
+{
+	CLIENT * clnt = (CLIENT*)CLNT_Base;
+	while (clnt) {
+		NETBUF * buf = &clnt->oBuf;
+		xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
+		evn->u.u.type           = MappingNotify;
+		evn->u.u.sequenceNumber = (clnt->DoSwap ? Swap16(clnt->SeqNum)
+		                                        :        clnt->SeqNum);
+		evn->u.mappingNotify.request      = request;
+		evn->u.mappingNotify.firstKeyCode = first;
+		evn->u.mappingNotify.count        = count;
+		buf->Left     += sizeof(xEvent);
+		MAIN_FDSET_wr |= clnt->FdSet;
+		clnt = clnt->Next;
+	}
+}
+
 
 //------------------------------------------------------------------------------
+static const char * _EVNT_Form[];
+
 void
 _Evnt_Window (WINDOW * wind, CARD32 mask, CARD16 evnt, ...)
 {
