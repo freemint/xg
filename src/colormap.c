@@ -23,11 +23,6 @@
 #include <X11/X.h>
 
 
-typedef struct {
-	const char * name;
-	RGB          rgb;
-} CMAP_NAME;
-
 static CARD8 _CMAP_TransGrey[32] = {
 	G_BLACK,244,243,255,245,236, 58,246, 242,254,247,249,101,241,235,240,
 	    239,248,238,144,234,237,253,252, 233,187,232,231,251,250,230,G_WHITE
@@ -86,24 +81,31 @@ CmapInit(void)
 static const RGB *
 _Cmap_LookupName (const char * name, size_t len)
 {
+	typedef struct {
+		const char * name;
+		RGB          rgb;
+	} CMAP_NAME;
+	
 	static CMAP_NAME Cmap_NameDB[] = {
 		#define ENTRY(name, r,g,b)\
 			{name, {(r<<8)|r, (g<<8)|g, (b<<8)|b}}
 		#include "color_db.c"
-			{NULL, {0, 0, 0}} };
-	CMAP_NAME * p = Cmap_NameDB;
-	char buf[32];
-	int  i;
+	};
+	short beg = 0;
+	short end = (sizeof(Cmap_NameDB) / sizeof(*Cmap_NameDB)) -1;
+	char  buf[32];
+	int   i;
 	
 	if (len >= sizeof(buf)) len = sizeof(buf) -1;
 	for (i = 0; i < len; ++i) buf[i] = tolower(name[i]);
 	buf[len] = '\0';
 	
-	while (p->name) {
-		if (!strcmp (p->name, buf)) {
-			return &p->rgb;
-		}
-		p++;
+	while (end >= beg) {
+		short num = (end + beg) /2;
+		short dir = strcmp (buf, Cmap_NameDB[num].name);
+		if      (dir > 0) beg  = num +1;
+		else if (dir < 0) end  = num -1;
+		else              return &Cmap_NameDB[num].rgb;
 	}
 	return NULL;
 }
