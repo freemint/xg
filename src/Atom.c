@@ -90,6 +90,28 @@ AtomInit (BOOL initNreset)
 }
 
 
+//------------------------------------------------------------------------------
+Atom
+AtomGet (const char * name, size_t len, BOOL onlyIfExists)
+{
+	int n = 1;
+	
+	do if (ATOM_Table[n]->Length == len  &&
+		    !strncmp (ATOM_Table[n]->Name, name, len)) {
+		return ATOM_Table[n]->Id;
+	} while (++n <= ATOM_Count);
+	
+	if (onlyIfExists  ||  ATOM_Count >= MAX_ATOM
+	    || !(ATOM_Table[n] = malloc (sizeof(ATOM) + len))) return None;
+	
+	((char*)memcpy (ATOM_Table[n]->Name,name, len))[len] = '\0';
+	ATOM_Table[n]->Length    = len;
+	ATOM_Table[n]->SelOwner  = NULL;
+	ATOM_Table[n]->SelWind   = NULL;
+	ATOM_Table[n]->SelTime   = 0uL;
+	return ATOM_Table[n]->Id = ATOM_Count = n;
+}
+
 
 //==============================================================================
 //
@@ -116,41 +138,22 @@ RQ_InternAtom (CLIENT * clnt, xInternAtomReq * q)
 	
 	} else { //..................................................................
 		
-		ClntReplyPtr (InternAtom, r);
-		ATOM * atom = NULL;
-		int    n    = 1;
+	#	ifdef TRACE
+		CARD32 cnt  = ATOM_Count;
+	#	endif
+		Atom   atom = AtomGet (name, q->nbytes, q->onlyIfExists);
 		
-		do {
-			if (ATOM_Table[n]->Length == q->nbytes &&
-			    !strncmp (ATOM_Table[n]->Name, name, q->nbytes)) {
-				atom = ATOM_Table[n];
-				break;
-			}
-		} while (++n <= ATOM_Count);
+		if (atom == None  &&  !q->onlyIfExists) {
+			Bad(Alloc,, InternAtom, "('%.*s'):\n"
+			            "          %s.", q->nbytes, name,
+			            (ATOM_Count >= MAX_ATOM
+			             ? "maximum number reached" : "memory exhausted"));
 		
-		if (!q->onlyIfExists && !atom) {
-			BOOL full = (ATOM_Count >= MAX_ATOM);
-			if (!full && (atom = malloc (sizeof(ATOM) + q->nbytes))) {
-				ATOM_Table[++ATOM_Count] = atom;
-				memcpy (atom->Name,name, q->nbytes);
-				atom->Name[q->nbytes] = '\0';
-				atom->Length          = q->nbytes;
-				atom->Id              = ATOM_Count;
-				atom->SelOwner        = NULL;
-				atom->SelWind         = NULL;
-				atom->SelTime         = 0uL;
-				n =  -1; // only for debug output
-			
-			} else {
-				Bad(Alloc,, InternAtom, "('%.*s'):\n"
-				            "          %s.", q->nbytes, name,
-				            (full ? "maximum number reached" : "memory exhausted"));
-			}
-		}
-		if (r) {
-			r->atom = (atom ? atom->Id : None);
+		} else {
+			ClntReplyPtr (InternAtom, r);
 			DEBUG (InternAtom, "('%.*s') -> %lu%s",
-			       q->nbytes, name, r->atom, (n < 0 ? "+" : ""));
+			       q->nbytes, name, atom, (cnt < ATOM_Count < 0 ? "+" : ""));
+			r->atom = atom;
 			ClntReply (InternAtom,, "a");
 		}
 	}

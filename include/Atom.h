@@ -36,6 +36,8 @@ extern CONST ATOM * CONST ATOM_Table[];
 extern CONST CARD32       ATOM_Count;
 
 void    AtomInit (BOOL initNreset);
+Atom    AtomGet  (const char * name, size_t len, BOOL onlyIfExists);
+
 #define AtomValid(a) ((a) && (a) <= ATOM_Count)
 
 
