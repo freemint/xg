@@ -1,0 +1,550 @@
+#include "main.h"
+#include "clnt.h"
+#include "tools.h"
+#include "gcontext.h"
+#include "font.h"
+#include "pixmap.h"
+#include "grph.h"
+#include "x_gem.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+
+//==============================================================================
+void
+GcntDelete (p_GC gc, p_CLIENT clnt)
+{
+	if (gc->Tile)     PmapFree (gc->Tile, NULL);
+	if (gc->Stipple)  PmapFree (gc->Stipple, NULL);
+	if (gc->ClipMask) PmapFree (gc->ClipMask, NULL);
+	if (gc->Vdi > 0)  v_clsvwk (gc->Vdi);
+	XrscDelete (clnt->Fontables, gc);
+}
+
+//==============================================================================
+#include <setjmp.h>
+
+void
+GcntActivate (GC * gc)
+{
+	#define F_GND gc->Foreground
+	#define B_GND gc->Background
+	short c = YELLOW, m = MD_TRANS;
+	switch (gc->Function) {
+		case GXclear:        c = RED;   m = MD_TRANS; break; //  0
+		case GXand:          c = GREEN; m = MD_TRANS; break; //  src AND  dst
+		case GXandReverse:   c = GREEN; m = MD_TRANS; break; //  src AND !dst
+		case GXcopy:         c = F_GND; m = MD_TRANS; break; //  src
+		case GXandInverted:  c = GREEN; m = MD_TRANS; break; // !src AND  dst
+		case GXnoop:         c = RED;   m = MD_TRANS; break; //           dst
+		case GXxor:          c = F_GND; m = MD_XOR;   break; //  src XOR  dst
+		case GXor:           c = BLUE;  m = MD_TRANS; break; //  src OR   dst
+		case GXnor:          c = GREEN; m = MD_TRANS; break; // !src AND !dst
+		case GXequiv:        c = BLUE;  m = MD_TRANS; break; // !src XOR  dst
+		case GXinvert:       c = RED;   m = MD_TRANS; break; //          !dst
+		case GXorReverse:    c = BLUE;  m = MD_TRANS; break; //  src OR  !dst
+	//	case GXcopyInverted: c = F_GND; m = MD_ERASE; break; // !src
+		case GXcopyInverted: c = RED; m = MD_REPLACE; break; // !src
+		case GXorInverted:   c = BLUE;  m = MD_TRANS; break; // !src OR   dst
+		case GXnand:         c = BLUE;  m = MD_TRANS; break; // !src OR  !dst
+		case GXset:          c = RED;   m = MD_TRANS; break; //  1
+	}
+	if (!gc->Vdi) {
+		int work_in[16] = { 1, SOLID,c, MRKR_DOT,c, 1,c, FIS_SOLID,0,c, 2 };
+		int hdl = GRPH_Handle;
+		int work_out[57];
+		v_opnvwk (work_in, &hdl, work_out);
+		if (hdl <= 0) {
+			extern CLIENT * CLNT_Requestor;
+			extern jmp_buf  CLNT_Error;
+			CARD8 t = ((xReq*)(CLNT_Requestor->iBuf.Mem))->reqType & 0x7F;
+			printf ("\33pError\33q Can't initialize VDI for G:%X (%s)!\n",
+			        gc->Id, RequestTable[t].Name);
+			longjmp (CLNT_Error, 4);
+		}
+		vswr_mode     (hdl, m);
+		vsf_perimeter (hdl, 0);
+		gc->Vdi = hdl;
+		
+		printf ("vwk -> #%i (%i*%i) \n",
+		        gc->Vdi, work_out[10], work_out[5]);
+	}
+}
+
+
+//------------------------------------------------------------------------------
+static void
+_Gcnt_setup (CLIENT * clnt, GC * gc, CARD32 mask, CARD32 * val, CARD8 req)
+{
+	int i = 0;
+	
+	if (clnt->DoSwap) {
+		CARD32   m = mask;
+		CARD32 * p = val;
+		while (m) {
+			if (m & 1) {
+				*p = Swap32(*p);
+				p++;
+				i++;
+			}
+			m >>= 1;
+		}
+	
+	} else if (mask) {
+		CARD32 m = mask;
+		while (m) {
+			if (m & 1) i++;
+			m >>= 1;
+		}
+	
+	} else {
+		return; // mask == 0, nothing to do
+	}
+	
+	if (i) DEBUG (,"+-\n          (%i):", i);
+	
+	if (mask & GCFunction) {
+		CARD8 funct = *(val++);
+		if (funct <= GXset) {
+			gc->Function = funct;
+			DEBUG (,"+- func=%u", funct);
+		} else {
+			PRINT(," ");
+			Bad(Value, funct, +req, "          invalid function code.");
+			return;
+		}
+	}
+	if (mask & GCPlaneMask) {
+		gc->PlaneMask = *(val++);
+		DEBUG (,"+- pmsk=%lu", gc->PlaneMask);
+	}
+	if (mask & GCForeground) {
+		gc->Foreground = *(val++);
+		DEBUG (,"+- fgnd=%lu", gc->Foreground);
+	}
+	if (mask & GCBackground) {
+		gc->Background = *(val++);
+		DEBUG (,"+- bgnd=%lu", gc->Background);
+	}
+	if (mask & GCLineWidth) {
+		gc->LineWidth = *(val++);
+		DEBUG (,"+- lwid=%u", gc->LineWidth);
+	}
+	if (mask & GCLineStyle) {
+		CARD8 style = *(val++);
+		if (style <= LineDoubleDash) {
+			gc->LineStyle = style;
+			DEBUG (,"+- lsty=%u", style);
+		} else {
+			PRINT(," ");
+			Bad(Value, style, +req, "          invalid line-style.");
+			return;
+		}
+	}
+	if (mask & GCCapStyle) {
+		CARD8 style = *(val++);
+		if (style <= CapProjecting) {
+			gc->CapStyle = style;
+			DEBUG (,"+- csty=%u", style);
+		} else {
+			PRINT(," ");
+			Bad(Value, style, +req, "          invalid cap-style.");
+			return;
+		}
+	}
+	if (mask & GCJoinStyle) {
+		CARD8 style = *(val++);
+		if (style <= JoinBevel) {
+			gc->JoinStyle = style;
+			DEBUG (,"+- jsty=%u", style);
+		} else {
+			PRINT(," ");
+			Bad(Value, style, +req, "          invalid join-style.");
+			return;
+		}
+	}
+	if (mask & GCFillStyle) {
+		CARD8 style = *(val++);
+		if (style <= FillOpaqueStippled) {
+			gc->FillStyle = style;
+			DEBUG (,"+- fsty=%u", style);
+		} else {
+			PRINT(," ");
+			Bad(Value, style, +req, "          invalid fill-style.");
+			return;
+		}
+	}
+	if (mask & GCFillRule) {
+		CARD8 rule = *(val++);
+		if (rule <= WindingRule) {
+			gc->FillRule = rule;
+			DEBUG (,"+- frul=%u", rule);
+		} else {
+			PRINT(," ");
+			Bad(Value, rule, +req, "          invalid fill-rule.");
+			return;
+		}
+	}
+	if (mask & GCTile) {
+		PIXMAP * tile = PmapFind (*val);
+		if (!tile) {
+			PRINT(," ");
+			Bad(Pixmap, *val, +req, "          invalid tile.");
+			return;
+	//	} else if (tile->Depth != gc->Depth) {
+	//		PRINT(," ");
+	//		Bad(Match,, +req, "          Tile depth %u not %u.",
+	//		                  tile->Depth, gc->Depth);
+	//		return;
+		} else {
+			DEBUG (,"+- tile=0x%lX", *val);
+			if (gc->Tile) {
+				PmapFree (gc->Tile, NULL);
+			}
+			gc->Tile = PmapShare(tile);
+		}
+		val++;
+	}
+	if (mask & GCStipple) {
+		PIXMAP * stip = PmapFind (*val);
+		if (!stip) {
+			PRINT(," ");
+			Bad(Pixmap, *val, +req, "          invalid stipple.");
+			return;
+		} else if (stip->Depth != 1) {
+			PRINT(," ");
+			Bad(Match,, +req, "          Stipple depth %u.", stip->Depth);
+			return;
+		} else {
+			DEBUG (,"+- stip=0x%X", *val);
+			if (gc->Stipple) {
+				PmapFree (gc->Stipple, NULL);
+			}
+			gc->Stipple = PmapShare(stip);
+		}
+		val++;
+	}
+	if (mask & GCTileStipXOrigin) {
+		gc->TileStip.x = *(val++);
+		DEBUG (,"+- stpx=%i", gc->TileStip.x);
+	}
+	if (mask & GCTileStipYOrigin) {
+		gc->TileStip.y = *(val++);
+		DEBUG (,"+- stpy=%i", gc->TileStip.y);
+	}
+	if (mask & GCFont) {
+		if (!FontValues ((p_FONTABLE)gc, *val)) {
+			Bad(Font, *val, +req,);
+		} else {
+			DEBUG (,"+- font=0x%lX", *val);
+		}
+		val++;
+	}
+	if (mask & GCSubwindowMode) {
+		CARD8 mode = *(val++);
+		if (mode <= IncludeInferiors) {
+			gc->SubwindMode = mode;
+			DEBUG (,"+- subw=%u", mode);
+		} else {
+			PRINT(," ");
+			Bad(Value, mode, +req, "          invalid subwindow-mode.");
+			return;
+		}
+	}
+	if (mask & GCGraphicsExposures) {
+		CARD8 mode = *(val++);
+		if (mode <= xTrue) {
+			gc->GraphExpos = mode;
+			DEBUG (,"+- exps=%u", mode);
+		} else {
+			PRINT(," ");
+			Bad(Value, mode, +req, "          invalid graphics-exposures.");
+			return;
+		}
+	}
+	if (mask & GCClipXOrigin) {
+		gc->Clip.x = *(val++);
+		DEBUG (,"+- clpx=%i", gc->Clip.x);
+	}
+	if (mask & GCClipYOrigin) {
+		gc->Clip.y = *(val++);
+		DEBUG (,"+- clpy=%i", gc->Clip.y);
+	}
+	if (mask & GCClipMask) {
+		PIXMAP * clip;
+		if (gc->ClipMask) {
+			PmapFree (gc->ClipMask, NULL);
+			gc->ClipMask = NULL;
+		}
+		if (*val == None) {
+			DEBUG (,"+- stip=<none>");
+			gc->ClipMask = NULL;
+		} else if (!(clip = PmapFind (*val))) {
+			PRINT(," ");
+			Bad(Pixmap, *val, +req, "          invalid clip-mask.");
+			return;
+		} else if (clip->Depth != 1) {
+			PRINT(," ");
+			Bad(Match,, +req, "          clip-mask depth %u.", clip->Depth);
+			return;
+		} else {
+			DEBUG (,"+- clip=0x%X", clip->Id);
+			gc->ClipMask = PmapShare(clip);
+		}
+		val++;
+	}
+	if (mask & GCDashOffset) {
+		gc->DashOffset = *(val++);
+		DEBUG (,"+- doff=%i", gc->DashOffset);
+	}
+	if (mask & GCDashList) {
+		gc->DashList = *(val++);
+		DEBUG (,"+- dlst=%i", gc->DashList);
+	}
+	if (mask & GCArcMode) {
+		CARD8 mode = *(val++);
+		if (mode <= ArcPieSlice) {
+			gc->ArcMode = mode;
+			DEBUG (,"+- arcm=%u", mode);
+		} else {
+			PRINT(," ");
+			Bad(Value, mode, +req, "          invalid arc-mode.");
+			return;
+		}
+	}
+}
+
+//==============================================================================
+//
+// Callback Functions
+
+#include "Request.h"
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void
+RQ_CreateGC (CLIENT * clnt, xCreateGCReq * q)
+{
+	// Creates a Graphics Context with the given Id.
+	//
+	// GContext gc:       Id to be created
+	// Drawable drawable: source to get the depth from
+	// CARD32   mask:     bitmask to specify components to be initialized
+	// CARD32 * (q +1):   list of component values
+	//...........................................................................
+	
+	GC       * gc;
+	p_DRAWABLE draw;
+	
+	if (GcntFind (q->gc)) {
+		Bad(IDChoice, q->gc, CreateGC,);
+	
+	} else if (!(draw = DrawFind (q->drawable)).p) {
+		Bad(Drawable, q->drawable, CreateGC,);
+	
+	} else if (q->mask & ~((2uL << GCLastBit) -1)) {
+		Bad(Value, q->mask, CreateGC, "invalid value mask 0x%lX.", q->mask);
+	
+	} else if (!(gc = XrscCreate (GC, q->gc, clnt->Fontables))) {
+		Bad(Alloc,, CreateGC,);
+	
+	} else { //..................................................................
+	
+		DEBUG (CreateGC,"- G:%lX for D:%lX", q->gc, q->drawable);
+		
+		gc->isFont = xFalse;
+		
+		FontValues ((p_FONTABLE)gc, None);
+		
+		gc->Depth       = draw.p->Depth;
+		gc->Function    = GXcopy;
+		gc->GraphExpos  = xTrue;
+		gc->SubwindMode = ClipByChildren;
+		gc->DashList    = 4;
+		gc->DashOffset  = 0;
+		gc->LineWidth   = 0;
+		gc->LineStyle   = LineSolid;
+		gc->CapStyle    = CapButt;
+		gc->JoinStyle   = JoinMiter;
+		gc->FillStyle   = FillSolid;
+		gc->FillRule    = EvenOddRule;
+		gc->ArcMode     = ArcChord;
+		gc->PlaneMask   = (1uL << gc->Depth) -1;
+		gc->Foreground  = WHITE;
+		gc->Background  = BLACK;
+		gc->Tile        = NULL;
+		gc->Stipple     = NULL;
+		gc->ClipMask    = NULL;
+		gc->TileStip.x  = gc->TileStip.y = 0;
+		gc->Clip.x      = gc->Clip.y     = 0;
+		gc->Vdi         = 0;
+		
+		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_CreateGC);
+		
+		DEBUG (,);
+	}
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void
+RQ_ChangeGC (CLIENT * clnt, xChangeGCReq * q)
+{
+	// Changes components in the given gc.  The value-list and -mask is the same
+	// as for CreateGC.
+	//
+	// GContext gc:     Id to be changed
+	// CARD32   mask:   bitmask to specify components to be initialized
+	// CARD32 * (q +1): list of component values
+	//...........................................................................
+	
+	GC * gc = GcntFind (q->gc);
+	
+	if (!gc) {
+		Bad(GC, q->gc, ChangeGC,);
+	
+	} else if (q->mask & ~((2uL << GCLastBit) -1)) {
+		Bad(Value, q->mask, ChangeGC, "invalid value mask 0x%lX.", q->mask);
+	
+	} else { //..................................................................
+		
+		DEBUG (ChangeGC,"- G:%lX", q->gc);
+		
+		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_ChangeGC);
+		
+		DEBUG (,);
+		
+		if (gc->Vdi && (q->mask & GCForeground)) {
+			vsf_color (gc->Vdi, gc->Foreground);
+			vsl_color (gc->Vdi, gc->Foreground);
+			vsm_color (gc->Vdi, gc->Foreground);
+			vst_color (gc->Vdi, gc->Foreground);
+		}
+	}
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void
+RQ_CopyGC (CLIENT * clnt, xCopyGCReq * q)
+{
+	// Copies components from source gc to destination gc.  The value-list and
+	// -mask is the same as for CreateGC.
+	//
+	// GContext srcGC:  source Id to copy from
+	// GContext dstGC:  destination Id
+	// CARD32   mask:   bitmask to specify components to be initialized
+	// CARD32 * (q +1): list of component values
+	//...........................................................................
+	
+	GC * src = GcntFind (q->srcGC);
+	GC * dst = GcntFind (q->dstGC);
+	
+	if (!src) {
+		Bad(GC, q->srcGC, CopyGC,": invalid source.");
+	
+	} else if (!dst) {
+		Bad(GC, q->dstGC, CopyGC,": invalid destination.");
+	
+	} else if (src->Depth != dst->Depth) {
+		Bad(Match,, CopyGC,"(G:%lX,G:%lX):\n          source depth %u is not %u.",
+		            q->srcGC, q->dstGC, src->Depth, dst->Depth);
+	
+	} else if (q->mask & ~((2uL << GCLastBit) -1)) {
+		Bad(Value, q->mask, CopyGC, "(G:%lX,G:%lX):\n"
+		                    "          invalid value mask 0x%lX.",
+		                    q->srcGC, q->dstGC, q->mask);
+	
+	} else { //..................................................................
+		
+		DEBUG (CopyGC," G:%lX to G:%lX mask=%06lX", q->srcGC, q->dstGC, q->mask);
+		
+		if (q->mask & GCTile) {
+			if (dst->Tile) PmapFree  (dst->Tile, NULL);
+			dst->Tile    = PmapShare (src->Tile);
+		}
+		if (q->mask & GCStipple) {
+			if (dst->Stipple) PmapFree  (dst->Stipple, NULL);
+			dst->Stipple    = PmapShare (src->Stipple);
+		}
+		if (q->mask & GCClipMask) {
+			if (dst->ClipMask) PmapFree  (dst->ClipMask, NULL);
+			dst->ClipMask    = PmapShare (src->ClipMask);
+		}
+		if (q->mask & GCFont) FontCopy ((p_FONTABLE)dst, (p_FONTABLE)src);
+		if (q->mask & GCFunction)          dst->Function    = src->Function;
+		if (q->mask & GCGraphicsExposures) dst->GraphExpos  = src->GraphExpos;
+		if (q->mask & GCSubwindowMode)     dst->SubwindMode = src->SubwindMode;
+		if (q->mask & GCDashList)          dst->DashList    = src->DashList;
+		if (q->mask & GCDashOffset)        dst->DashOffset  = src->DashOffset;
+		if (q->mask & GCLineWidth)         dst->LineWidth   = src->LineWidth;
+		if (q->mask & GCLineStyle)         dst->LineStyle   = src->LineStyle;
+		if (q->mask & GCCapStyle)          dst->CapStyle    = src->CapStyle;
+		if (q->mask & GCJoinStyle)         dst->JoinStyle   = src->JoinStyle;
+		if (q->mask & GCFillStyle)         dst->FillStyle   = src->FillStyle;
+		if (q->mask & GCFillRule)          dst->FillRule    = src->FillRule;
+		if (q->mask & GCArcMode)           dst->ArcMode     = src->ArcMode;
+		if (q->mask & GCPlaneMask)         dst->PlaneMask   = src->PlaneMask;
+		if (q->mask & GCForeground)        dst->Foreground  = src->Foreground;
+		if (q->mask & GCBackground)        dst->Background  = src->Background;
+		if (q->mask & GCTileStipXOrigin)   dst->TileStip.x  = src->TileStip.x;
+		if (q->mask & GCTileStipYOrigin)   dst->TileStip.y  = src->TileStip.y;
+		if (q->mask & GCClipXOrigin)       dst->Clip.x      = src->Clip.x;
+		if (q->mask & GCClipYOrigin)       dst->Clip.y      = src->Clip.y;
+		
+		if (dst->Vdi && (q->mask & GCForeground)) {
+			vsf_color (dst->Vdi, dst->Foreground);
+			vsl_color (dst->Vdi, dst->Foreground);
+			vsm_color (dst->Vdi, dst->Foreground);
+			vst_color (dst->Vdi, dst->Foreground);
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+void
+RQ_SetDashes (CLIENT * clnt, xSetDashesReq * q)
+{
+	// GContext gc:
+	// CARD16   dashOffset:
+	// CARD16   nDashes:
+	// CARD8  * (q +1):
+	//...........................................................................
+	
+	PRINT (- X_SetDashes," G:%lX offs=%u (%u)",
+	       q->gc, q->dashOffset, q->nDashes);
+}
+
+//------------------------------------------------------------------------------
+void
+RQ_SetClipRectangles (CLIENT * clnt, xSetClipRectanglesReq * q)
+{
+	// GContext gc:
+	// INT16    xOrigin:
+	// INT16    yOrigin:
+	// BYTE     ordering:
+	// GRECT  * (q +1):
+	//...........................................................................
+	
+	PRINT (- X_SetClipRectangles," G:%lX %i,%i", q->gc, q->xOrigin, q->yOrigin);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void
+RQ_FreeGC (CLIENT * clnt, xFreeGCReq * q)
+{
+	// Deletes the given gc.
+	//
+	// CARD32 id: gcontext
+	//...........................................................................
+	
+	GC * gc = GcntFind (q->id);
+	
+	if (!gc) {
+		Bad(GC, q->id, FreeGC,);
+	
+	} else { //..................................................................
+		
+		DEBUG (FreeGC," G:%lX", q->id);
+		
+		GcntDelete (gc, ClntFind (q->id));
+	}
+}
