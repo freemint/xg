@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// grph.c
+//
+// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #include "main.h"
 #include "tools.h"
 #include "clnt.h"
@@ -205,13 +215,13 @@ GrphIntersect (p_GRECT dst, const struct s_GRECT * src)
 		add.w		d0, d1; | a.h += a.y
 		add.w		d2, d3; | b.h += b.y
 			cmp.w		d0, d2;
-			ble		1f;   | ? b.y <= a.y
+			ble.b		1f;   | ? b.y <= a.y
 			move.w	d2, d0; | a.y = b.y
 		1:	cmp.w		d1, d3;
-			bge		2f;   | ? b.h <= a.h
+			bge.b		2f;   | ? b.h >= a.h
 			move.w	d3, d1; | a.h = b.h
 		2:	sub.w		d0, d1; | a.h -= a.y
-			bgt		3f;   | ? a.h > a.y
+			bhi.b		3f;   | ? a.h > a.y
 			clr.b		%0;
 		3:
 		swap		d0; | a.y:a.x
@@ -221,21 +231,21 @@ GrphIntersect (p_GRECT dst, const struct s_GRECT * src)
 		swap		d3; | b.h:b.w
 		add.w		d2, d3; | b.w += b.x
 			cmp.w		d0, d2;
-			ble		5f;   | ? b.x <= a.x
+			ble.b		5f;   | ? b.x <= a.x
 			move.w	d2, d0; | a.x = b.x
 		5:	cmp.w		d1, d3;
-			bge		6f;   | ? b.w >= a.w
+			bge.b		6f;   | ? b.w >= a.w
 			move.w	d3, d1; | a.w = b.w
 		6:	sub.w		d0, d1; | a.w -= a.x
-			bgt		7f;   | ? a.w > a.x
+			bhi.b		7f;   | ? a.w > a.x
 			clr.b		%0;
 		7:
 		swap		d0;
 		swap		d1;
 		movem.l	d0/d1, (%1); | a.x:a.y/a.w:a.h
 		"
-		: "=d"(res)     // output
-		: "a"(dst),"a"(src) // input
+		: "=d"(res)           // output
+		: "a"(dst),"a"(src)   // input
 		: "d0","d1","d2","d3" // clobbered
 	);
 	return res;
@@ -519,91 +529,4 @@ RQ_QueryBestSize (CLIENT * clnt, xQueryBestSizeReq * q)
 	r->height = 16;
 	
 	ClntReply (QueryBestSize,, "P");
-}
-
-
-//------------------------------------------------------------------------------
-void
-RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
-{
-	p_DRAWABLE draw = DrawFind (q->drawable);
-	p_GC       gc   = GcntFind (q->gc);
-	
-	size_t len = ((q->length *4) - sizeof (xPolyArcReq)) / sizeof(xArc);
-	
-	if (!draw.p) {
-		Bad(Drawable, q->drawable, PolyArc,);
-		
-	} else if (!gc) {
-		Bad(GC, q->drawable, PolyArc,);
-	
-	} else if (len &&  draw.p->isWind) {
-		PXY     orig;
-		GRECT * sect;
-		CARD16  nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect);
-		if (nClp) {
-			xArc * arc = (xArc*)(q +1);
-			GcntActivate (gc);
-			clnt->Fnct->shift_arc (&orig, arc, len);
-			do {
-				int i;
-				vs_clip_r  (gc->Vdi, sect++);
-				v_hide_c (gc->Vdi);
-				for (i = 0; i < len; ++i) {
-					v_ellipse (gc->Vdi,
-					           arc[i].x, arc[i].y, arc[i].width, arc[i].height);
-				}
-				v_show_c (gc->Vdi, 1);
-			} while (--nClp);
-			
-			vs_clip_r (gc->Vdi, NULL);
-			WindClipOff();
-		}
-	
-	} else {
-		PRINT (- X_PolyArc," P:%lX G:%lX (%lu)", q->drawable, q->gc, len);
-	}
-}
-
-//------------------------------------------------------------------------------
-void
-RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
-{
-	p_DRAWABLE draw = DrawFind (q->drawable);
-	p_GC       gc   = GcntFind (q->gc);
-	
-	size_t len = ((q->length *4) - sizeof (xPolyFillArcReq)) / sizeof(xArc);
-	
-	if (!draw.p) {
-		Bad(Drawable, q->drawable, PolyFillArc,);
-		
-	} else if (!gc) {
-		Bad(GC, q->drawable, PolyFillArc,);
-	
-	} else if (len &&  draw.p->isWind) {
-		PXY     orig;
-		GRECT * sect;
-		CARD16  nClp = WindClipLock (draw.Window, 0, NULL,0, &orig, &sect);
-		if (nClp) {
-			xArc * arc = (xArc*)(q +1);
-			GcntActivate (gc);
-			clnt->Fnct->shift_arc (&orig, arc, len);
-			do {
-				int i;
-				vs_clip_r  (gc->Vdi, sect++);
-				v_hide_c (gc->Vdi);
-				for (i = 0; i < len; ++i) {
-					v_ellipse (gc->Vdi,
-					           arc[i].x, arc[i].y, arc[i].width, arc[i].height);
-				}
-				v_show_c (gc->Vdi, 1);
-			} while (--nClp);
-			
-			vs_clip_r (gc->Vdi, NULL);
-			WindClipOff();
-		}
-	
-	} else {
-		PRINT (- X_PolyFillArc," P:%lX G:%lX (%lu)", q->drawable, q->gc, len);
-	}
 }
