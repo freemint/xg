@@ -13,6 +13,14 @@
 #include <stddef.h>
 
 
+extern short aes_control[];
+extern short aes_global[];
+extern short aes_intin[];
+extern short aes_intout[];
+extern long  aes_addrin[];
+extern long  aes_addrout[];
+
+
 //==============================================================================
 void
 vs_clip_r (int handle, const GRECT * rect)
