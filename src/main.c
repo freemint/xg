@@ -23,6 +23,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
 #include <mint/ssystem.h>
 
 #include <X11/X.h>
@@ -35,7 +36,8 @@ extern const char * GLBL_Version;
 extern const char * GLBL_Build;
 extern const BOOL   WIND_ChngTrigger;
 
-static void shutdown (void);
+static void sig_child (int sig);
+static void shutdown  (void);
 
 
 static EVMULTI_IN ev_i = {
@@ -74,12 +76,16 @@ main (int argc, char * argv[])
 		short xcon  = Fopen ("/dev/xconout2", 0x80);
 		short redir = _app;
 		
+		printf ("\33H");
+		
 		if (xcon >= 0) {
 			const char * args[] = {
-					"-g","-0-0", "-fn","6x10", "-notify", "-file", "/dev/xconout2" };
+					"-g","-0-0", "-fn","6x10",
+					"-exitOnFail", "-notify", "-file", "/dev/xconout2" };
 			_MAIN_Xcons = WmgrLaunch ("/usr/X11/bin/xconsole",
 			                          sizeof(args) / sizeof(*args), args);
 			if (_MAIN_Xcons > 0) {
+				signal (SIGCHLD, sig_child);
 				set_printf (xTrue);
 				redir = 0;
 			} else {
@@ -235,6 +241,7 @@ main (int argc, char * argv[])
 					SrvrReset();
 				
 				} else if (_MAIN_Xcons && WIND_ChngTrigger) {
+					signal (SIGCHLD, NULL);
 					SrvrUngrab (0xFFFFFFFF);
 					set_printf (xFalse);
 					printf ("-------------------END-BUFFERED-------------------\n");
@@ -244,6 +251,19 @@ main (int argc, char * argv[])
 		}
 	}
 	return rtn;
+}
+
+//------------------------------------------------------------------------------
+static void
+sig_child (int sig)
+{
+	if (Pkill (0, _MAIN_Xcons)) {
+		signal (SIGCHLD, NULL);
+		SrvrUngrab (0xFFFFFFFF);
+		set_printf (xFalse);
+		printf ("%s","");
+		_MAIN_Xcons = 0;
+	}
 }
 
 //------------------------------------------------------------------------------
