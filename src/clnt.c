@@ -1,8 +1,18 @@
+//==============================================================================
+//
+// clnt.c
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-03 - Initial Version.
+//==============================================================================
+//
 #include "clnt_P.h"
 #include "server.h"
 #include "selection.h"
 #include "event.h"
-#include "drawable.h"
+#include "window.h"
 #include "fontable.h"
 #include "Cursor.h"
 #include "grph.h"
@@ -141,10 +151,22 @@ _Clnt_EvalInit (CLIENT * clnt, xConnClientPrefix * q)
 
 //==============================================================================
 void
-ClntInit()
+ClntInit (BOOL initNreset)
 {
-	memset (_CLNT_Base, 0, sizeof(_CLNT_Base));
-	XrscPoolInit (CLNT_Pool);
+	if (initNreset) {
+		memset (_CLNT_Base, 0, sizeof(_CLNT_Base));
+		XrscPoolInit (CLNT_Pool);
+	
+	} else {
+		int i;
+		for (i = 0; i < XrscPOOLSIZE (CLNT_Pool); ++i) {
+			p_CLIENT c;
+			while ((c = XrscPOOLITEM (CLNT_Pool, i))) {
+				c->CloseDown = DestroyAll;
+				ClntDelete (c);
+			}
+		}
+	}
 }
 
 //==============================================================================
@@ -169,6 +191,7 @@ ClntCreate (int fd, const char * name, const char * addr, int port)
 		clnt->iBuf.Mem   = clnt->oBuf.Mem + CNFG_MaxReqBytes;
 		clnt->Fnct       = NULL;
 		clnt->DoSwap     = xFalse;
+		clnt->CloseDown  = DestroyAll;
 		clnt->EventReffs = 0;
 		XrscPoolInit (clnt->Drawables);
 		XrscPoolInit (clnt->Fontables);
@@ -201,28 +224,6 @@ ClntDelete (CLIENT * clnt)
 {
 	int i;
 	
-	SlctRemove (clnt);
-	for (i = 0; i < XrscPOOLSIZE (clnt->Drawables); ++i) {
-		p_DRAWABLE p;
-		while ((p = XrscPOOLITEM (clnt->Drawables, i)).p) DrawDelete (p, clnt);
-	}
-	for (i = 0; i < XrscPOOLSIZE (clnt->Fontables); ++i) {
-		p_FONTABLE p;
-		while ((p = XrscPOOLITEM (clnt->Fontables, i)).p) FablDelete (p, clnt);
-	}
-	for (i = 0; i < XrscPOOLSIZE (clnt->Cursors); ++i) {
-		p_CURSOR p;
-		while ((p = XrscPOOLITEM (clnt->Cursors, i))) CrsrFree (p, clnt);
-	}
-	
-	if (clnt->EventReffs) {
-	//	printf ("\33pFATAL\33q clnt 0x%X holds still %lu event%s!\n",
-		printf ("\33pERROR\33q clnt 0x%X holds still %lu event%s!\n",
-		        clnt->Id, clnt->EventReffs,
-		        (clnt->EventReffs == 1 ? "" : "s"));
-	//	exit (1);
-	}
-	
 	if (clnt->Fd >= 0) {
 		const char * f = (clnt->Id > 0 ? "Connection %s:%i closed."
 		                               : "Connection closed.");
@@ -232,23 +233,47 @@ ClntDelete (CLIENT * clnt)
 		_CLNT_BaseNum--;
 		MAIN_FDSET_wr &= ~(1uL << clnt->Fd);
 		MAIN_FDSET_rd &= ~(1uL << clnt->Fd);
+		clnt->Fd = -1;
+	}
+	SlctRemove (clnt);
 	
-	} else {
-		printf ("\33pFATAL\33q clnt 0x%X not found in central list!\n",
-		        clnt->Id);
-		exit (1);
+	if (clnt->CloseDown == DestroyAll) {
+		for (i = 0; i < XrscPOOLSIZE (clnt->Drawables); ++i) {
+			p_DRAWABLE p;
+			while ((p = XrscPOOLITEM (clnt->Drawables, i)).p) DrawDelete (p, clnt);
+		}
+		for (i = 0; i < XrscPOOLSIZE (clnt->Fontables); ++i) {
+			p_FONTABLE p;
+			while ((p = XrscPOOLITEM (clnt->Fontables, i)).p) FablDelete (p, clnt);
+		}
+		for (i = 0; i < XrscPOOLSIZE (clnt->Cursors); ++i) {
+			p_CURSOR p;
+			while ((p = XrscPOOLITEM (clnt->Cursors, i))) CrsrFree (p, clnt);
+		}
+	}
+	if (clnt->EventReffs) {
+		WindCleanup (clnt);
+		if (clnt->EventReffs) {
+		//	printf ("\33pFATAL\33q clnt 0x%X holds still %lu event%s!\n",
+			printf ("\33pERROR\33q clnt 0x%X holds still %lu event%s!\n",
+			        clnt->Id, clnt->EventReffs,
+			        (clnt->EventReffs == 1 ? "" : "s"));
+		//	exit (1);
+		}
 	}
 	
 	if (clnt == CLNT_Requestor) {
 		CLNT_Requestor = NULL;
 	}
 	
-	WmgrClntRemove (clnt);
-	
-	if (clnt->Name)     free  (clnt->Name);
-	if (clnt->Addr)     free  (clnt->Addr);
-	if (clnt->iBuf.Mem) free  (clnt->iBuf.Mem); // is also oBuf.Mem
-	XrscDelete (CLNT_Pool, clnt);
+	if (clnt->CloseDown == DestroyAll) {
+		WmgrClntRemove (clnt);
+		
+		if (clnt->Name)     free  (clnt->Name);
+		if (clnt->Addr)     free  (clnt->Addr);
+		if (clnt->iBuf.Mem) free  (clnt->iBuf.Mem); // is also oBuf.Mem
+		XrscDelete (CLNT_Pool, clnt);
+	}
 	
 	return _CLNT_BaseNum;
 }
@@ -487,6 +512,22 @@ RQ_KillClient (CLIENT * clnt, xKillClientReq * q)
 	CARD32 c_id = q->id & ~RID_MASK;
 	
 	if (q->id == AllTemporary) {
+		int i;
+		
+		PRINT (KillClient, "(AllTemporary)");
+		
+		for (i = 0; i < XrscPOOLSIZE (CLNT_Pool); ++i) {
+			p_CLIENT c = XrscPOOLITEM (CLNT_Pool, i);
+			while (c) {
+				if (c->CloseDown == AllTemporary  &&  c->Fd < 0) {
+					c->CloseDown = DestroyAll;
+					ClntDelete (c);
+					c = XrscPOOLITEM (CLNT_Pool, i);
+				} else {
+					c = c->NextXRSC;
+				}
+			}
+		}
 	
 	} else if (!c_id) {
 		int owner = -1, dummy;
@@ -514,11 +555,26 @@ RQ_KillClient (CLIENT * clnt, xKillClientReq * q)
 	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_SetCloseDownMode (CLIENT * clnt, xSetCloseDownModeReq * q)
 {
-	PRINT (- X_SetCloseDownMode," ");
+	// Define what will happen to the client's resources at connection close.
+	//
+	// BYTE mode: DestroyAll, RetainPermanent, RetainTemporary
+	//...........................................................................
+	
+	if (q->mode > 2) {
+		Bad(Value, q->mode, SetCloseDownMode,);
+	
+	} else { //..................................................................
+		
+		PRINT (SetCloseDownMode," '%s'",
+		       (q->mode == DestroyAll      ? "DestroyAll" :
+		        q->mode == RetainPermanent ? "RetainPermanent" :
+		                                     "RetainTemporary"));
+		clnt->CloseDown = q->mode;
+	}
 }
 
 
