@@ -464,7 +464,7 @@ _Wind_setup (CLIENT * clnt, WINDOW * w, CARD32 mask, CARD32 * val, CARD8 req)
 
 //==============================================================================
 BOOL
-WindMap (WINDOW * wind, BOOL visible)
+WindSetMapped (WINDOW * wind, BOOL visible)
 {
 	BOOL redraw    = xFalse;
 	wind->isMapped = xTrue;
@@ -505,12 +505,48 @@ WindMap (WINDOW * wind, BOOL visible)
 
 //==============================================================================
 void
-WindUnmap (WINDOW * wind, BOOL by_conf)
+WindClrMapped (WINDOW * wind, BOOL by_conf)
 {
 	wind->isMapped = xFalse;
 	
 	EvntUnmapNotify (wind, wind->Id, by_conf);
 }
+
+
+//------------------------------------------------------------------------------
+static void
+_Wind_Unmap (WINDOW * wind, BOOL ptr_check)
+{
+	BOOL saved = (wind->Id == _WIND_SaveUnder);
+	
+	if (wind->Handle > 0) {
+		WmgrWindUnmap (wind, xFalse);
+	
+	} else {
+		WindClrMapped (wind, xFalse);
+		if (WindVisible (wind->Parent)) {
+			GRECT sect;
+			WindGeometry (wind, &sect, wind->BorderWidth);
+			if (!saved) {
+				WindDrawSection (wind->Parent, &sect);
+			}
+			ptr_check &= PXYinRect (MAIN_PointerPos, &sect);
+		} else {
+			ptr_check = xFalse;
+		}
+	}
+	
+	if (wind == _WIND_PgrabWindow) {
+		WINDOW * stack[] = { wind, wind->Parent };
+		PXY r_xy = WindPointerPos (wind);
+		EvntPointer (stack, 1, 1, r_xy, r_xy, wind->Id, NotifyUngrab);
+		_Wind_PgrabClr (NULL);
+	}
+	
+	if (saved)     WindSaveFlush (xTrue);
+	if (ptr_check) WindPointerWatch (xFalse);
+}
+
 
 //==============================================================================
 void
@@ -587,19 +623,13 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			exit(1);
 		}
 		
-		
 		if (wind == chck) {
 			WINDOW * stack[32], * w = wind;
 			PXY r_xy = WindPointerPos (wind);
 			int anc  = 0;
 			while (w != bott) {
-				if (w->Handle > 0) {
-					WmgrWindUnmap (w, xFalse);
-					wind_delete   (w->Handle);
-				}
-				if (w->isMapped) {
-					WindUnmap (w, xFalse);
-				}
+				if      (w->Handle > 0) WmgrWindUnmap (w, xTrue);
+				else if (w->isMapped)   WindClrMapped (w, xFalse);
 				stack[anc++] = w;
 				w            = w->Parent;
 			}
@@ -612,13 +642,8 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			enter             = xTrue;
 		
 		} else {
-			if (wind->Handle > 0) {
-				WmgrWindUnmap (wind, xFalse);
-				wind_delete   (wind->Handle);
-			}
-			if (wind->isMapped) {
-				WindUnmap (wind, xFalse);
-			}
+			if      (wind->Handle > 0) WmgrWindUnmap (wind, xTrue);
+			else if (wind->isMapped)   WindClrMapped (wind, xFalse);
 		}
 		
 		EvntDestroyNotify (wind, wind->Id);
@@ -756,7 +781,7 @@ _Wind_Resize (WINDOW * wind, GRECT * diff)
 			            wind->Rect.y - wind->BorderWidth };
 			EvntGravityNotify (wind, wind->Id, pos);
 		} else if (wind->isMapped  &&  wind->WinGravity == UnmapGravity) {
-			WindUnmap (wind, xTrue);
+			WindClrMapped (wind, xTrue);
 		}
 	} while ((wind = wind->NextSibl));
 }
@@ -855,13 +880,13 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 		wind->BitGravity   = ForgetGravity;
 		wind->SaveUnder    = xFalse;
 		
-		wind->isMapped   = xFalse;
-		wind->hasBorder  = xFalse;
-		wind->hasBackGnd = xFalse;
-		wind->hasBackPix = xFalse;
-		wind->GwmParent  = xFalse;
-		wind->GwmDecor   = xFalse;
-		wind->GwmIcon    = xFalse;
+		wind->isMapped    = xFalse;
+		wind->hasBorder   = xFalse;
+		wind->hasBackGnd  = xFalse;
+		wind->hasBackPix  = xFalse;
+		wind->GwmParented = xFalse;
+		wind->GwmDecor    = xFalse;
+		wind->GwmIcon     = xFalse;
 		
 		wind->nSelections = 0;
 		
@@ -894,7 +919,7 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 //		PRINT (,"+");
 		
 		if (pwnd != &WIND_Root) {
-			wind->Handle = (pwnd->Handle < 0 ? pwnd->Handle : -pwnd->Handle);
+			wind->Handle = -WindHandle (pwnd);
 		
 		} else if (!WmgrWindHandle (wind)) {
 			Bad(Alloc,, CreateWindow,"(W:%lX): AES", q->wid);
@@ -928,7 +953,7 @@ RQ_MapWindow (CLIENT * clnt, xMapWindowReq * q)
 		DEBUG (MapWindow," W:%lX (%i)", q->id, wind->Handle);
 		
 		if (wind->Handle < 0) {
-			if (WindMap (wind, WindVisible (wind->Parent))) {
+			if (WindSetMapped (wind, WindVisible (wind->Parent))) {
 				GRECT curr;
 				WindGeometry (wind, &curr, wind->BorderWidth);
 				if (wind->SaveUnder) {
@@ -942,7 +967,6 @@ RQ_MapWindow (CLIENT * clnt, xMapWindowReq * q)
 		} else {
 			GRECT curr;
 			BOOL  watch = WmgrWindMap (wind, &curr);
-			WindMap (wind, xTrue);
 			if (watch) WindPointerWatch (xFalse);
 			else       MainSetWatch (&curr, MO_ENTER);
 		}
@@ -970,7 +994,7 @@ RQ_MapSubwindows (CLIENT * clnt, xMapSubwindowsReq * q)
 		DEBUG (MapSubwindows," W:%lX", q->id);
 		
 		do {
-			if (!w->isMapped && WindMap (w, visible)) {
+			if (!w->isMapped && WindSetMapped (w, visible)) {
 				GRECT curr;
 				WindGeometry (w, &curr, w->BorderWidth);
 				WindDrawSection (w, &curr);
@@ -983,43 +1007,30 @@ RQ_MapSubwindows (CLIENT * clnt, xMapSubwindowsReq * q)
 	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_UnmapWindow (CLIENT * clnt, xUnmapWindowReq * q)
 {
+	// Unmap the window if it is mapped and not the root window.
+	//
+	// CARD32 id: window
+	//...........................................................................
+	
 	WINDOW * wind = WindFind (q->id);
 	
 	if (!wind) {
 		Bad(Window, q->id, UnmapWindow,);
 	
-	} else if (wind->isMapped) {
+	} else if (wind == &WIND_Root) {
+	#	ifndef NODEBUG
+		PRINT (,"\33pWARNING\33q UnmapWindow(W:%lX) ignored.", ROOT_WINDOW);
+	#	endif NODEBUG
+		
+	} else if (wind->isMapped) { //..............................................
 		
 		DEBUG (UnmapWindow," 0x%lX", q->id);
 		
-		WindUnmap (wind, xFalse);
-		
-		if (wind->Handle > 0) {
-			if (WmgrWindUnmap (wind, xTrue)) {
-				WindPointerWatch (xFalse);
-			} else {
-				_WIND_PointerRoot = NULL;
-				MainClrWatch();
-			}
-			if (wind->Id == _WIND_SaveUnder) {
-				WindSaveFlush (xTrue);
-			}
-		} else if (WindVisible (wind->Parent)) {
-			GRECT sect;
-			WindGeometry (wind, &sect, wind->BorderWidth);
-			if (wind->Id == _WIND_SaveUnder) {
-				WindSaveFlush (xTrue);
-			} else {
-				WindDrawSection (wind->Parent, &sect);
-			}
-			if (PXYinRect (MAIN_PointerPos, &sect)) {
-				WindPointerWatch (xFalse);
-			}
-		}
+		_Wind_Unmap (wind, xTrue);
 	}
 }
 
@@ -1250,13 +1261,17 @@ RQ_DestroyWindow (CLIENT * clnt, xDestroyWindowReq * q)
 		Bad(Window, q->id, DestroyWindow,);
 	
 	} else {
-		WINDOW * pwnd = (wind->Handle < 0  &&  WindVisible (wind)
-		                 ? wind->Parent : NULL);
+		WINDOW * pwnd;
 		GRECT    curr;
 		
-		DEBUG (DestroyWindow," W:%lX", q->id);
+		if (wind->Handle < 0  &&  WindVisible (wind)) {
+			pwnd = wind->Parent;
+			WindGeometry (wind, &curr, wind->BorderWidth);
+		} else {
+			pwnd = NULL;
+		}
 		
-		if (pwnd)  WindGeometry (wind, &curr, wind->BorderWidth);
+		DEBUG (DestroyWindow," W:%lX", q->id);
 		
 		WindDelete (wind, NULL);
 		
@@ -1291,39 +1306,24 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 	
 	} else {
 		BOOL     map;
+		
 		WINDOW * w = pwnd;
 		do if (w == wind) {
 			Bad(Match,, ReparentWindow,"(): parent is inferior.");
 			return;
 		} while ((w = w->Parent));
+		//........................................................................
 		
 		PRINT (ReparentWindow," W:%lX for W:%lX", q->window, q->parent);
 		
 		if ((map = wind->isMapped)) {
-			WindUnmap (wind, xFalse);
-			
-			if (wind->Handle > 0) {
-				if (WmgrWindUnmap (wind, xTrue)) {
-					WindPointerWatch (xFalse);
-				} else {
-					_WIND_PointerRoot = NULL;
-					MainClrWatch();
-				}
-				
-			} else if (WindVisible (wind->Parent)) {
-				GRECT sect;
-				WindGeometry (wind, &sect, wind->BorderWidth);
-				WindDrawSection (wind->Parent, &sect);
-				if (PXYinRect (MAIN_PointerPos, &sect)) {
-					WindPointerWatch (xFalse);
-				}
-			}
+			_Wind_Unmap (wind, xFalse);
 		}
 		if (wind->Handle > 0) {
 			wind_delete (wind->Handle);
-			wind->GwmParent = xFalse;
-			wind->GwmDecor  = xFalse;
-			wind->GwmIcon   = xFalse;
+			wind->GwmParented = xFalse;
+			wind->GwmDecor    = xFalse;
+			wind->GwmIcon     = xFalse;
 		}
 		if (wind->PrevSibl) wind->PrevSibl->NextSibl = wind->NextSibl;
 		else                wind->Parent->StackBot   = wind->NextSibl;
@@ -1353,7 +1353,7 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 			                    *(PXY*)&wind->Rect, wind->Override);
 		}
 		
-		if (map && WindMap (wind, WindVisible (pwnd))) {
+		if (map && WindSetMapped (wind, WindVisible (pwnd))) {
 			GRECT curr;
 			WindGeometry (wind, &curr, wind->BorderWidth);
 			WindDrawSection (wind, &curr);
