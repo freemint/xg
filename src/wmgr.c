@@ -1007,7 +1007,7 @@ WmgrMessage (short * msg)
 		
 		case WM_TOPPED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			if (color_changed) {
-				CmapPalette();
+				CmapPalette (0);
 				color_changed = xFalse;
 			}
 			_WMGR_HasFocus = (WMGR_OpenCounter > 1 ? 2 : 1);
@@ -1021,7 +1021,7 @@ WmgrMessage (short * msg)
 		
 		case WM_ONTOP:
 			if (color_changed) {
-				CmapPalette();
+				CmapPalette (0);
 				color_changed = xFalse;
 			}
 			if (msg[3] == _WMGR_FocusHolder) {
