@@ -1,3 +1,7 @@
+2001-02-14: 0.05.1
+   - corrected ClearArea() handling of pixmap backgrounds.
+   - bugfix in exposure events generation while drawing window contents.
+
 2001-02-12: 0.05
    - made the background of the root window (desktop) changeable too.
    - supplemented window functions to draw also background pixmaps.
@@ -33,7 +37,7 @@
      - wind_set_proc() to set window title icons.
      - shel_write (SWM_BROADCAST, ...) to notify other applications about color
        palette changed.
-     - recive COLORS_CHANGEDbroadcast message.
+     - receive COLORS_CHANGED broadcast message.
    - implemented SetClosedownMode() to avoid removing of client resources which
      want to retain after disconnecting.  This allowes Motif applications like
      netscape to install their nifty refference windows.
