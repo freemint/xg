@@ -27,10 +27,15 @@ static CARD8 _FONT_AscDesc[256] = { // ISO-coded
 	SET ( 1, 1, 1, 1, 1, 1, 1,34, 32, 1, 1, 1, 1, 1, 1, 1),
 	SET ( 1, 1, 1, 1, 1, 1, 1, 1,  1,31,31,31,21, 1,31,23),
 	SET (31,31,34,32,31,31,31,34, 31,31,22,22,10,23,11,31),
+	//    0  1  2  3  4  5  6  7   8  9  :  ;  <  =  >  ?
 	SET (31,31,31,31,31,31,31,31, 31,31,21,20,31,22,31,31),
+	//    @  A  B  C  D  E  F  G   H  I  J  K  L  M  N  O
 	SET (31,31,31,31,31,31,31,31, 31,31,31,31,31,31,31,31),
+	//    P  Q  R  S  T  U  V  W   X  Y  Z  [  \  ]  ^  _
 	SET (31,31,31,31,31,31,31,31, 31,31,31,31,31,31,34,00),
+	//    `  a  b  c  d  e  f  g   h  i  j  k  l  m  n  o
 	SET (34,21,31,21,31,21,31,20, 31,31,30,31,31,21,21,21),
+	//    p  q  r  s  t  u  v  w   x  y  z  {  |  }  ~  
 	SET (20,20,21,21,31,21,21,21, 21,20,21,31,31,31,34,21),
 	SET (21,30,31,21,31,31,20,21, 31,31,31,31,31,31,31,31),
 	SET (32,23,31,31,30,40, 1,22, 21,31,11,31,32, 1,30,33),
@@ -460,8 +465,8 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 				p->leftSideBearing  = ld;
 				p->rightSideBearing = w - rd;
 				p->characterWidth   = w;
-				p->ascent           = face->MaxAsc;
-				p->descent          = face->MaxDesc;
+				p->ascent           = asc [_FONT_AscDesc[c] >> 4];
+				p->descent          = desc[_FONT_AscDesc[c] &  0x0F];
 				p->attributes       = 0;
 				p++;
 			}
