@@ -60,12 +60,13 @@ GrphInit(void)
 	if (GRPH_Vdi <= 0) {
 		short work_in[16] = { 1, SOLID,G_BLACK, MRKR_DOT,G_BLACK, 1,G_BLACK,
 		                      FIS_SOLID,0,0, 2, 0, 0,0, 0,0 };
-		short w_out[57], dummy;
+		short w_out[57], dmy;
 		
-		GRPH_Vdi = GRPH_Handle = graf_handle (&dummy, &dummy, &dummy, &dummy);
+		GRPH_Vdi = GRPH_Handle = graf_handle (&dmy, &dmy, &dmy, &dmy);
 		v_opnvwk (work_in, &GRPH_Vdi, w_out);
 		if (GRPH_Vdi <= 0) {
-			printf("\33pFATAL\33q can't initialize VDI! (%i)\n", GRPH_Handle);
+			printf("\33pFATAL\33q can't initialize VDI for #%i: %i!\n",
+			       GRPH_Handle, GRPH_Vdi);
 			return xFalse;
 		}
 		GRPH_ScreenW  = w_out[0];
