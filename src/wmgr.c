@@ -798,6 +798,33 @@ WmgrMenu (short title, short entry, short meta)
 	
 	switch (entry) {
 		
+		case MENU_ABOUT: {
+			OBJECT * form = NULL;
+			GRECT    rect;
+			if (rsrc_gaddr (R_TREE, ABOUT, &form) && form) {
+				extern const char * GLBL_Version;
+				extern const char * GLBL_Build;
+				GRECT sbox = WIND_Root.Rect;
+				sprintf (form[ABOUT_VERSN].ob_spec.tedinfo->te_ptext,
+				         "Version %s", GLBL_Version);
+				form[ABOUT_BUILD].ob_spec.tedinfo->te_ptext = (char*)GLBL_Build;
+				form[ABOUT_OK].ob_state &= ~OS_SELECTED;
+				
+				form_center (form, &rect.x, &rect.y, &rect.w, &rect.h);
+				form_dial (FMD_SHRINK, rect.x, rect.y, rect.w, rect.h,
+				           sbox.x, sbox.y, sbox.w, sbox.h);
+				form_dial (FMD_START, 0,0,0,0, rect.x, rect.y, rect.w, rect.h);
+				objc_draw (form, ROOT, MAX_DEPTH, rect.x, rect.y, rect.w, rect.h);
+				form_do (form, 0);
+				objc_offset (form, ABOUT_OK, &sbox.x, &sbox.y);
+				sbox.w = form[ABOUT_OK].ob_width;
+				sbox.h = form[ABOUT_OK].ob_height;
+				form_dial (FMD_SHRINK, sbox.x, sbox.y, sbox.w, sbox.h,
+				           rect.x, rect.y, rect.w, rect.h);
+				form_dial (FMD_FINISH, 0,0,0,0, rect.x, rect.y, rect.w, rect.h);
+			}
+		}	break;
+		
 		case MENU_GWM:
 			WmgrActivate (!WMGR_Active);
 			WindPointerWatch (xFalse);

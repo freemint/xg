@@ -11,8 +11,11 @@ ResourceMaster v2.072
 #O 21@20@CLNT_FACE@@
 #O 22@28@CLNT_FRST@@
 #O 51@28@CLNT_LAST@@
-#T 1@2@ABOUT@@7@
+#T 1@2@ABOUT@@8@
 #O 1@23@LOGO@@
+#O 3@26@OK@@
+#O 6@21@VERSN@@
+#O 7@21@BUILD@@
 #T 2@2@GLYPH@@78@
 #O 1@31@X_cursor@@
 #O 2@31@arrow@@
@@ -95,4 +98,4 @@ ResourceMaster v2.072
 #O 1@33@BIG_X@@
 #O 2@33@SMALL_X@@
 #O 3@33@NAME_X@@
-#c 26188@
+#c 1168@

@@ -11,6 +11,9 @@
 
 #define ABOUT 1  /* form/dial */
 #define ABOUT_LOGO 1  /* IMAGE in tree ABOUT */
+#define ABOUT_OK 3  /* BUTTON in tree ABOUT */
+#define ABOUT_VERSN 6  /* TEXT in tree ABOUT */
+#define ABOUT_BUILD 7  /* TEXT in tree ABOUT */
 
 #define GLYPH 2  /* form/dial */
 #define GLYPH_X_cursor 1  /* ICON in tree GLYPH */

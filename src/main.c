@@ -30,6 +30,7 @@
 
 extern const short  _app;
 extern const char * GLBL_Version;
+extern const char * GLBL_Build;
 
 static void shutdown (void);
 
@@ -94,7 +95,7 @@ main (int argc, char * argv[])
 			}
 		}
 		
-		printf ("X Server %s starting ...\n", GLBL_Version);
+		printf ("X Server %s [%s] starting ...\n", GLBL_Version, GLBL_Build);
 		
 		menu_register (ApplId(0), (char*)"  X");
 		
