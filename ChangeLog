@@ -1,3 +1,6 @@
+2001-02-10: 0.04.6
+   - completely rewritten window drawing to speedup a bit.
+   - refined decoration of reparented top-windows.
 2001-02-06: 0.04.5
    - slightly speed improvements for draw and fill requests.
    - correted calculations for begin and end angles of arcs.
