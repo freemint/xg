@@ -2,13 +2,14 @@
 //
 // wind_grab.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-07-24 - Initial Version.
 //==============================================================================
 //
 #include "window_P.h"
+#include "event.h"
 #include "Cursor.h"
 
 #include <stdio.h> // printf
@@ -25,8 +26,38 @@ CARD32   _WIND_PgrabTime   = 0ul;
 
 
 //------------------------------------------------------------------------------
+static void
+_Wind_PgrabSet (CLIENT * clnt, WINDOW * wind,
+                p_CURSOR crsr, CARD32 mask, BOOL ownr, CARD32 time)
+{
+	if (!_WIND_PgrabClient) {
+		WindMctrl (xTrue);
+	}
+	_WIND_PgrabClient = clnt;
+	_WIND_PgrabWindow = wind;
+	_WIND_PgrabEvents = mask;
+	_WIND_PgrabOwnrEv = ownr;
+	_WIND_PgrabTime   = time;
+	if (crsr) {
+		_WIND_PgrabCursor = CrsrShare (crsr);
+		CrsrSelect (crsr);
+	} else {
+		_Wind_Cursor (_WIND_PgrabWindow);
+	}
+	
+	if (wind != _WIND_PointerRoot) {
+		WINDOW * stack[32];
+		int anc;
+		int top  = _Wind_PathStack (stack, &anc, _WIND_PointerRoot, wind);
+		PXY r_xy = WindPointerPos (wind);
+		PXY e_xy = WindPointerPos (_WIND_PointerRoot);
+		EvntPoiner (stack, anc, top, e_xy, r_xy, wind->Id, NotifyGrab);
+	}
+}
+
+//------------------------------------------------------------------------------
 BOOL
-_Wind_PgrabClear (p_CLIENT clnt)
+_Wind_PgrabClear (CLIENT * clnt)
 {
 	if (!clnt  ||  clnt == _WIND_PgrabClient) {
 		_WIND_PgrabClient = NULL;
@@ -98,6 +129,11 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 			r->status = GrabSuccess;
 		}
 		ClntReply (GrabPointer,, NULL);
+		
+		if (r->status == GrabSuccess) {
+			_Wind_PgrabSet (clnt, wind, crsr, q->eventMask, q->ownerEvents,
+			                (q->time ? q->time : MAIN_TimeStamp));
+		}
 	}
 }
 
@@ -118,6 +154,7 @@ RQ_UngrabPointer (CLIENT * clnt, xUngrabPointerReq * q)
 	if ((!q->id || (q->id >= _WIND_PgrabTime && q->id <= MAIN_TimeStamp))
 	    && _Wind_PgrabClear (clnt)) {
 		PRINT (UngrabPointer," W:%lX T:%lX", wid, q->id);
+		_Wind_Cursor (_WIND_PointerRoot);
 	
 	} else {
 		PRINT (UngrabPointer," W:%lX T:%lX ignored", wid, q->id);
