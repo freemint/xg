@@ -1040,7 +1040,7 @@ RQ_UnmapWindow (CLIENT * clnt, xUnmapWindowReq * q)
 		
 	} else if (wind->isMapped) { //..............................................
 		
-		DEBUG (UnmapWindow," 0x%lX", q->id);
+		DEBUG (UnmapWindow," W:%lX #%i", q->id, wind->Handle);
 		
 		_Wind_Unmap (wind, WindVisible (wind->Parent), xTrue);
 	}
@@ -1337,7 +1337,7 @@ RQ_DestroyWindow (CLIENT * clnt, xDestroyWindowReq * q)
 			pwnd = NULL;
 		}
 		
-		DEBUG (DestroyWindow," W:%lX", q->id);
+		DEBUG (DestroyWindow," W:%lX #%i", q->id, wind->Handle);
 		
 		WindDelete (wind, NULL);
 		

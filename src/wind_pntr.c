@@ -16,6 +16,7 @@
 #include "x_gem.h"
 
 #include <stdio.h>
+#include <stdlib.h> // exit
 
 #include <X11/Xproto.h>
 
@@ -115,6 +116,12 @@ WindPointerWatch (BOOL movedNreorg)
 			stack[++top] = NULL;
 			if (WMGR_OpenCounter) {
 				WINDOW * w = WIND_Root.StackTop;
+				if (!w) {
+					printf ("\n\33pPANIC\33q"
+					        " Inconsistency in window tree hirachy! (%i)\n",
+					        WMGR_OpenCounter);
+					exit (1);
+				}
 				do if (w->Handle == hdl) {
 					// over x window
 					if (w->isMapped) {
