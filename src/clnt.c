@@ -607,10 +607,3 @@ RQ_UngrabServer (CLIENT * clnt, xUngrabServerReq * q)
 	PRINT (- X_UngrabServer," ");
 }
 
-
-//------------------------------------------------------------------------------
-void
-RQ_QueryKeymap (CLIENT * clnt, xQueryKeymapReq * q)
-{
-	PRINT (- X_QueryKeymap," ");
-}
