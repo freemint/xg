@@ -72,7 +72,7 @@ static CLIENT _WMGR_Client = {
 	NULL, xFalse, 0x00000ul,            //NULL,
 	0u, (char*)"localhost", (char*)"127.0.0.1", 0, -1,
 	{ 0ul, 0ul, (char*)&_WMGR_Obuf }, { 0ul, 0ul, NULL },
-	NULL, &_WMGR_Table, xFalse, 0ul,
+	NULL, &_WMGR_Table, xFalse, RetainPermanent, 0ul,
 	{{0}}, {{0}}, {{0}}, "  wm"
 };
 

@@ -47,6 +47,7 @@ typedef struct s_CLIENT {
 	RQSTCB             Eval;
 	const FUNCTABL   * Fnct;
 	BOOL               DoSwap;
+	BYTE               CloseDown;
 	CARD32             EventReffs;
 	XRSCPOOL(DRAWABLE, Drawables, 6);
 	XRSCPOOL(FONTABLE, Fontables, 5);
@@ -69,7 +70,7 @@ static inline CLIENT * ClntFind (CARD32 id) {
 }
 
 
-void   ClntInit   (void);
+void   ClntInit   (BOOL initNreset);
 int    ClntSelect (long rd_set, long wr_set);
 int    ClntCreate (int fd, const char * name, const char * addr, int port);
 int    ClntDelete (CLIENT *);
