@@ -698,6 +698,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			_WIND_PointerRoot = NULL;
 			MainClrWatch();
 			MainSetMove (xFalse);
+			CrsrSelect (NULL);
 		}
 	}
 }
