@@ -4,30 +4,34 @@
                          / \\
                         /   \\  Server for MiNT/GEM
                       ===============================
-                               Apr 12, 2001
+                               Jul 11, 2001
 
 
 Contents
---------
+========
 
-   1. Requirements
-   2. Installation
-      2.1. Preparing Environment
-      2.2. Preparing Directories
-   3. Fonts
-      3.1. Handling of GEM-Fonts
-      3.2. Font-Aliasing
+	1. Requirements
+	
+	2. Installation
+	   2.1. Preparing Environment
+	   2.2. Preparing Directories
+	
+	3. Fonts
+	   3.1. Handling of GEM-Fonts
+	   3.2. Font-Aliasing
 
 
-Requirements
-============
+1. Requirements
+===============
 
 To get the server running with a useable speed, a machine with a 68030 and
 10 MByte of Ram is needed at least.  Absolutely vital installed and working
-system programs are: FreeMiNT >= 1.15.6 + MiNT-net, NVDI >= 4.1 and N.AES or
-XaAES or AES 4.1.  If MiNTnet isn't installed another small package is
-required which can be downloaded from http://X11.freemint.de .
+system programs are: FreeMiNT >= 1.15.6, NVDI >= 4.1, N.AES or XaAES or
+AES 4.1.
 
+If you haven't MiNTnet installed you need a very small package (I call it
+'tiny-sock') from X11.freemint.de installed instead.
+    
 At the moment only color depths of 1, 4 and 8 planes (2, 16, 256 colors) are
 supported.  Other color depths may cause system crashes/freezes or at least
 unpredictable results.
@@ -43,8 +47,8 @@ from the FreeMiNT CVS Repository at
 Bug reports should be mailed to <AltF4@freemint.de>.
 
 
-Installation
-============
+2. Installation
+===============
 
 Copy the server's files to some location on your filesystem; there is no
 requirement of a fixed path for the server.  A usefull place might be
@@ -56,8 +60,8 @@ by the server, it will do the following steps by itself.  Else do the
 following (as root user):
 	cd /var/lib ; mkdir Xapp ; chmod 777 Xapp
 
-Preparing Environment
----------------------
+2.1. Preparing Environment
+--------------------------
 
 There are a few things necessary for X-clients to be able to work.
 
@@ -76,8 +80,8 @@ Most comfortable for the user is, to have somewhere in mint.cnf the line
 so the setting it can't be forgotten.  Otherway it would be necessary to
 set it by hand in a shell window and start every client from that shell.
 
-Preparing Directories
----------------------
+2.2. Preparing Directories
+--------------------------
 
 The following isn't necessary for the server itself but should be done for
 client programs to have a common directory hirachy.
@@ -106,8 +110,8 @@ directories and links:
    /usr/X11                        -> X11R6/
 
 
-Fonts
-=====
+3. Fonts
+========
 
 In X, fonts are named following the XLFD ('X Logical Font Description').
 These font names are in fact a set of descriptive fields with '-' as
@@ -140,15 +144,15 @@ means some font of 12 point height and that charset encoding is needed, no
 matter of which family or style and so on.  The server will than take the
 first font where both criteria matches.
 
-Handling of GEM-Fonts
----------------------
+3.1. Handling of GEM-Fonts
+--------------------------
 
 At startup, the server parses all fonts provided by the VDI and translates
 the available information to XLFD strings.  These are stored in the hash
 file /var/lib/Xapp/fonts.db to accelerate further startups.
 
-Font-Aliasing
--------------
+3.2. Font-Aliasing
+------------------
 
 If there exists a file /etc/X11/fonts.alias it will be read at server
 startup and later be used to substitute font names from client requests to
