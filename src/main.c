@@ -248,7 +248,6 @@ main (int argc, char * argv[])
 					SrvrReset();
 				
 				} else if (_MAIN_Xcons && WIND_ChngTrigger) {
-					signal (SIGCHLD, NULL);
 					SrvrUngrab (NULL);
 					set_printf (xFalse);
 					printf ("-------------------END-BUFFERED-------------------\n");
