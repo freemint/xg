@@ -1297,7 +1297,6 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 	
 	WINDOW * wind = WindFind (q->window);
 	WINDOW * pwnd = WindFind (q->parent);
-	short    hdl;
 	
 	if (!wind) {
 		Bad(Window, q->window, ReparentWindow,"(): invalid child.");
@@ -1325,8 +1324,8 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 		if ((map = wind->isMapped)) {
 			_Wind_Unmap (wind, xFalse);
 		}
-		if (hdl > 0) {
-			wind_delete (hdl);
+		if (wind->Handle > 0) {
+			wind_delete (wind->Handle);
 			wind->GwmParented = xFalse;
 			wind->GwmDecor    = xFalse;
 			wind->GwmIcon     = xFalse;
