@@ -168,13 +168,13 @@ RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
 
 
 //------------------------------------------------------------------------------
-#define COPYsP 0x01
-#define COPYsW 0x02
-#define COPYdP 0x10
-#define COPYdW 0x20
+#define CPsrcP 0x01
+#define CPsrcW 0x02
+#define CPdstP 0x10
+#define CPdstW 0x20
 //------------------------------------------------------------------------------
 static short
-clip_dst (GRECT * r, p_DRAWABLE draw, short * coord)
+clip_dst (GRECT * r, p_DRAWABLE draw, const short * coord)
 {
 	// coord[0,1] src x/y   r[0] src clip
 	// coord[2,3] dst x/y   r[1] dst clip
@@ -184,8 +184,8 @@ clip_dst (GRECT * r, p_DRAWABLE draw, short * coord)
 	short h = coord[5];
 	short t;
 	
-	if (!draw.p->isWind)                t = COPYdP;
-	else if (WindVisible (draw.Window)) t = COPYdW;
+	if (!draw.p->isWind)                t = CPdstP;
+	else if (WindVisible (draw.Window)) t = CPdstW;
 	else                                return 0;
 	
 	*(PXY*)&r[0] = *(PXY*)(coord +0); // src
@@ -261,8 +261,7 @@ clip_src (GRECT * r, p_DRAWABLE draw)
 	return num;
 }
 
-
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 {
@@ -304,118 +303,148 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 			// the area doesn't intersects the destination drawable or the
 			// drawable isn't viewable
 			//
-			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)\n"
-				    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i] %c",
+			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i) %c",
 			       q->gc, (src_d.p->isWind ? 'W' : 'P'), q->srcDrawable,
 			       q->srcX, q->srcY, q->width, q->height,
 			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
-			       q->dstX, q->dstY,
-				    rect[0].x,rect[0].y,rect[0].w,rect[0].h,
-				    rect[1].x,rect[1].y,rect[1].w,rect[1].h,
-				    (gc->GraphExpos ? '*' : '-'));
+			       q->dstX, q->dstY, (gc->GraphExpos ? '*' : '-'));
 			if (gc->GraphExpos) {
 				EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
 			}
 			return;
 		}
 		if (!src_d.p->isWind) {
-			action |= COPYsP;
+			action |= CPsrcP;
 		} else if (src_d.p == dst_d.p
-		           || (action == COPYdP && WindVisible (src_d.Window))) {
-			action |= COPYsW;
+		           || (action == CPdstP && WindVisible (src_d.Window))) {
+			action |= CPsrcW;
 		}
-		work = rect[1];
 		
-		if (action & (COPYsP|COPYsW)) {
-			// the action is _not_ copy window to _other_ window but one of:
-			// COPYsP|COPYdP, COPYsP|COPYdW, COPYsW|COPYdP, COPYsW|COPYdW
+		if (action == (CPsrcW|CPdstW)) {
+			// copy inside one window means scroll a part of this window
 			//
-			nExp = clip_src (rect, src_d);
-		}
-		if (nExp) {
-			if (nExp < 0) {
-				// no part of the source intersects the destination, or both are
-				// different windows, so onl generate events for the visible parts
-				//
-				exps   =  &rect[1];
-				nExp   =  1;
-				action &= ~(COPYsP|COPYsW);
-			}
-			if (gc->ClipNum > 0) {
-				// intersects destination and clipping rectangels for events
-				//
-				GRECT * r = exps;
-				exps      = alloca (sizeof(GRECT) * nExp * gc->ClipNum);
-				nExp      = GrphCombine (exps, gc->ClipRect, gc->ClipNum, r,nExp);
-				if (!nExp && !(action & (COPYsP|COPYsW))) {
-					action = 0x00;
+			PXY diff = { rect[1].x - rect[0].x, rect[1].y - rect[0].y };
+			if (diff.x || diff.y) {
+				WINDOW * wind = dst_d.Window;
+				GrphCombine (&rect[0], &rect[1]);
+				if ((nSct = WindClipLockP (wind, 0, rect,1, &orig, &sect))) {
+					exps = (gc->GraphExpos ? (GRECT*)(sect + nSct +1) : NULL);
+					nExp = WindScroll (wind, gc, rect, diff,
+							              orig, sect, nSct, exps);
+					debug = xFalse;
 				}
 			}
-		}
-		if (action & COPYdW) {
-			WINDOW * wind = dst_d.Window;
-			if (!(nSct = WindClipLockP (wind, 0, &work,1, &orig, &sect))) {
-				action = 0x00;
-			
-			} else {
-				if (nExp) {
-					GRECT * r = (gc->GraphExpos ? (GRECT*)(sect + nSct) : NULL);
-					short   e = 0;
-					if (wind->hasBackGnd) {
-						if (!wind->hasBackPix) {
-							vswr_mode (GRPH_Vdi, MD_REPLACE);
-							vsf_color (GRPH_Vdi, wind->Back.Pixel);
-						}
-						do {
-							PRECT area;
-							int   n;
-							area.rd.x = (area.lu.x = orig.x + exps->x) + exps->w -1;
-							area.rd.y = (area.lu.y = orig.y + exps->y) + exps->h -1;
-							n = WindDrawBgnd (wind, orig, &area, sect, nSct, r);
-							if (n && r) {
-								e += n;
-								r += n;
-							}
-							exps++;
-						} while (--nExp);
-						
-					} else if (gc->GraphExpos) {
-						PRECT * s = sect;
-						short   n = nSct;
-						do {
-							GRECT a = { s->lu.x - orig.x,     s->lu.y - orig.y,
-							            s->rd.x - s->lu.x +1, s->rd.y - s->lu.y +1 };
-							e += GrphCombine (r + e, &a, 1, exps, nExp);
-							s++;
-						} while (--n);
+			PRINT (CopyArea," W->W");
+		
+		} else {
+			work = rect[1]; // save the destination area
+		
+			if (action & (CPsrcP|CPsrcW)) {
+				// the action is _not_ copy window to _other_ window but one of:
+				// CPsrcP|CPdstP, CPsrcP|CPdstW, CPsrcW|CPdstP
+				//
+				nExp = clip_src (rect, src_d);
+			}
+			if (nExp) {
+				if (nExp < 0) {
+					// no part of the source intersects the destination, or both are
+					// different windows, so only generate events for the visible parts
+					//
+					exps   =  &rect[1];
+					nExp   =  1;
+					action &= ~(CPsrcP|CPsrcW);
+				}
+				if (gc->ClipNum > 0) {
+					// intersects destination and clipping rectangels for events
+					//
+					GRECT * r = exps;
+					exps      = alloca (sizeof(GRECT) * nExp * gc->ClipNum);
+					nExp      = GrphInterList (exps, gc->ClipRect, gc->ClipNum, r,nExp);
+					if (!nExp && !(action & (CPsrcP|CPsrcW))) {
+						action = 0x00;
 					}
-					nExp = e;
-					exps = (GRECT*)(sect + nSct);
 				}
 			}
-		}
-		switch (action) {
-			// case 0x00|0x00, 0x00|COPYdP: do nothing
-			
-			case COPYsP|COPYdP: {
-				if (src_d.p->Depth == 1) {
-					PmapPutMono (dst_d.Pixmap, gc, rect, PmapMFDB(src_d.Pixmap));
+			if (action & CPdstW) {
+				WINDOW * wind = dst_d.Window;
+				if (!(nSct = WindClipLockP (wind, 0, &work,1, &orig, &sect))) {
+					action = 0x00;
+				
 				} else {
-					PmapPutColor (dst_d.Pixmap, gc, rect, PmapMFDB(src_d.Pixmap));
+					if (nExp) {
+						GRECT * r = (gc->GraphExpos ? (GRECT*)(sect + nSct) : NULL);
+						short   e = 0;
+						if (wind->hasBackGnd) {
+							if (!wind->hasBackPix) {
+								vswr_mode (GRPH_Vdi, MD_REPLACE);
+								vsf_color (GRPH_Vdi, wind->Back.Pixel);
+							}
+							do {
+								PRECT area;
+								int   n;
+								area.rd.x = (area.lu.x = orig.x + exps->x) + exps->w -1;
+								area.rd.y = (area.lu.y = orig.y + exps->y) + exps->h -1;
+								n = WindDrawBgnd (wind, orig, &area, sect, nSct, r);
+								if (n && r) {
+									e += n;
+									r += n;
+								}
+								exps++;
+							} while (--nExp);
+							
+						} else if (gc->GraphExpos) {
+							PRECT * s = sect;
+							short   n = nSct;
+							do {
+								GRECT a = { s->lu.x - orig.x,     s->lu.y - orig.y,
+								            s->rd.x - s->lu.x +1, s->rd.y - s->lu.y +1 };
+								e += GrphInterList (r + e, &a, 1, exps, nExp);
+								s++;
+							} while (--n);
+						}
+						nExp = e;
+						exps = (GRECT*)(sect + nSct);
+					}
 				}
-				debug = xFalse;
-			}	break;
-			
-			case COPYsP|COPYdW: {
-				WindPutImg (dst_d.Window, gc, rect, PmapMFDB(src_d.Pixmap),
-				            orig, sect, nSct);
-				debug = xFalse;
-			}	break;
-			
-			case COPYsW|COPYdP: PRINT (CopyArea," W->P"); break;
-			case COPYsW|COPYdW: PRINT (CopyArea," W->W"); break;
-			default:            PRINT (CopyArea," 0x%02x", action); debug = xFalse;
+			}
+			switch (action) {
+				// case 0x00|0x00, 0x00|CPdstP: do nothing
+				
+				case CPsrcP|CPdstP: {
+					if (src_d.p->Depth == 1) {
+						PmapPutMono (dst_d.Pixmap, gc, rect, PmapMFDB(src_d.Pixmap));
+					} else {
+						PmapPutColor (dst_d.Pixmap, gc, rect, PmapMFDB(src_d.Pixmap));
+					}
+					debug = xFalse;
+				}	break;
+				
+				case CPsrcP|CPdstW: {
+					WindPutImg (dst_d.Window, gc, rect, PmapMFDB(src_d.Pixmap),
+					            orig, sect, nSct);
+					debug = xFalse;
+				}	break;
+				
+				case CPsrcW|CPdstP: PRINT (CopyArea," W->P"); break;
+				
+				case CPsrcW|CPdstW: {/*
+					PXY diff = { rect[1].x - rect[0].x, rect[1].y - rect[0].y };
+					if (diff.x || diff.y) {
+						if (gc->GraphExpos) {
+							nExp += copy_scroll (dst_d.Window, *(PXY*)rect, diff,
+							                     sect, nSct, exps + nExp);
+						} else {
+							copy_scroll (dst_d.Window, *(PXY*)rect, diff,
+							             sect, nSct, NULL);
+						}
+					}
+					PRINT (CopyArea," W->W");
+				*/}	break;
+				
+				default:            PRINT (CopyArea," 0x%02x", action); debug = xFalse;
+			}
 		}
+		
 		if (gc->GraphExpos) {
 			if (nExp) EvntGraphExp (clnt, dst_d, X_CopyArea, nExp, exps);
 			else      EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);

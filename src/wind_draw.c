@@ -206,7 +206,7 @@ WindDrawPmap (PIXMAP * pmap, PXY orig, p_PRECT sect)
 //------------------------------------------------------------------------------
 int
 WindDrawBgnd (WINDOW * wind, PXY orig, PRECT * area,
-              PRECT * sect, int num, GRECT * exps)
+              PRECT * sect, CARD16 nSct, GRECT * exps)
 {
 	int cnt = 0;
 	
@@ -226,7 +226,7 @@ WindDrawBgnd (WINDOW * wind, PXY orig, PRECT * area,
 				}
 				cnt++;
 			}
-		} while (--num);
+		} while (--nSct);
 	
 	} else {
 		do {
@@ -242,7 +242,7 @@ WindDrawBgnd (WINDOW * wind, PXY orig, PRECT * area,
 				}
 				cnt++;
 			}
-		} while (--num);
+		} while (--nSct);
 	}
 	v_show_c (GRPH_Vdi, 1);
 	
@@ -666,6 +666,165 @@ WindPutImg (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
 	if (wind->Depth == 1) _put_mono  (wind, gc, rct, src, sect,nSct, clip,nClp);
 	else                  _put_color (wind, gc, rct, src, sect,nSct, clip,nClp);
 	v_show_c (GRPH_Vdi, 1);
+}
+
+
+//==============================================================================
+CARD16
+WindScroll (p_WINDOW wind, p_GC gc, GRECT * rect,
+            PXY diff, PXY orig, PRECT * sect, CARD16 nSct, GRECT * exps)
+{
+	// rect[0]: combined source and destination area (relative position)
+	//     [1]: destination only area (relative position)
+	// diff:    direction to scroll, < 0 = left/up, > 0 = right/down
+	// exps:    buffer for exposure rectangles storing or NULL
+	//...........................................................................
+	
+	MFDB   s_mfdb  = { NULL, }, d_mfdb = { NULL, };
+	BOOL   do_tile = (exps != NULL || wind->hasBackGnd);
+	short  d_x     = (diff.x < 0 ? -diff.x : diff.x);
+	short  d_y     = (diff.y < 0 ? -diff.y : diff.y);
+	CARD16 nExp = 0;
+	PRECT  area;     // to be intersected with sect[]
+	PRECT * cLst;
+	CARD16  nLst;
+	PRECT  pxy[2];
+	
+	pxy->rd.x = (pxy->lu.x = rect[1].x + orig.x) + rect[1].w -1;
+	pxy->rd.y = (pxy->lu.y = rect[1].y + orig.y) + rect[1].h -1;
+	if (gc->ClipNum > 0) {
+		PRECT * c = cLst = alloca (sizeof(PRECT) * gc->ClipNum);
+		GRECT * r = gc->ClipRect;
+		CARD16  n = gc->ClipNum;
+		nLst      = 0;
+		while (n--) {
+			c->rd.x = (c->lu.x = r->x + orig.x) + r->w -1;
+			c->rd.y = (c->lu.y = r->y + orig.y) + r->h -1;
+			if (GrphIntersectP (c, pxy)) {
+				c++;
+				nLst++;
+			}
+		}
+		if (!nLst) return 0;
+		
+	} else {
+		cLst  = alloca (sizeof(PRECT));
+		*cLst = *pxy;
+		nLst  = 1;
+	}
+	area.rd.x = (area.lu.x = rect[0].x + orig.x) + rect[0].w -1;
+	area.rd.y = (area.lu.y = rect[0].y + orig.y) + rect[0].h -1;
+	
+	if (!wind->hasBackPix) {
+		vswr_mode (GRPH_Vdi, MD_REPLACE);
+		vsf_color (GRPH_Vdi, wind->Back.Pixel);
+	}
+	while (nSct--) {
+		PRECT * dest;
+		CARD16  nDst;
+		PRECT   clip = area;
+		if (!GrphIntersectP (&clip, sect++)) continue;
+		
+		dest = cLst;
+		nDst = nLst;
+		while (nDst--) {
+			PRECT  tile[3]; // above,left/right,below tile areas
+			CARD16 nTil;    // number of tiles
+			short  offs;
+			pxy[1] = *(dest++);
+			if (!GrphIntersectP (&pxy[1], &clip)) continue;
+			
+			pxy[0] = pxy[1];
+			nTil   = 0;
+			offs   = 0;
+			if (diff.y < 0) {   //................scroll.up......
+				offs++; // start tileing at left/right area
+				pxy[0].lu.y += d_y;
+				pxy[0].rd.y += d_y;
+				if (pxy[0].rd.y > clip.rd.y) {
+					pxy[1].rd.y -= pxy[0].rd.y - clip.rd.y;
+					pxy[0].rd.y =  clip.rd.y;
+					if (do_tile) {               // tile below
+						tile[2].lu.x = pxy[0].lu.x;
+						tile[2].lu.y = pxy[1].rd.y +1;
+						tile[2].rd   = pxy[0].rd;
+						nTil++;
+					}
+				}
+			} else if (diff.y > 0) {   //.........scroll.down....
+				pxy[0].lu.y -= d_y;
+				pxy[0].rd.y -= d_y;
+				if (pxy[0].lu.y < clip.lu.y) {
+					pxy[1].lu.y -= pxy[0].lu.y - clip.lu.y;
+					pxy[0].lu.y =  clip.lu.y;
+					if (do_tile) {               // tile above
+						tile[0].lu   = pxy[0].lu;
+						tile[0].rd.x = pxy[1].rd.x;
+						tile[0].rd.y = pxy[1].lu.y -1;
+						nTil++;
+					}
+				}
+			}
+			if (diff.x < 0) {   //................scroll.left....
+				pxy[0].lu.x += d_x;
+				pxy[0].rd.x += d_x;
+				if (pxy[0].rd.x > clip.rd.x) {
+					pxy[1].rd.x -= pxy[0].rd.x - clip.rd.x;
+					pxy[0].rd.x =  clip.rd.x;
+					if (do_tile) {               // tile right
+						tile[1].lu.x = pxy[1].rd.x +1;
+						tile[1].lu.y = pxy[1].lu.y;
+						tile[1].rd.x = pxy[0].rd.x;
+						tile[1].rd.y = pxy[1].rd.y;
+						nTil++;
+					}
+				}
+			} else if (diff.x > 0) {   //.........scroll.right...
+				pxy[0].lu.x -= d_x;
+				pxy[0].rd.x -= d_x;
+				if (pxy[0].lu.x < clip.lu.x) {
+					pxy[1].lu.x -= pxy[0].lu.x - clip.lu.x;
+					pxy[0].lu.x =  clip.lu.x;
+					if (do_tile) {               // tile left
+						tile[1].lu.x = pxy[0].lu.x;
+						tile[1].lu.y = pxy[1].lu.y;
+						tile[1].rd.x = pxy[1].lu.x -1;
+						tile[1].rd.y = pxy[1].rd.y;
+						nTil++;
+					}
+				}
+			} else if (offs) {
+				offs++; // start tileing at below area
+			}
+			if (pxy[0].lu.x <= pxy[0].rd.x  &&  pxy[0].lu.y <= pxy[0].rd.y) {
+				v_hide_c  (GRPH_Vdi);
+				vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &s_mfdb, &d_mfdb);
+				v_show_c  (GRPH_Vdi, 1);
+			} else if (do_tile) {
+				offs    = 0;
+				tile[0] = clip;
+				nTil    = 1;
+			}
+			if (nTil) {
+				if (wind->hasBackGnd) {
+					int n = WindDrawBgnd (wind, orig, &clip, tile + offs, nTil, exps);
+					if (exps) {
+						exps += n;
+						nExp += n;
+					}
+				} else if (exps) do {
+					PRECT * c = (tile + offs++);
+					exps->w = c->rd.x - c->lu.x +1;
+					exps->h = c->rd.y - c->lu.y +1;
+					exps->x = c->lu.x - orig.x;
+					exps->y = c->lu.y - orig.y;
+					exps++;
+					nExp++;
+				} while (nTil--);
+			}
+		}
+	}
+	return nExp;
 }
 
 
