@@ -1,3 +1,9 @@
+2001-06-23: 0.09.2
+   - improved a bit the detection of gray scale colors for better matching the
+     client's ideas of colors using the 4x8x4 color model.
+   - release pointer grab if the grab window becomes unmapped, not doing so may
+     freeze the system.
+   - corrected handling for (un)iconifying windows and several internal changes.
 2001-05-21: 0.09.1
    - improved keyboard focus tracking, now apart from iconified windows.
 
