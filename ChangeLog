@@ -1,6 +1,9 @@
+2001-07-13: 0.11
    - if the server starts up and founds that there is no console installed (or
      opened) it tryes to start xconsole instead.  this works only in case that
      the xconout2.xdd is installed.
+   - created another latin 1 gdos-font '6x10' (in gdos-X-fonts-03.tgz), as
+     beloved by xconsole and xterm.
    - implemented AV_START message handling to allow client programms to be
      started with corrected command lines.
    - implemented command line conversion from tos to unix path convention for
