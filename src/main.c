@@ -135,7 +135,7 @@ main (int argc, char * argv[])
 				CARD8  meta      = (*kb_shift &  K_RSHIFT ? Mod2Mask|ShiftMask : 0)
 				                 | (*kb_shift &  K_LSHIFT ? Mod3Mask|ShiftMask : 0)
 				                 | (*kb_shift &  K_LOCK   ? LockMask           : 0)
-				                 | (*kb_shift & (K_CTRL|K_ALT));
+				                 | (*kb_shift & (K_CTRL|K_ALT|K_ALTGR));
 				MAIN_KeyButMask  = meta | PntrMap(ev_o.evo_mbutton);
 				MAIN_TimeStamp   = (clock() * (1000 / CLOCKS_PER_SEC) - t_start);
 				

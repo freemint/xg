@@ -83,10 +83,10 @@
 	{ XK_Page_Up,     0 },             // 0x49 KEY_PAGE_UP (remapped)
 	{ XK_KP_Subtract, 0 },
 	{ XK_Left,        0 },
-	{ XK_VoidSymbol }, // 0x4C
+	{ XK_Alt_R,       0 },             // 0x4C KEY_ALTGR (milan)
 	{ XK_Right,       0 },
 	{ XK_KP_Add,      0 },
-	{ XK_VoidSymbol }, // 0x4F
+	{ XK_End,         0 },             // 0x4F (milan)
 	{ XK_Down,        0 },
 	{ XK_Page_Down,   0 },             // 0x51 KEY_PAGE_DN (remapped)
 	{ XK_Insert,      0 },
@@ -121,4 +121,13 @@
 	{ XK_KP_3,        0 },
 	{ XK_KP_0,        0 },
 	{ XK_KP_Decimal,  0 },
-	{ XK_KP_Enter,    0 }
+	{ XK_KP_Enter,    0 },
+	
+// milan mapped codes start at 0x73
+
+	{ XK_backslash,  0 }, // MIL_BKSL
+	{ XK_bar,        0 }, // MIL_PIPE
+	{ XK_braceleft,  0 }, // MIL_BRCE_L
+	{ XK_braceright, 0 }, // MIL_BRCE_R
+	{ XK_Greek_mu,   0 }  // MIL_MU
+	

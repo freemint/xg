@@ -24,7 +24,7 @@
 KeySym KYBD_Map[][2] = {
 #	include "keyb_map.c"
 };
-#define     KEYSYM_OFFS   8
+#define     KEYSYM_OFFS   7
 const CARD8 KYBD_MapMin = KEYSYM_OFFS + 1;
 const CARD8 KYBD_MapMax = KEYSYM_OFFS + (sizeof(KYBD_Map) / sizeof(*KYBD_Map));
 
@@ -48,7 +48,7 @@ KybdEvent (short scan, short prev_meta)
 		}
 		if (chng) {
 			BYTE code[] = { 0, KEY_LOCK, KEY_CTRL, KEY_ALT,
-			                   KEY_SHIFT_R, KEY_SHIFT_L };
+			                   KEY_SHIFT_R, KEY_SHIFT_L, 0, KEY_ALTGR };
 			int  i      = 1;
 			do {
 				if (chng & 1) {
@@ -66,7 +66,17 @@ KybdEvent (short scan, short prev_meta)
 		}
 		if (scan) {
 			pndg = scan >>8;
-			if (MAIN_KeyButMask & K_ALT) switch (pndg) {
+			if (MAIN_KeyButMask & K_ALTGR) switch (pndg) {
+				case SCN_AT:     pndg = KEY_AT_BKSL; break;
+				case SCN_BKSL:   pndg = MIL_BKSL;    break;
+				case SCN_TLDE:   pndg = KEY_TLDE;    break;
+				case SCN_PIPE:   pndg = MIL_PIPE;    break;
+				case SCN_BRCE_L: pndg = MIL_BRAC_L;  break;
+				case SCN_BRCE_R: pndg = MIL_BRAC_R;  break;
+				case SCN_BRCK_L: pndg = KEY_BRAC_L;  break;
+				case SCN_BRCK_R: pndg = KEY_BRAC_R;  break;
+				case SCN_MU:     pndg = MIL_MU;      break;
+			} else if (MAIN_KeyButMask & K_ALT) switch (pndg) {
 				case SCN_A_DIAER: pndg = KEY_BRAC_R;  break;
 				case SCN_O_DIAER: pndg = KEY_BRAC_L;  break;
 				case SCN_U_DIAER: pndg = KEY_AT_BKSL; break;
