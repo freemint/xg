@@ -31,7 +31,7 @@ static long SRVR_RdSet  = 0L;
 static int  SRVR_Socket = -1;
 
 //==============================================================================
-static const char _SRVR_Vendor[] = "AltF4 @ FreeMiNT";
+static const char _SRVR_Vendor[] = "FreeMiNT/ATARI";
 static struct s_setup {
 	xConnSetupPrefix pref;
 	xConnSetup       conn;
