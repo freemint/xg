@@ -16,6 +16,7 @@
 #define _GNU_SOURCE
 #include <string.h>
 #include <fnmatch.h>
+#include <ctype.h>
 
 #include <X11/X.h>
 
@@ -131,7 +132,7 @@ _Font_Alias (char * buf, const char * src, size_t len)
 	int i;
 	
 	for (i = 0; i < len; i++) {
-		buf[i] = src[i];
+		buf[i] = tolower (src[i]);
 	}
 	buf[len] = '\0';
 	
