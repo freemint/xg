@@ -116,6 +116,7 @@ PXY      WindOrigin     (p_WINDOW );
 short    WindGeometry   (p_WINDOW , p_GRECT dst, CARD16 border);
 PXY      WindPointerPos (p_WINDOW );
 void     WindSetHandles (p_WINDOW );
+CARD32   WindChildOf    (p_WINDOW , p_WINDOW candid);
 
 static inline p_WINDOW WindFind (CARD32 id) {
 	p_WINDOW wind = DrawFind(id).Window;

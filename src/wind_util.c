@@ -124,6 +124,22 @@ WindSetHandles (WINDOW * wind)
 
 
 //==============================================================================
+CARD32
+WindChildOf (WINDOW * wind, WINDOW * candid)
+{
+	// If candid is an inferior of wind returns the child of wind that is an
+	// anchestor of (or is) candid.  Otherwise returns 'None'.
+	//...........................................................................
+	
+	do if (candid->Parent == wind) {
+		return candid->Id;
+	} while ((candid = candid->Parent));
+	
+	return None;
+}
+
+
+//==============================================================================
 //
 // The following functions are private to  wind..-modules.
 
