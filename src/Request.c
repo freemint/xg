@@ -59,9 +59,9 @@ _Clnt__EvalSelect (CLIENT * clnt, xReq * q)
 	exit(1);
 		longjmp (CLNT_Error, 2);
 	}
-	if (q->length > MAXREQUESTSIZE || !q->length) {
-		PRINT (,"\33pError\33q Bad request length %u/%u in '%s'.",
-		       q->length, MAXREQUESTSIZE, RequestTable[q->reqType].Name);
+	if (q->length > CNFG_MaxReqLength || !q->length) {
+		PRINT (,"\33pError\33q Bad request length %u/%lu in '%s'.",
+		       q->length, CNFG_MaxReqLength, RequestTable[q->reqType].Name);
 		longjmp (CLNT_Error, 2);
 	}
 
