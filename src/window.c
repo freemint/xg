@@ -594,9 +594,10 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 		}
 		EvntDel (wind);
 		
-		if (wind->nSelections) SlctClear (wind);
-		if (wind->Cursor)      CrsrFree  (wind->Cursor, NULL);
-		if (wind->hasBackPix)  PmapFree  (wind->Back.Pixmap, NULL);
+		while (wind->Properties)  PropDelete (&wind->Properties);
+		if    (wind->nSelections) SlctClear  (wind);
+		if    (wind->Cursor)      CrsrFree   (wind->Cursor, NULL);
+		if    (wind->hasBackPix)  PmapFree   (wind->Back.Pixmap, NULL);
 		
 		next  = wind->NextSibl;
 		owner = (clnt ? clnt : ClntFind(wind->Id));
