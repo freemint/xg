@@ -13,43 +13,22 @@
 #include <stddef.h>
 
 
-extern short aes_control[];
-extern short aes_intin[];
-extern short aes_intout[];
-
 
 //==============================================================================
 short
 wind_get_one (int WindowHandle, int What)
 {
-	aes_intin[0] = WindowHandle;
-	aes_intin[1] = What;
-   
-   aes_control[0] = 104;
-   aes_control[1] = 2;
-   aes_control[2] = 5;
-   aes_control[3] = 0;
-   aes_control[4] = 0;
-   aes (&aes_params);
+	short value;
 	
-	return (aes_intout[0] ? aes_intout[1] : -1);
+	if ( wind_get( WindowHandle, What, &value, NULL, NULL, NULL) )
+		return value;
+	
+	return -1;
 }
 
 //==============================================================================
 short
 wind_set_proc (int WindowHandle, CICONBLK *icon)
 {
-	aes_intin[0]                 = WindowHandle;
-	aes_intin[1]                 = 201;
-	*(CICONBLK**)(&aes_intin[2]) = icon;
-	aes_intin[4] = aes_intin[5]  = 0;
-	
-	aes_control[0] = 105;
-	aes_control[1] = 6;
-	aes_control[2] = 1;
-	aes_control[3] = 0;
-	aes_control[4] = 0;
-	aes (&aes_params);
-	
-	return aes_intout[0];
+	return wind_set_str( WindowHandle, 201, (char *)icon);
 }

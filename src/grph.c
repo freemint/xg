@@ -22,7 +22,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/cookie.h>
+#include <mint/cookie.h>
 
 #include <X11/Xprotostr.h>
 

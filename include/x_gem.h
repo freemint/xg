@@ -23,7 +23,7 @@
 #define K_ALTGR   0x80
 
 
-#define ApplId(void) (aes_params.intout[2])
+#define ApplId(void) (aes_global[2])
 
 #define wind_get_curr(h,r)        wind_get_grect (h, WF_CURRXYWH,      r)
 #define wind_get_first(h,r)       wind_get_grect (h, WF_FIRSTXYWH,     r)

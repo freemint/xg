@@ -862,7 +862,7 @@ WmgrMenu (short title, short entry, short meta)
 			} else {
 				const char * question =
 					"[2]"
-					"[Really quit the server|and all runng clients?]"
+					"[Really quit the server|and all running clients?]"
 					"[ quit |continue]";
 				trigger = (form_alert (1, question) == 1);
 			}

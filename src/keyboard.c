@@ -20,7 +20,7 @@
 
 #include <stdio.h>
 #include <mint/ssystem.h>
-#include <sys/cookie.h>
+#include <mint/cookie.h>
 # define C__MIL 0x5F4D494CL
 
 #include <X11/Xproto.h>
