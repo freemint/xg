@@ -113,17 +113,6 @@ main (int argc, char * argv[])
 					printf ("  Can't exec '%s'.\n", argv[1]);
 				}
 			}
-//>>>>>>>>>> TEMPORARY >>>>>>>>>>
-			{	extern BOOL FONT_Obsolete;
-				if (FONT_Obsolete) {
-					form_alert (1, "[1][X Server:|"
-					               "========================================|"
-					               "At least one Latin1 encoded font is out-|"
-					               "dated (see also console output), please|"
-					               "update from       http://X11.freemint.de]"
-					               "[  ok  ]");
-			}	}
-//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 			
 			rtn = 0;
 			

@@ -236,11 +236,6 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 }
 
 //==============================================================================
-
-//>>>>>>>>>> TEMPORARY >>>>>>>>>>
-BOOL FONT_Obsolete = xFalse;
-//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
 void
 FontInit (short count)
 {
@@ -447,21 +442,6 @@ FontInit (short count)
 		}
 		
 		if (!isSymbol) {
-
-//>>>>>>>>>> TEMPORARY >>>>>>>>>>
-			if (info.format == 1
-			    && (p = strchr (info.font_name, 'Ý')) && p != info.font_name) {
-				if (!FONT_Obsolete) {
-					printf ("\n  **********\n  *\n  * obsolete font: ");
-				} else {
-					printf ("  *                ");
-				}
-				printf ("% 5i '%s'\n", info.id, info.font_name);
-				FONT_Obsolete = xTrue;
-				continue;
-			}
-//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
 			if (info.format == 1
 			    &&  info.font_name[0] =='Ý'&&  info.font_name[1] =='-') {
 				latn = xTrue;
@@ -687,14 +667,6 @@ FontInit (short count)
 			}
 		}
 	}
-//>>>>>>>>>> TEMPORARY >>>>>>>>>>
-	if (FONT_Obsolete) {
-		printf ("  *\n  * Please upate the Latin1-encoded Font Package from:\n");
-		printf ("  *      http://freemint.de/X11/gdos-X-fonts-02.tgz\n");
-		printf ("  * (or newer version)\n  *\n  **********\n\n");
-		FONT_Obsolete = font_warn;
-	}
-//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 	
 	if (f_db) fclose (f_db);
 	
