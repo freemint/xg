@@ -201,7 +201,7 @@ EvntClient (WINDOW * wind, CARD32 mask)
 
 //==============================================================================
 void
-EvntExpose (WINDOW * wind, short len, const p_GRECT rect)
+EvntExpose (WINDOW * wind, short len, const struct s_GRECT * rect)
 {
 	CARD16     num = (wind->u.List.AllMasks < 0 ? wind->u.List.p->Length : 1);
 	WINDEVNT * lst = (num > 1 ? wind->u.List.p->Event : &wind->u.Event);
@@ -212,28 +212,74 @@ EvntExpose (WINDOW * wind, short len, const p_GRECT rect)
 			xEvent      * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 			const GRECT * rct = rect;
 			int           cnt = len;
-			if (lst->Client->DoSwap) while (cnt--) {
-				evn->u.u.type           = Expose;
-				evn->u.u.sequenceNumber = Swap16(lst->Client->SeqNum);
-				evn->u.expose.window    = Swap32(wind->Id);
-				evn->u.expose.count     = Swap16(cnt);
-				SwapRCT ((GRECT*)&evn->u.expose.x, rct);
-				rct++;
-				evn++;
-			} else while (cnt--) {
-				evn->u.u.type             = Expose;
-				evn->u.u.sequenceNumber   = lst->Client->SeqNum;
-				evn->u.expose.window      = wind->Id;
-				evn->u.expose.count       = cnt;
-				*(GRECT*)&evn->u.expose.x = *rct;
-				rct++;
-				evn++;
+			if (lst->Client->DoSwap) {
+				CARD16 seq = Swap16(lst->Client->SeqNum);
+				CARD32 wid = Swap32(wind->Id);
+				while (cnt--) {
+					evn->u.u.type           = Expose;
+					evn->u.u.sequenceNumber = seq;
+					evn->u.expose.window    = wid;
+					evn->u.expose.count     = Swap16(cnt);
+					SwapRCT ((GRECT*)&evn->u.expose.x, rct++);
+					evn++;
+				}
+			} else {
+				CARD16 seq = lst->Client->SeqNum;
+				CARD32 wid = wind->Id;
+				while (cnt--) {
+					evn->u.u.type             = Expose;
+					evn->u.u.sequenceNumber   = seq;
+					evn->u.expose.window      = wid;
+					evn->u.expose.count       = cnt;
+					*(GRECT*)&evn->u.expose.x = *(rct++);
+					evn++;
+				}
 			}
 			buf->Left     += sizeof(xEvent) * len;
 			MAIN_FDSET_wr |= 1uL << lst->Client->Fd;
 		}
 		lst++;
 	}
+}
+
+//==============================================================================
+void
+EvntGraphExp (CLIENT * clnt, p_DRAWABLE draw,
+              CARD16 major, short len, const struct s_GRECT * rect)
+{
+	NETBUF * buf = &clnt->oBuf;
+	xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
+	int      cnt = len;
+	if (clnt->DoSwap) {
+		CARD16 seq = Swap16(clnt->SeqNum);
+		CARD32 did = Swap32(draw.p->Id);
+		major      = Swap16(major);
+		while (cnt--) {
+			evn->u.u.type                      = GraphicsExpose;
+			evn->u.u.sequenceNumber            = seq;
+			evn->u.graphicsExposure.drawable   = did;
+			evn->u.graphicsExposure.count      = Swap16(cnt);
+			evn->u.graphicsExposure.minorEvent = 0;
+			evn->u.graphicsExposure.majorEvent = major;
+			SwapRCT ((GRECT*)&evn->u.graphicsExposure.x, rect++);
+			evn++;
+		}
+	} else {
+		CARD16 seq = clnt->SeqNum;
+		CARD32 did = draw.p->Id;
+		while (cnt--) {
+			evn->u.u.type                       = GraphicsExpose;
+			evn->u.u.sequenceNumber             = seq;
+			evn->u.graphicsExposure.drawable    = did;
+			evn->u.graphicsExposure.count       = cnt;
+			evn->u.graphicsExposure.minorEvent  = 0;
+			evn->u.graphicsExposure.majorEvent  = major;
+			*(GRECT*)&evn->u.graphicsExposure.x = *(rect++);
+			evn++;
+		}
+	}
+	buf->Left     += sizeof(xEvent) * len;
+	MAIN_FDSET_wr |= 1uL << clnt->Fd;
 }
 
 //==============================================================================

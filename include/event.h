@@ -39,6 +39,9 @@ BOOL EvntPropagate (p_WINDOW wind, CARD32 mask, BYTE event,
 void EvntPointer (p_WINDOW * stack, int anc, int top,
                   PXY e_xy, PXY r_xy, CARD32 r_id, CARD8 mode);
 
+void EvntGraphExp (p_CLIENT , p_DRAWABLE ,
+                   CARD16 major, short len, const struct s_GRECT * rect);
+
 #define EvntCirculateNotify(w,m, wid, plc)\
                                          _evnt_w (w,m,CirculateNotify, wid, plc)
 #define EvntCirculateRequest(w,m, wid, plc)\
@@ -53,7 +56,7 @@ void    EvntClientMsg (p_CLIENT, CARD32 id, CARD32 type, BYTE format, void *);
                               _evnt_w (w,EnterWindowMask,EnterNotify, wid, cid,\
                                             *(CARD32*)&(rxy), *(CARD32*)&(exy),\
                                                                   mod, foc, dtl)
-void    EvntExpose (p_WINDOW, short len, const p_GRECT rect);
+void    EvntExpose (p_WINDOW, short len, const struct s_GRECT * rect);
 #define EvntFocusIn(        w,   mod, dtl) \
                                    _evnt_w (w,FocusChangeMask,FocusIn, mod, dtl)
 #define EvntFocusOut(       w,   mod, dtl) \
