@@ -45,7 +45,7 @@ typedef struct s_WINDOW {
 	BOOL hasBackGnd   : 1;
 	BOOL hasBackPix   : 1;
 	
-	BOOL GwmParent    : 1;
+	BOOL GwmParented  : 1;
 	BOOL GwmDecor     : 1;
 	BOOL GwmIcon      : 1;
 	
@@ -99,8 +99,8 @@ int    WindDrawBgnd    (p_WINDOW , PXY orig, p_PRECT area,
 void WindDrawPmap    (p_PIXMAP , PXY orig, p_PRECT sect);
 BOOL WindCirculate   (p_WINDOW , CARD8 place);
 void WindResize      (p_WINDOW , p_GRECT diff);
-BOOL WindMap         (p_WINDOW , BOOL visible);
-void WindUnmap       (p_WINDOW , BOOL by_conf);
+BOOL WindSetMapped   (p_WINDOW , BOOL visible);
+void WindClrMapped   (p_WINDOW , BOOL by_conf);
 
 // save-under
 extern PRECT WIND_SaveArea[];
