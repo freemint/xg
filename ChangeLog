@@ -1,3 +1,19 @@
+2001-07-27: 0.11.2
+   - implemented GetKeyboardControl request for clients that want to
+     know which keys has auto repeat enabled, like xkeycaps does.
+   - improved handling of ALT+numblock inputs, nearly all characters
+     defined in the Atari font can be typed in this way now.
+   - completely reworked keyboard mapping (again), should be working
+     now correctly with milan keyboards also, finally.
+2001-07-16: 0.11.1
+   - implemented GrabServer/UngrabServer requests.
+   - reworked socket stream handling.  using an unified call interface
+     for both accept and normal io events reduces the cpu usage of the
+     server by aprox. 10% in standby.
+   - changed gemlib trap interface to asm inline (not completed yet).
+     this improves very little the binary size and gem calling speed
+     but wasn't really worth the effort.
+
 2001-07-13: 0.11
    - if the server starts up and founds that there is no console installed (or
      opened) it tryes to start xconsole instead.  this works only in case that
@@ -18,7 +34,7 @@
 2001-07-07: 0.10.2
    - completely reworked keyboard mapping, should now work correctly with
      different keyboard layouts, also for french and swedish.  Additional,
-     mostly can be made use of inputs done by ALT + number-field.
+     mostly can be made use of inputs done by ALT+numblock.
    - improved KeyRelease events timing, will simply be generated after the
      keyboard's initial repeat time expired.
    - re-activated Ctrl+Alt+Backspace for imediate server shutdown, was removed
