@@ -1,3 +1,13 @@
+2001-11-25: 0.14.1
+   - the keybord init function now also searches for the _MIL cookie
+     to enable (again) AltGr key combinations also for newer TOSs that
+     supports the euro sign.
+   - corrected the sorting order of the internal color name list.
+     Some missplaced names prevented the search algorithm from finding
+     several color names like "orange", "blue violet" and others.
+   - some smaller changes in the font management, mainly for debugging
+     purpose.
+
 2001-09-21: 0.14
    - if the server can't load its RSC file the normal way, it also
      searches in /usr/X11/bin/ now.
