@@ -107,7 +107,7 @@ static inline BOOL RectIntersect (const GRECT * a, const GRECT * b)
 #define SWAP32(v)   ( (((v)>>24) & 0xFF)  | (((v)>>8) & 0xFF00) | \
                       (((v) & 0xFF00)<<8) | (((v) & 0xFF)<<24) )
 #define Units(n)    (((n) +3) /4)
-#define Align(n)    (((n) +3) & 0xFFFC)
+#define Align(n)    (((n) +3) & ~3ul)
 
 
 #endif __TOOLS_H__
