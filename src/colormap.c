@@ -27,6 +27,7 @@ static CARD8 _CMAP_TransGrey[32] = {
 	G_BLACK,244,243,255,245,236, 58,246, 242,254,247,249,101,241,235,240,
 	    239,248,238,144,234,237,253,252, 233,187,232,231,251,250,230,G_WHITE
 };
+static RGB   _CMAP_VdiRGB[256];
 
 
 //==============================================================================
@@ -34,20 +35,10 @@ void
 CmapPalette (void)
 {
 	short mbuf[8] = { COLORS_CHANGED, ApplId(0), 0,0,0,0,0,0 };
-	short rgb[3];
-	int   i, c = 16;
-	for (rgb[0] = 0; rgb[0] <= 1000; rgb[0] += 200) {
-		for (rgb[1] = 0; rgb[1] <= 1000; rgb[1] += 200) {
-			rgb[2] = (rgb[0] | rgb[1] ? 0 : 200);
-			for ( ; rgb[2] <= 1000; rgb[2] += 200) {
-				vs_color (GRPH_Vdi, c++, rgb);
-			}
-		}
-	}
-	for (i = 1; i < 31; i++) {
-		rgb[0] = rgb[1] = rgb[2] = (1001 * i) /31;
-		vs_color (GRPH_Vdi, _CMAP_TransGrey[i], rgb);
-	}
+	RGB * rgb = _CMAP_VdiRGB +16;
+	int   i;
+	for (i = 16; i < 256; vs_color (GRPH_Vdi, i++, (short*)(rgb++)));
+	
 	shel_write (SWM_BROADCAST, 0, 0, (void*)mbuf, NULL);
 }
 
@@ -58,21 +49,38 @@ CmapInit(void)
 {
 	int i;
 	
-	if (GRPH_Depth == 1) {
-		for (i =  1; i < 16; _CMAP_TransGrey[i++] = G_BLACK);
-		for (i = 16; i < 31; _CMAP_TransGrey[i++] = G_WHITE);
+	vq_color (GRPH_Vdi, G_WHITE, 1, (short*)&_CMAP_VdiRGB[G_WHITE]);
+	vq_color (GRPH_Vdi, G_BLACK, 1, (short*)&_CMAP_VdiRGB[G_BLACK]);
 	
-	} else if (GRPH_Depth <= 4) {
-		for (i =  1; i <  8; _CMAP_TransGrey[i++] = G_BLACK);
-		for (i =  8; i < 16; _CMAP_TransGrey[i++] = G_LBLACK);
-		for (i = 16; i < 24; _CMAP_TransGrey[i++] = G_LWHITE);
-		for (i = 24; i < 31; _CMAP_TransGrey[i++] = G_WHITE);
+	if (GRPH_Depth > 1) {
+		RGB * rgb = _CMAP_VdiRGB +2;
+		for (i = 2; i < 16; vq_color (GRPH_Vdi, i++, 1, (short*)(rgb++)));
+	
+		if (GRPH_Depth <= 4) {
+			for (i =  1; i <  8; _CMAP_TransGrey[i++] = G_BLACK);
+			for (i =  8; i < 16; _CMAP_TransGrey[i++] = G_LBLACK);
+			for (i = 16; i < 24; _CMAP_TransGrey[i++] = G_LWHITE);
+			for (i = 24; i < 31; _CMAP_TransGrey[i++] = G_WHITE);
 		
-	} else if (GRPH_Depth <= 8) {
-		CmapPalette();
-		
-	} else { // TrueColor
-		
+		} else {
+			int r, g, b = 200;
+			for (r = 0; r <= 1000; r += 200) {
+				for (g = 0; g <= 1000; g += 200) {
+					for ( ; b <= 1000; b += 200) {
+						rgb->r = r;
+						rgb->g = g;
+						rgb->b = b;
+						rgb++;
+					}
+					b = 0;
+				}
+			}
+			for (i = 1; i < 31; i++) {
+				rgb = _CMAP_VdiRGB + _CMAP_TransGrey[i];
+				rgb->r = rgb->g = rgb->b = (1001 * i) /31;
+			}
+			CmapPalette();
+		}
 	}
 }
 
@@ -136,7 +144,7 @@ CmapLookup (RGB * dst, const RGB * src)
 		c    |= c >> 5;
 		dst->r = dst->g = dst->b = PIXEL(c);
 		
-	} else if (GRPH_Depth == 8) {
+	} else if (GRPH_Depth >= 8) {
 		CARD16 val[] = { 0,PIXEL(49),PIXEL(99),PIXEL(156),PIXEL(206),PIXEL(255) };
 		BYTE r = ((src->r >> 7) *3) >> 8,
 		     g = ((src->g >> 7) *3) >> 8,
@@ -187,7 +195,7 @@ CmapLookup (RGB * dst, const RGB * src)
 			}
 		}
 	}
-	return pixel;
+	return pixel | 0x80000000uL;
 }
 
 
@@ -344,20 +352,23 @@ RQ_QueryColors (CLIENT * clnt, xQueryColorsReq * q)
 	size_t   len = ((q->length *4) - sizeof (xQueryColorsReq)) / sizeof(CARD32);
 	CARD32 * pix = (CARD32*)(q +1);
 	ClntReplyPtr (QueryColors, r);
-	xrgb * rgb = (xrgb*)(r +1);
+	xrgb * dst = (xrgb*)(r +1);
 	int i;
 	
 	DEBUG (QueryColors,"- M:%lX (%lu)", q->cmap, len);
 	
 	r->nColors = (clnt->DoSwap ? Swap16(len) : len);
-	for (i = 0; i < len; ++i, ++pix) {
-		CARD32 color = (clnt->DoSwap ? Swap32(*pix) : *pix);
-		short  vrgb[3];
-		vq_color (GRPH_Vdi, color, 1, vrgb);
-		vrgb[0] = ((long)vrgb[0] * 256) /1001; rgb->red   = PIXEL(vrgb[0]);
-		vrgb[1] = ((long)vrgb[1] * 256) /1001; rgb->green = PIXEL(vrgb[1]);
-		vrgb[2] = ((long)vrgb[2] * 256) /1001; rgb->blue  = PIXEL(vrgb[2]);
-		DEBUG (,"+- %lu", color);
+	for (i = 0; i < len; i++, pix++) {
+		CARD32 pixel = (clnt->DoSwap ? Swap32(*pix) : *pix);
+		RGB  * rgb   = _CMAP_VdiRGB +pixel;
+		short  red   = ((long)rgb->r * 256) /1001,
+		       green = ((long)rgb->g * 256) /1001,
+		       blue  = ((long)rgb->b * 256) /1001;
+		dst->red   = PIXEL(red);
+		dst->green = PIXEL(green);
+		dst->blue  = PIXEL(blue);
+		rgb++;
+		DEBUG (,"+- %lu", pixel);
 	}
 	DEBUG (,"+");
 	
