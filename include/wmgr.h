@@ -30,7 +30,8 @@ void WmgrCalcBorder (p_GRECT curr, p_WINDOW wind);
 BOOL WmgrWindHandle (p_WINDOW wind);
 BOOL WmgrWindMap    (p_WINDOW wind, p_GRECT );
 BOOL WmgrWindUnmap  (p_WINDOW wind, BOOL destroy);
-void WmgrWindName   (p_WINDOW wind, const char * name, BOOL windNicon);
+void WmgrWindName   (p_WINDOW wind, const char * name, BOOL iconNmapped);
+void WmgrWindIcon   (p_WINDOW wind);
 void WmgrCursor     (p_WINDOW wind, p_PXY rel_pos);
 void WmgrCursorOff  (p_CURSOR new_crsr);
 
