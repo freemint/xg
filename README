@@ -4,7 +4,7 @@
                          / \\
                         /   \\  Server for MiNT/GEM
                       ===============================
-                               Jul 31, 2001
+                               Sep 01, 2001
 
 
 Contents
@@ -37,9 +37,9 @@ AES 4.1.
 If you haven't MiNTnet installed you need a very small package (I call it
 'tiny-sock') from X11.freemint.de installed instead.
     
-At the moment only color depths of 1, 4 and 8 planes (2, 16, 256 colors) are
-supported.  Other color depths may cause system crashes/freezes or at least
-unpredictable results.
+At the moment only color depths of 1, 4, 8 and 15 (Falcon HighColor) planes
+(2, 16, 256, 32k colors) are supported.  Other color depths may cause
+system crashes/freezes or at least unpredictable results.
 
 Screen size (width*height) isn't restricted, but ST-High (640*400) is the
 absolutely minimum to get it useable.

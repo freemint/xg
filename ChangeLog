@@ -1,9 +1,29 @@
+2001-09-02: 0.12.4
+   - implemented support for Falcon HighColor graphic mode.
+   - uses now a static VDI color map to speed up some color related
+     requests and colormap changing.
+   - always unload fonts of closed offscreen bitmaps if necessary, was
+     sometimes forgotten before.
+2001-08-27: 0.12.3
+   - corrected handling of ServerUngrab request.
+   - fixed a bug which caused  the server hanging in an infinite loop
+     while working off a WM_ONTOP event.
+   - reset mouse pointer to normal GEM form if last X window is
+     closed.
+   - corrected handling of SIGCHLD in connection with xconsole.
+2001-08-24: 0.12.2
+   - fixed a bug which caused crashes after activating the built-in
+     window manager.
+   - avoid processes started by the server from becoming zombies after
+     termination.
+   - some smaller speed improvements.
+2001-08-22: 0.12.1
    - fixed a bug in the calculation of clipping rectangels (clip-by-
      children mode) which was responsible for occasional undrawn
      window parts.
    - moved some spezialized AES/VDI call functions to the gemlib to
-     use the optimized trap interfaces.  code adapted to the new 0.42
-     gemlib version.
+     use the optimized trap interfaces.  code adapted to the new
+     gemlib version 0.42.
 
 2001-07-31: 0.12
    - updated and expanded README and Xg.hyp files.  The Xg.hyp now
