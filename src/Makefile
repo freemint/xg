@@ -19,7 +19,7 @@ OBJDIR = ../obj
 LIBS   = gem socket
 DEPEND = $(OBJDIR)/depends
 
-LDFLAGS = -v $(CCOPTS)
+LDFLAGS = -v $(CCOPTS) -L/usr/GEM/lib
 
 
 $(OBJDIR)/%.o: %.c ; rm -f $(PRG) ; $(CC) $(CCFLAGS) -D_$(<:.c=)_ -c $< -o $@
