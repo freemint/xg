@@ -87,9 +87,11 @@ CARD16 WindClipLock  (p_WINDOW , CARD16 border, const GRECT * clip,
                                  short n_clip, p_PXY orig, p_GRECT * pBuf);
 CARD16 WindClipLockP (p_WINDOW , CARD16 border, const GRECT * clip,
                                  short n_clip, p_PXY orig, p_PRECT * pBuf);
-void WindClipOff   (void);
+void WindClipOff     (void);
 void WindPutMono     (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
 void WindPutColor    (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
+void WindPutImg      (p_WINDOW , p_GC , p_GRECT , p_MFDB src,
+                                 PXY orig, p_PRECT sect, CARD16 nSct);
 void WindDrawSection (p_WINDOW , const GRECT * sect);
 int  WindDrawBgnd    (p_WINDOW , PXY orig, p_PRECT area,
                                            p_PRECT sect, int num, GRECT * exps);

@@ -214,7 +214,7 @@ WindDrawBgnd (WINDOW * wind, PXY orig, PRECT * area,
 	if (wind->hasBackPix) {
 		do {
 			PRECT rect = *area;
-			if (GrphIntersectP (&rect, sect)) {
+			if (GrphIntersectP (&rect, sect++)) {
 				WindDrawPmap (wind->Back.Pixmap, orig, &rect);
 				if (exps) {
 					exps->w = rect.rd.x - rect.lu.x +1;
@@ -225,13 +225,12 @@ WindDrawBgnd (WINDOW * wind, PXY orig, PRECT * area,
 				}
 				cnt++;
 			}
-			sect++;
 		} while (--num);
 	
 	} else {
 		do {
 			PRECT rect = *area;
-			if (GrphIntersectP (&rect, sect)) {
+			if (GrphIntersectP (&rect, sect++)) {
 				v_bar_p (GRPH_Vdi, &rect.lu);
 				if (exps) {
 					exps->w = rect.rd.x - rect.lu.x +1;
@@ -242,7 +241,6 @@ WindDrawBgnd (WINDOW * wind, PXY orig, PRECT * area,
 				}
 				cnt++;
 			}
-			sect++;
 		} while (--num);
 	}
 	v_show_c (GRPH_Vdi, 1);
@@ -398,6 +396,11 @@ static BOOL
 draw_wind (WINDOW * wind, PRECT * work,
            PRECT * area, PRECT * sect, int nClp)
 {
+	// work: inside area of the window
+	// area: clip rectangle to be drawn
+	// sect: list of sections of the top-window to be drawn
+	// nClp: list length
+	
 	GRECT * exps = (GRECT*)(wind->u.List.AllMasks & ExposureMask
 	                        ? area +2 : NULL);
 	PXY orig = work->lu;
@@ -440,8 +443,9 @@ WindDrawSection (WINDOW * wind, const GRECT * clip)
 	BOOL    enter = xTrue;
 	int     level = 0;
 	PXY     base;
-	PRECT * sect, * area;
-	short   nClp;
+	PRECT * area;  // overall rectangle containing all sections
+	PRECT * sect;  // list of sections to be drawn
+	short   nClp;  // list length
 	
 	vswr_mode (GRPH_Vdi, MD_REPLACE);
 	
@@ -449,7 +453,7 @@ WindDrawSection (WINDOW * wind, const GRECT * clip)
 		if ((nClp = WindClipLockP (wind, WMGR_Decor, clip, -1, &base, &sect))) {
 			PRECT work = { base, {
 			               base.x + wind->Rect.w -1, base.y + wind->Rect.h -1 } };
-			area = sect + nClp;
+			area = (sect + nClp);
 			draw_deco (&work, area, sect, nClp);
 			if (draw_wind (wind, &work, area, sect, nClp)
 			     && (wind = wind->StackBot)) {
@@ -463,7 +467,7 @@ WindDrawSection (WINDOW * wind, const GRECT * clip)
 	} else {
 		nClp  = WindClipLockP (wind, wind->BorderWidth, clip, -1, &base, &sect);
 		level = 0;
-		area  = sect + nClp;
+		area  = (sect + nClp);
 		base.x -= wind->Rect.x;
 		base.y -= wind->Rect.y;
 	}
@@ -480,13 +484,7 @@ WindDrawSection (WINDOW * wind, const GRECT * clip)
 				if (wind->hasBorder && wind->BorderWidth) {
 					draw_brdr (wind, work, area, sect, nClp);
 				}
-				enter = draw_wind (wind, work, area, sect, nClp);
-			
-			} else { // InputOnly
-				enter = GrphIntersectP (work, area);
-			}
-			if (enter) {
-				if (wind->StackBot) {
+				if (draw_wind (wind, work, area, sect, nClp) && wind->StackBot) {
 					level++;
 					area = work;
 					base = orig;
@@ -577,6 +575,96 @@ WindPutColor (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 		}
 		WindUpdate (xFalse);
 	}
+}
+
+
+//------------------------------------------------------------------------------
+static void
+_put_mono (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
+           PRECT * sect, CARD16 nSct, PRECT * clip, CARD16 nClp)
+{
+	short mode      = (gc->Function == GXor ? MD_TRANS : MD_REPLACE);
+	short colors[2] = { gc->Foreground, gc->Background };
+	MFDB  dst       = { NULL };
+	PRECT pxy[2];
+	
+	while (nClp--) {
+		PRECT * s = sect;
+		CARD16  n = nSct;
+		do {
+			pxy[1] = *clip;
+			if (GrphIntersectP (&pxy[1], s)) {
+				pxy[0].lu.x = rct->x      + pxy[1].lu.x - s->lu.x;
+				pxy[0].rd.x = pxy[0].lu.x + pxy[1].rd.x - pxy[1].lu.x;
+				pxy[0].lu.y = rct->y      + pxy[1].lu.y - s->lu.y;
+				pxy[0].rd.y = pxy[0].lu.y + pxy[1].rd.y - pxy[1].lu.y;
+				vrt_cpyfm (GRPH_Vdi, mode, (short*)pxy, src, &dst, colors);
+			}
+			s++;
+		} while (--n);
+		clip++;
+	}
+}
+
+//------------------------------------------------------------------------------
+static void
+_put_color (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
+               PRECT * sect, CARD16 nSct, PRECT * clip, CARD16 nClp)
+{
+	short mode = gc->Function;
+	MFDB  dst  = { NULL };
+	PRECT pxy[2];
+	
+	while (nClp--) {
+		PRECT * s = sect;
+		CARD16  n = nSct;
+		do {
+			pxy[1] = *clip;
+			if (GrphIntersectP (&pxy[1], s)) {
+				pxy[0].lu.x = rct[0].x    + pxy[1].lu.x - s->lu.x;
+				pxy[0].rd.x = pxy[0].lu.x + pxy[1].rd.x - pxy[1].lu.x;
+				pxy[0].lu.y = rct[0].y    + pxy[1].lu.y - s->lu.y;
+				pxy[0].rd.y = pxy[0].lu.y + pxy[1].rd.y - pxy[1].lu.y;
+				vro_cpyfm (GRPH_Vdi, mode, (short*)pxy, src, &dst);
+			}
+			s++;
+		} while (--n);
+		clip++;
+	}
+}
+
+//==============================================================================
+void
+WindPutImg (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
+            PXY orig, PRECT * sect, CARD16 nSct)
+{
+	PRECT * clip;
+	CARD16  nClp;
+	
+	if (gc->ClipNum > 0) {
+		CARD16  n = gc->ClipNum;
+		GRECT * c = gc->ClipRect;
+		GRECT * r = (GRECT*)(clip = alloca (sizeof(PRECT) * gc->ClipNum));
+		nClp      = 0;
+		do {
+			*r = *(c++);
+			if (GrphIntersect (r, &rct[1])) {
+				r->w += (r->x += orig.x) -1;
+				r->h += (r->y += orig.y) -1;
+				r++;
+				nClp++;
+			}
+		} while (--n);
+	} else {
+		clip = alloca (sizeof(PRECT));
+		nClp = 1;
+		clip->rd.x = (clip->lu.x = rct[1].x + orig.x) + rct[1].w -1;
+		clip->rd.y = (clip->lu.y = rct[1].y + orig.y) + rct[1].h -1;
+	}
+	v_hide_c (GRPH_Vdi);
+	if (wind->Depth == 1) _put_mono  (wind, gc, rct, src, sect,nSct, clip,nClp);
+	else                  _put_color (wind, gc, rct, src, sect,nSct, clip,nClp);
+	v_show_c (GRPH_Vdi, 1);
 }
 
 
