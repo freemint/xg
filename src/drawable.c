@@ -761,7 +761,7 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 		if (nClp) {
 			short dmy;
 			orig.x += pos->x;
-			orig.y += pos->y -1;
+			orig.y += pos->y;
 			vst_font    (hdl, gc->FontIndex);
 			vst_effects (hdl, gc->FontEffects);
 			if (gc->FontWidth) {
@@ -781,8 +781,7 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 			sect = (PRECT*)SizeToPXY (alloca (sizeof(PRECT)), &draw.Pixmap->W);
 			nClp = 1;
 		}
-		orig.x = pos->x;
-		orig.y = pos->y -1;
+		orig = *pos;
 		hdl  = PmapVdi (draw.Pixmap, gc, xTrue);
 	}
 	if (nClp) {
