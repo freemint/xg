@@ -50,6 +50,20 @@ PmapInit (BOOL initNreset)
 }
 
 
+//------------------------------------------------------------------------------
+static void
+_Pmap_VdiCls (PIXMAP * pmap)
+{
+	_PMAP_Offscreen[pmap->TabIdx] = NULL;
+	if (pmap->Fonts) {
+		vst_unload_fonts (pmap->Vdi, 0);
+		pmap->Fonts = xFalse;
+	}
+	v_clsbm (pmap->Vdi);
+	pmap->Vdi = 0;
+}
+
+
 //==============================================================================
 void
 PmapFree (PIXMAP * pmap, p_CLIENT clnt)
@@ -60,13 +74,7 @@ PmapFree (PIXMAP * pmap, p_CLIENT clnt)
 	
 	if (clnt) {
 		if (pmap->Vdi > 0) {
-			_PMAP_Offscreen[pmap->TabIdx] = NULL;
-			if (pmap->Fonts) {
-				vst_unload_fonts (pmap->Vdi, 0);
-				pmap->Fonts = xFalse;
-			}
-			v_clsbm (pmap->Vdi);
-			pmap->Vdi = 0;
+			_Pmap_VdiCls (pmap);
 		}
 		if (--pmap->Reffs) {
 			XrscRemove (clnt->Drawables, pmap);
@@ -107,8 +115,7 @@ PmapVdi (p_PIXMAP pmap, p_GC gc, BOOL fonts)
 		vsf_perimeter (hdl, PERIMETER_OFF);
 		
 		if (_PMAP_Offscreen[_PMAP_Offs_Count]) {
-			v_clsbm (_PMAP_Offscreen[_PMAP_Offs_Count]->Vdi);
-			_PMAP_Offscreen[_PMAP_Offs_Count]->Vdi = 0;
+			_Pmap_VdiCls (_PMAP_Offscreen[_PMAP_Offs_Count]);
 		}
 		_PMAP_Offscreen[_PMAP_Offs_Count] = pmap;
 		pmap->TabIdx     = _PMAP_Offs_Count;
