@@ -4,7 +4,7 @@
                          / \\
                         /   \\  Server for MiNT/GEM
                       ===============================
-                               Jan 30, 2001
+                               Apr 12, 2001
 
 
 Contents
@@ -24,8 +24,9 @@ Requirements
 
 To get the server running with a useable speed, a machine with a 68030 and
 10 MByte of Ram is needed at least.  Absolutely vital installed and working
-system programs are: FreeMiNT >= 1.15.6 + MiNT-net, NVDI > 3, N.AES.  Maybe
-AES 4.1 is working also, not tested yet.
+system programs are: FreeMiNT >= 1.15.6 + MiNT-net, NVDI >= 4.1 and N.AES or
+XaAES or AES 4.1.  If MiNTnet isn't installed another small package is
+required which can be downloaded from http://X11.freemint.de .
 
 At the moment only color depths of 1, 4 and 8 planes (2, 16, 256 colors) are
 supported.  Other color depths may cause system crashes/freezes or at least
