@@ -46,6 +46,7 @@ CARD16       WMGR_OpenCounter  = 0;
 short        WMGR_Focus        = 0;
 short        _WMGR_FocusHolder = 0;
 static short _WMGR_HasFocus    = 0;
+static short _WMGR_WidgetColor[][3] = { {W_NAME,}, {0} };
 static short _WMGR_WidgetFgnd, _WMGR_WidgetBgnd;
 
 #include "intro.c"
@@ -192,6 +193,12 @@ WmgrInit (BOOL initNreset)
 			}
 			i = W_NAME;
 			wind_get (0, WF_DCOLOR, &i, &_WMGR_WidgetFgnd, &_WMGR_WidgetBgnd, &i);
+			i = 0;
+			do {
+				short n = _WMGR_WidgetColor[i][0];
+				wind_get (0, WF_DCOLOR, &n,
+				          &_WMGR_WidgetColor[i][1], &_WMGR_WidgetColor[i][2], &n);
+			} while (_WMGR_WidgetColor[++i][0]);
 			_WMGR_FocusHolder = wind_create (0, -100, -100, 99, 99);
 		}
 	
@@ -442,6 +449,23 @@ WmgrCalcBorder (GRECT * curr, WINDOW * wind)
 }
 
 
+//------------------------------------------------------------------------------
+static void
+_Wmgr_SetWidgets (short hdl, int state)
+{
+	// state ==  0: normal
+	//       >= +1: topped
+	//       <= -1: bottom
+	
+	int a = (state >= 0 ? 1 : 2);
+	int b = (state <= 0 ? 2 : 1);
+	int n = 0;
+	do {
+		wind_set (hdl, WF_COLOR, _WMGR_WidgetColor[n][0],
+		          _WMGR_WidgetColor[n][a], _WMGR_WidgetColor[n][b], -1);
+	} while (_WMGR_WidgetColor[++n][0]);
+}
+
 //==============================================================================
 BOOL
 WmgrWindHandle (WINDOW * wind)
@@ -457,7 +481,7 @@ WmgrWindHandle (WINDOW * wind)
 		if(rsrc_gaddr (R_TREE, ICONS, &icons)) {
 			wind_set_proc(hdl, icons[ICONS_NAME_X].ob_spec.ciconblk);
 		}
-		wind_set (hdl, WF_COLOR, W_NAME, _WMGR_WidgetBgnd, _WMGR_WidgetBgnd, -1);
+		_Wmgr_SetWidgets (hdl, -1);
 		
 		return xTrue;
 	}
@@ -822,17 +846,19 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 void
 WmgrSetFocus (short focus)
 {
+	short place = WF_BOTTOM;
+	
 	if (WMGR_Focus) {
-		wind_set (WMGR_Focus, WF_COLOR, W_NAME,
-		          _WMGR_WidgetBgnd, _WMGR_WidgetBgnd, -1);
+		_Wmgr_SetWidgets (WMGR_Focus, -1);
 	}
 	if (focus) {
-		wind_set (focus, WF_COLOR, W_NAME,
-		          _WMGR_WidgetFgnd, _WMGR_WidgetFgnd, -1);
-		wind_set (_WMGR_FocusHolder, WF_TOP, 0,0,0,0);
-	} else {
-		wind_set (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
+		_Wmgr_SetWidgets (focus, +1);
+		if (!_Wmgr_WindByHandle (wind_get_top())) {
+			place = WF_TOP;
+		}
 	}
+	wind_set (_WMGR_FocusHolder, place, 0,0,0,0);
+	
 	WMGR_Focus = focus;
 }
 
@@ -900,8 +926,7 @@ WmgrMessage (short * msg)
 			}
 			_WMGR_HasFocus = (WMGR_OpenCounter > 1 ? 2 : 1);
 			WindCirculate (wind, PlaceOnTop);
-		}
-			break;
+		}	break;
 		
 		case WM_BOTTOMED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			_WMGR_HasFocus = 0;
@@ -935,9 +960,14 @@ WmgrMessage (short * msg)
 			if (title) {
 				wind_set_str (wind->Handle, WF_NAME, title);
 			}
+			if (msg[3] == WMGR_Focus) {
+				WMGR_Focus = 0;
+			}
+			_Wmgr_SetWidgets (msg[3], 0);
 			WindUnmap (wind, xFalse);
 			wind_set_r (msg[3], WF_ICONIFY, (GRECT*)(msg +4));
 			wind_set   (msg[3], WF_BEVENT, 0x0000, 0,0,0);
+			wind_set   (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
 			wind->GwmIcon = xTrue;
 			WindPointerWatch (xFalse);
 		}	break;
@@ -949,6 +979,7 @@ WmgrMessage (short * msg)
 				wind_set_str (wind->Handle, WF_NAME, title);
 			}
 			WmgrCalcBorder (&curr, wind);
+			_Wmgr_SetWidgets (msg[3], -1);
 			wind_set_r (msg[3], WF_UNICONIFY, &curr);
 			wind_set   (msg[3], WF_BEVENT, 0x0001, 0,0,0);
 			wind->GwmIcon = xFalse;
