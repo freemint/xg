@@ -4,6 +4,7 @@
 #include "pixmap.h"
 #include "window.h"
 #include "gcontext.h"
+#include "event.h"
 #include "font.h"
 #include "grph.h"
 #include "x_gem.h"
@@ -317,14 +318,20 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 				}
 			}
 		}
+		// Hacking: GraphicsExposure should be generated if necessary instead!
+		//
+		if (gc->GraphExpos) {
+			EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
+		}
 		if (debug) {
 			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)\n"
-				    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]",
+				    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]  (%s)",
 			       q->gc, (src_d.p->isWind ? 'W' : 'P'), q->srcDrawable,
 			       q->srcX, q->srcY, q->width, q->height,
 			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
 			       q->dstX, q->dstY,
-				    r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
+				    r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h,
+				    (gc->GraphExpos ? "exp" : "-"));
 		}
 	}
 }
@@ -403,6 +410,11 @@ RQ_CopyPlane (CLIENT * clnt, xCopyPlaneReq * q)
 				debug = xFalse;
 			}
 			
+		}
+		// Hacking: GraphicsExposure should be generated if necessary instead!
+		//
+		if (gc->GraphExpos) {
+			EvntNoExposure (clnt, dst_d.p->Id, X_CopyPlane);
 		}
 		if (debug) {
 			PRINT (- X_CopyPlane," #%i(0x%lx)"
