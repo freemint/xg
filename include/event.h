@@ -163,7 +163,7 @@ _Void EvntMotionNotify (WND, MSK, WID, CID, RXY, EXY) {
 }
 _Void EvntNoExposure (CLT, DID, OPC) {
 	extern void _Evnt_Client (p_CLIENT , CARD16 , ...);
-	_Evnt_Client (clnt, NoExpose, d_id, opcd);
+	_Evnt_Client (clnt, NoExpose, d_id, (CARD16)0, opcd);
 }
 _Void EvntPropertyNotify (WND, TYP, MOD) {
 	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
