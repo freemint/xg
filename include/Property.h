@@ -20,17 +20,26 @@
 #include <X11/Xdefs.h>
 
 
-typedef struct s_PROPERTY {
-	XRSC(PROPERTY, unused);
-	Atom       Type;
-	CARD8      Format : 8; // 8/16/32 bit
-	size_t     Length :24; // in bytes
-	char       Data[4];
-} PROPERTY;
+typedef struct s_PROPERTY * p_PROPERTY;
 
 typedef struct s_PROPERTIES {
+	
+	// ICCC values, used by the built-in window manager
+	
 	const char * WindName;
-	const char * IconName;;
+	union { long valid; PXY Size; } Base;
+	union { long valid; PXY Size; } Min;
+	union { long valid; PXY Size; } Max;
+	union { long valid; PXY Step; } Inc;
+	// unused: _x,_y,_w,_h, min_aspect, max_aspect, win_gravity
+	
+	const char * IconName;
+	p_PIXMAP     IconPmap;
+	p_PIXMAP     IconMask;
+	// unused: input, initial_state, icon_window, icon_x, icon_y, window_group
+	
+	BOOL ProtoDelWind;
+	
 	XRSCPOOL(PROPERTY, Pool, 4);
 } PROPERTIES;
 

@@ -4,7 +4,6 @@
 //
 // Even  if the server normally doesn't interprete property contents, some of it
 // will be reported to the built-in window manager if changed or created.
-// These are:  XA_WM_COMMAND, XA_WM_NAME, XA_WM_ICON_NAME.
 //
 // Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
@@ -12,25 +11,15 @@
 // 2000-06-19 - Initial Version.
 //==============================================================================
 //
-#include "main.h"
+#include "Property_P.h"
 #include "tools.h"
-#include "Property.h"
-#include "clnt.h"
-#include "window.h"
-#include "Atom.h"
 #include "event.h"
-#include "wmgr.h"
 
 #include <stdlib.h>
-#include <string.h>
-#include <stdio.h> // debug
-
-#include <X11/Xproto.h>
-#include <X11/Xatom.h>
 
 
-#define _Prop_Find( pool, name )   (pool ? Xrsc(PROPERTY, name, pool->Pool) \
-                                         : NULL)
+#define _Prop_Find(pool, name) \
+                  (pool ? Xrsc(PROPERTY, name, pool->Pool) : NULL)
 
 
 //==============================================================================
@@ -68,52 +57,6 @@ PropHasAtom (const PROPERTIES * pool, Atom name, Atom which)
 		}
 	}
 	return has;
-}
-
-
-//==============================================================================
-void
-PropDelete (PROPERTIES ** pPool)
-{
-	PROPERTIES * pool = *pPool;
-	
-	if (pool) {
-		int i;
-		
-		for (i = 0; i < XrscPOOLSIZE (pool->Pool); ++i) {
-			p_PROPERTY p;
-			while ((p = XrscPOOLITEM (pool->Pool, i))) XrscDelete (pool->Pool, p);
-		}
-		free (pool);
-		*pPool = NULL;
-	}
-}
-
-
-//------------------------------------------------------------------------------
-static void
-_Prop_ICCC (WINDOW * wind, PROPERTY * prop)
-{
-	switch (prop->Id) {
-		
-		case XA_WM_COMMAND:
-			WmgrClntUpdate (ClntFind (wind->Id), prop->Data);
-			break;
-		
-		case XA_WM_NAME:
-			WmgrWindName (wind, prop->Data, xFalse);
-			wind->Properties->WindName = prop->Data;
-			break;
-		
-		case XA_WM_ICON_NAME:
-			WmgrWindName (wind, prop->Data, xTrue);
-			wind->Properties->IconName = prop->Data;
-			break;
-		
-		case XA_WM_HINTS:
-			WmgrWindIcon (wind);
-			break;
-	}
 }
 
 
@@ -169,11 +112,11 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 		
 	} else if ((have = _Prop_Find (wind->Properties, q->property)) &&
 	            q->mode != PropModeReplace                         &&
-	           (q->type != prop->Type  ||  q->format != prop->Format)) {
+	           (q->type != have->Type  ||  q->format != have->Format)) {
 		Bad(Match,, ChangeProperty,"(W:%lX,'%s'):\n"
 		            "          type = A:%lu/A:%lu, format = %i/%i.",
 		            q->window, ATOM_Table[q->property]->Name,
-		            q->type, prop->Type, q->format, prop->Format);
+		            q->type, have->Type, q->format, have->Format);
 	
 	} else { //..................................................................
 		
@@ -198,8 +141,15 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 		
 		if (pool) {
 			XrscPoolInit (pool->Pool);
-			pool->WindName = NULL;
-			pool->IconName = NULL;
+			pool->WindName     = NULL;
+			pool->Base.valid   = xFalse;
+			pool->Min.valid    = xFalse;
+			pool->Max.valid    = xFalse;
+			pool->Inc.valid    = xFalse;
+			pool->IconName     = NULL;
+			pool->IconPmap     = NULL;
+			pool->IconMask     = NULL;
+			pool->ProtoDelWind = xFalse;
 			wind->Properties = pool;
 		
 		} else {
@@ -211,7 +161,7 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 		
 		prop = XrscCreate (PROPERTY, q->property, pool->Pool, need_size + xtra);
 		if (!prop) {
-			Bad(Alloc,, ChangeProperty,"(W:%lX,A:%lu):\n"
+			Bad(Alloc,, ChangeProperty,"(W:%lX,A:%lX):\n"
 			            "          %lu bytes.", q->window, q->property, need_size);
 			if (have) {
 				XrscInsert (pool->Pool, have);
@@ -252,6 +202,7 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 			if (xtra) {
 				prop->Data[need_size] = '\0';
 			}
+			prop->ICCC   = (!have || have->ICCC);
 			prop->Type   = q->type;
 			prop->Format = q->format;
 			prop->Length = need_size;
@@ -259,8 +210,8 @@ RQ_ChangeProperty (CLIENT * clnt, xChangePropertyReq * q)
 			if (wind->u.List.AllMasks & PropertyChangeMask) {
 				EvntPropertyNotify (wind, prop->Id, PropertyNewValue);
 			}
-			if (wind->Handle > 0) {
-				_Prop_ICCC (wind, prop);
+			if (prop->ICCC  &&  wind->Handle > 0) {
+				_Prop_ICCC (wind, prop, xTrue);
 			}
 			if (have) {
 				free (have);
@@ -299,6 +250,9 @@ RQ_DeleteProperty (CLIENT * clnt, xDeletePropertyReq * q)
 		if (prop) {
 			if (wind->u.List.AllMasks & PropertyChangeMask) {
 				EvntPropertyNotify (wind, prop->Id, PropertyDelete);
+			}
+			if (prop->ICCC  &&  wind->Handle > 0) {
+				_Prop_ICCC (wind, prop, xFalse);
 			}
 			XrscDelete (wind->Properties->Pool, prop);
 		}
@@ -405,6 +359,9 @@ RQ_GetProperty (CLIENT * clnt, xGetPropertyReq * q)
 			if (wind->u.List.AllMasks & PropertyChangeMask) {
 				EvntPropertyNotify (wind, prop->Id, PropertyDelete);
 			}
+			if (prop->ICCC  &&  wind->Handle > 0) {
+				_Prop_ICCC (wind, prop, xFalse);
+			}
 			XrscDelete (wind->Properties->Pool, prop);
 		}
 	}
@@ -494,7 +451,7 @@ RQ_RotateProperties (CLIENT * clnt, xRotatePropertiesReq * q)
 		PROPERTIES * pool = wind->Properties;
 		BOOL         ok   = xTrue;
 		Atom       * name = (Atom*)(q +1);
-		PROPERTY   * list[num];
+		PROPERTY   * prop[num];
 		int i, j;
 		
 		if (clnt->DoSwap) for (i = 0; i < num; i++) {
@@ -506,7 +463,7 @@ RQ_RotateProperties (CLIENT * clnt, xRotatePropertiesReq * q)
 				ok = xFalse;
 				break;
 	
-			} else if (!(list[(i + delta) % num] = _Prop_Find (pool, name[i]))) {
+			} else if (!(prop[(i + delta) % num] = _Prop_Find (pool, name[i]))) {
 				Bad(Match,, RotateProperties,"(W:%lX):\n"
 				            "          property A:%lX not found.",
 				            q->window, name[i]);
@@ -526,14 +483,16 @@ RQ_RotateProperties (CLIENT * clnt, xRotatePropertiesReq * q)
 		}
 		if (ok && delta) {
 			BOOL notify = (0 != (wind->u.List.AllMasks & PropertyChangeMask));
+			BOOL iccc   = (wind->Handle > 0);
 			
 			for (i = 0; i < num; i++) {
-				XrscRemove (pool->Pool, list[i]);
-				list[i]->Id = name[i];
+				XrscRemove (pool->Pool, prop[i]);
+				prop[i]->Id = name[i];
 			}
 			for (i = 0; i < num; i++) {
-				XrscInsert (pool->Pool, list[i]);
+				XrscInsert (pool->Pool, prop[i]);
 				if (notify) EvntPropertyNotify (wind, name[i], PropertyNewValue);
+				if (iccc)   _Prop_ICCC (wind, prop[i], xTrue);
 			}
 	
 			DEBUG (RotateProperties,"(W:%lX,%u,%+i)",

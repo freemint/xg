@@ -21,7 +21,6 @@
 #include "Atom.h"
 #include "Property.h"
 #include "Request.h"
-#include "ICCC.h"
 #include "x_gem.h"
 #include "x_mint.h"
 #include "Xapp.h"
@@ -626,18 +625,15 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 	typeof(vrt_cpyfm) * cpyfm = vrt_cpyfm;
 	int                 mode  = MD_TRANS;
 	
-	WmHints * hints = PropValue (wind->Properties,
-	                             XA_WM_HINTS, XA_WM_HINTS, sizeof(WmHints));
-	if (hints && hints->icon_pixmap) {
-		PIXMAP * pmap = PmapFind (hints->icon_pixmap);
-		if (pmap) {
+	if (wind->Properties) {
+		PIXMAP * pmap;
+		if ((pmap = wind->Properties->IconPmap)) {
 			icon = PmapMFDB (pmap);
-			if (icon->fd_nplanes != 1) {
+			if (pmap->Depth != 1) {
 				cpyfm = (typeof(vrt_cpyfm)*)vro_cpyfm;
 				mode  = S_OR_D;
 			}
-			if (hints->icon_mask
-			    && (pmap = PmapFind (hints->icon_mask)) && pmap->Depth == 1) {
+			if ((pmap = wind->Properties->IconMask) && (pmap->Depth == 1)) {
 				mask = PmapMFDB (pmap);
 			}
 		}
@@ -958,8 +954,7 @@ WmgrMessage (short * msg)
 		case WM_CLOSED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			CLIENT * clnt = ClntFind (wind->Id);
 			if (clnt) {
-				if (PropHasAtom (wind->Properties,
-				                 WM_PROTOCOLS, WM_DELETE_WINDOW)) {
+				if (wind->Properties && wind->Properties->ProtoDelWind) {
 					Atom data[5] = { WM_DELETE_WINDOW };
 					EvntClientMsg (clnt, wind->Id, WM_PROTOCOLS, 32, data);
 				} else {
@@ -1005,8 +1000,8 @@ WmgrMessage (short * msg)
 			break;
 		
 		case WM_ICONIFY: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
-			if (wind->Properties && wind->Properties->WindName) {
-				wind_set_str (wind->Handle, WF_NAME, wind->Properties->WindName);
+			if (wind->Properties && wind->Properties->IconName) {
+				wind_set_str (wind->Handle, WF_NAME, wind->Properties->IconName);
 			}
 			if (msg[3] == WMGR_Focus) {
 				WMGR_Focus = 0;
@@ -1053,63 +1048,45 @@ WmgrButton (void)
 		return xFalse;
 	
 	} else {
-		EVMULTI_IN  ev_i = {
+		EVMULTI_IN   ev_i = {
 			MU_BUTTON|MU_M1|MU_TIMER, 1,0x03,0x00,
 		   MO_LEAVE, { MAIN_PointerPos->x, MAIN_PointerPos->y, 1,1 },
 		   0, {0,0, 0,0}, 20,0 };
-		EVMULTI_OUT ev_o;
-		short       ev, dummy[8];
-		PXY         pc[5],   pw[5];
-		CARD16      cursor = WMGR_Cursor;
-		int         ch, cv,  wh, wv,  mx, my;
-		int         ml = 0, mu = 0, mr = WIND_Root.Rect.w, md = WIND_Root.Rect.h;
+		EVMULTI_OUT  ev_o;
+		short        ev, dummy[8];
+		PXY          pc[5],   pw[5];
+		CARD16       cursor = WMGR_Cursor;
+		int          ch, cv,  wh, wv,  mx, my;
+		int          ml = 0, mu = 0, mr = WIND_Root.Rect.w, md = WIND_Root.Rect.h;
+		PROPERTIES * pool = wind->Properties;
 		
-		SizeHints * s_hints = PropValue (wind->Properties,
-		                                 XA_WM_NORMAL_HINTS, XA_WM_SIZE_HINTS,
-		                                 4/*sizeof(SizeHints)*/);
-		if (s_hints) {
-			printf("%03lX:", s_hints->flags);
-			if (s_hints->flags & PMinSize)
-				printf ("   min = %li,%li", s_hints->min_width,s_hints->min_height);
-			if (s_hints->flags & PMaxSize)
-				printf ("   max = %li,%li", s_hints->max_width,s_hints->max_height);
-			if (s_hints->flags & PResizeInc)
-				printf ("   inc = %li,%li", s_hints->inc_width,s_hints->inc_height);
-			if (s_hints->flags & PAspect)
-				printf ("   aspect = %li,%li/%li,%li",
-				        s_hints->min_aspect.x, s_hints->min_aspect.y,
-				        s_hints->max_aspect.x, s_hints->max_aspect.y);
-			if (s_hints->flags & PBaseSize)
-				printf ("   base = %li,%li",
-				        s_hints->base_width,s_hints->base_height);
-			if (s_hints->flags & PWinGravity)
-				printf ("   gravity = %li", s_hints->win_gravity);
-			printf("\n");
-			
-			if (s_hints->flags & PBaseSize) {
-				ml = s_hints->base_width;
-				mu = s_hints->base_height;
-				if (s_hints->flags & PResizeInc) {
-					ml += s_hints->inc_width;
-					mu += s_hints->inc_height;
+		if (pool) {
+			if (pool->Base.valid) {
+				ml = pool->Base.Size.x;
+				mu = pool->Base.Size.y;
+				if (pool->Inc.valid) {
+					ml += pool->Inc.Step.x;
+					mu += pool->Inc.Step.y;
 				}
-			} else if (s_hints->flags & PMinSize) {
-				ml = s_hints->min_width;
-				mu = s_hints->min_height;
+			} else if (pool->Min.valid) {
+				ml = pool->Min.Size.x;
+				mu = pool->Min.Size.y;
 			}
 			if (!(MAIN_KeyButMask & K_CTRL)) {
-				if (s_hints->flags & PMaxSize) {
-					mr = s_hints->max_width;
-					md = s_hints->max_height;
+				if (pool->Max.valid) {
+					mr = pool->Max.Size.x;
+					md = pool->Max.Size.y;
 				}
 				if (ml >= mr  &&  mu >= md) {
 					ev_i.evi_flags &= ~MU_M1;
 					cursor         =  0x000;
 					CrsrSelect (&_WMGR_Cursor.X);
+				} else {
+					if (ml > mr) ml = mr;
+					if (mu > md) mu = md;
 				}
 			}
 		}
-		
 		wind_get_curr (wind->Handle, (GRECT_lib*)pc);
 		pc[2].x = pc[1].x += (pc[3].x = pc[4].x = pc[0].x) -1;
 		pc[2].y = pc[3].y =   pc[0].y + pc[1].y            -1;
