@@ -115,8 +115,10 @@ _Prop_ICCC (WINDOW * wind, PROPERTY * prop, BOOL changed)
 				    && CONTAINS (prop, SizeHints, min_height)) {
 					pool->Min.Size.x = hints->min_width;
 					pool->Min.Size.y = hints->min_height;
+					pool->FixedSize  = xTrue;
 				} else {
 					pool->Min.valid  = xFalse;
+					pool->FixedSize  = xFalse;
 				}
 				if ((hints->flags & PMaxSize)
 				    && CONTAINS (prop, SizeHints, max_height)) {
@@ -124,6 +126,7 @@ _Prop_ICCC (WINDOW * wind, PROPERTY * prop, BOOL changed)
 					pool->Max.Size.y = hints->max_height;
 				} else {
 					pool->Max. valid = xFalse;
+					pool->FixedSize  = xFalse;
 				}
 				if ((hints->flags & PResizeInc)
 				    && CONTAINS (prop, SizeHints, inc_height)) {

@@ -38,6 +38,8 @@ typedef struct s_PROPERTIES {
 	p_PIXMAP     IconMask;
 	// unused: input, initial_state, icon_window, icon_x, icon_y, window_group
 	
+	BOOL FixedSize;
+	
 	BOOL ProtoDelWind;
 	
 	XRSCPOOL(PROPERTY, Pool, 4);
