@@ -22,11 +22,11 @@ void  KybdInit (void);
 
 short KybdEvent (CARD16 scan, CARD8 meta);
 
-extern const CARD8  KYBD_CodeMin;
-extern CONST CARD8  KYBD_CodeMax;
-extern CONST CARD8  KYBD_PrvMeta;
-extern CONST CARD8  KYBD_Pending;
-extern CONST CARD16 KYBD_Repeat;
+extern const CARD8   KYBD_CodeMin;
+extern CONST CARD8   KYBD_CodeMax;
+extern CONST CARD8   KYBD_PrvMeta;
+extern CONST CARD8 * KYBD_Pending;
+extern CONST CARD16  KYBD_Repeat;
 
 
 # undef CONST

@@ -172,7 +172,7 @@ main (int argc, char * argv[])
 						}
 					}
 					chng = KybdEvent (ev_o.evo_kreturn, meta);
-					if (KYBD_Pending)  kb_tmout = MAIN_TimeStamp + KYBD_Repeat;
+					if (*KYBD_Pending)  kb_tmout = MAIN_TimeStamp + KYBD_Repeat;
 				} else if (meta != KYBD_PrvMeta || MAIN_TimeStamp > kb_tmout) {
 					chng = KybdEvent (0, meta);
 					 kb_tmout = 0x7FFFFFFF;
