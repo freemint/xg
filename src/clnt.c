@@ -29,9 +29,11 @@
 #include <sys/socket.h>
 
 
-CARD32   _CLNT_RidBase    = RID_MASK +1;
-CARD32   _CLNT_RidCounter = 0;
-CARD32   _CLNT_BaseNum    = 0;
+CARD32  _CLNT_RidBase    = RID_MASK +1;
+CARD32  _CLNT_RidCounter = 0;
+
+CLIENT * CLNT_Base       = NULL;
+CARD16   CLNT_BaseNum    = 0;
 
 CLIENT         * CLNT_Requestor = NULL;
 jmp_buf          CLNT_Error;
@@ -239,7 +241,9 @@ ClntCreate (int fd, const char * name, const char * addr, int port)
  	printf ("[%s:%i] Request from %s (at %i)\n", addr, port, name, fd);
 	
 	if (clnt) {
-		_CLNT_BaseNum++;
+		clnt->Next = CLNT_Base;
+		CLNT_Base  = clnt;
+		CLNT_BaseNum++;
 		clnt->Fd     = fd;
 		clnt->Port   = port;
 		clnt->FdSet  = 0;
@@ -291,7 +295,15 @@ ClntDelete (CLIENT * clnt)
 		                               : "Connection closed.");
 		PRINT (,f, clnt->Addr, clnt->Port);
 		SrvrConnRemove ((p_CONNECTION)clnt);
-		_CLNT_BaseNum--;
+		if (CLNT_Base) {
+			CLIENT ** base = &CLNT_Base;
+			do if (*base == clnt) {
+				*base      = clnt->Next;
+				clnt->Next = NULL;
+				CLNT_BaseNum--;
+				break;
+			} while (*(base = &(*base)->Next));
+		}
 		close (clnt->Fd);
 		clnt->Fd = -1;
 	}
@@ -335,7 +347,7 @@ ClntDelete (CLIENT * clnt)
 		XrscDelete (CLNT_Pool, clnt);
 	}
 	
-	return _CLNT_BaseNum;
+	return CLNT_BaseNum;
 }
 
 

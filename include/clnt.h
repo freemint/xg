@@ -10,6 +10,11 @@
 //
 #ifndef __CLNT_H__
 # define __CLNT_H__
+# ifdef _clnt_
+#	define CONST
+# else
+#	define CONST const
+# endif
 
 #include "xrsc.h"
 #include <stdarg.h>
@@ -52,6 +57,7 @@ typedef struct s_CLIENT {
 	long               FdSet;
 	void             * ConnRW;
 	
+	p_CLIENT           Next;
 	CARD16             SeqNum;
 	BOOL               DoSwap;
 	BYTE               CloseDown;
@@ -74,7 +80,10 @@ typedef struct {
 	const char * Name;
 	const char * Form;
 } REQUEST;
-extern const REQUEST RequestTable[/*FirstExtensionError*/];
+extern const REQUEST  RequestTable[/*FirstExtensionError*/];
+
+extern CONST CLIENT * CLNT_Base;
+extern CONST CARD16   CLNT_BaseNum;
 
 
 static inline CLIENT * ClntFind (CARD32 id) {
@@ -119,8 +128,6 @@ extern CARD32 CNFG_MaxReqLength;                      // length in units (longs)
 #define       CNFG_MaxReqBytes (CNFG_MaxReqLength *4) // same in bytes
 
 
-//void _Xrsc_Free(void*);
-//#define free(m)  _Xrsc_Free(m)
-
+#undef CONST
 
 #endif __CLNT_H__
