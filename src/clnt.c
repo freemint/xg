@@ -195,17 +195,21 @@ _Clnt_ConnRW (p_CONNECTION conn, BOOL rd, BOOL wr)
 				O_BUFF * buf = &CLNT_Requestor->oBuf;
 				if  (n > buf->Left)  n = buf->Left;
 				if ((n = Fwrite (fd, n,  buf->Mem + buf->Done)) > 0) {
-					if (!(buf->Left -= n)) {
-						buf->Done     =  0;
-						MAIN_FDSET_wr &= ~(1uL << fd);
+					if ((buf->Left -= n)) {
+						buf->Done   += n;
 					} else {
-						buf->Done += n;
-						
-						//___________________________________________________obsolete_
-					//	if (buf->Left + buf->Done > CNFG_MaxReqBytes) {
-					//		memcpy (buf->Mem, buf->Mem + buf->Done, buf->Done);
-					//		buf->Done = 0;
-					//	}
+						buf->Done     =  0;
+						MAIN_FDSET_wr &= ~CLNT_Requestor->FdSet;
+					/*
+						if (buf->Size > O_BLOCK) {
+							char * m = malloc (O_BLOCK);
+							if (m) {
+								free (buf->Mem);
+								buf->Mem  = m;
+								buf->Size = O_BLOCK;
+							}
+						}
+					*/
 					}
 				}
 			}
