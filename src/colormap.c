@@ -201,10 +201,7 @@ _pixel_16 (CARD32 pixel)
 static CARD16
 _pixel_24_32 (CARD32 pixel)
 {
-	CARD16 r   = (pixel >>8) & 0xF800;
-	CARD16 g   =  pixel      & 0xFF00;
-	CARD16 b   =  pixel      & 0x00FF;
-	RGB    src = { r | (r >>8), g | (g >>8), b | (b <<8) }, dst;
+	RGB src = { (pixel >>8) & 0xFF00, pixel & 0xFF00, pixel <<8 }, dst;
 	
 	return _lookup_8 (&dst, &src);
 }
@@ -404,8 +401,8 @@ RQ_AllocColor (CLIENT * clnt, xAllocColorReq * q)
 	
 	ClntReply (AllocColor,, ":.2l");
 	
-	DEBUG (AllocColor," M:%lX rgb=%04X,%04X,%04X",
-	       q->cmap, q->red, q->green, q->blue);
+	DEBUG (AllocColor," M:%lX rgb=%04X,%04X,%04X -> %li",
+	       q->cmap, q->red, q->green, q->blue, r->pixel);
 }
 
 
@@ -499,18 +496,7 @@ RQ_QueryColors (CLIENT * clnt, xQueryColorsReq * q)
 	DEBUG (QueryColors,"- M:%lX (%lu)", q->cmap, len);
 	
 	r->nColors = (clnt->DoSwap ? Swap16(len) : len);
-	if (GRPH_Format == SCRN_FalconHigh) {
-		for (i = 0; i < len; i++, pix++) {
-			CARD32 pixel = (clnt->DoSwap ? Swap32(*pix) : *pix);
-			CARD16 red   = pixel & 0xF800,
-			       green = pixel & 0x07C0,
-			       blue  = pixel << 11;
-			dst->red   = ((red   | (red >>5)) >>5) | red;
-			dst->green = green | (green <<5) | (green >>5);
-			dst->blue  = ((blue   | (blue >>5)) >>5) | blue;
-			DEBUG (,"+- %lu", pixel);
-		}
-	} else {
+	if (GRPH_Depth <= 8) {
 		for (i = 0; i < len; i++, pix++) {
 			CARD32 pixel = (clnt->DoSwap ? Swap32(*pix) : *pix);
 			RGB  * rgb   = _CMAP_VdiRGB +pixel;
@@ -523,7 +509,40 @@ RQ_QueryColors (CLIENT * clnt, xQueryColorsReq * q)
 			rgb++;
 			DEBUG (,"+- %lu", pixel);
 		}
-	}
+	} else if (GRPH_Format == SCRN_FalconHigh) {
+		for (i = 0; i < len; i++, pix++) {
+			CARD32 pixel = (clnt->DoSwap ? Swap32(*pix) : *pix);
+			CARD16 red   = pixel & 0xF800,
+			       green = pixel & 0x07C0,
+			       blue  = pixel << 11;
+			dst->red   = (((((red   >>5) | red)   >>5) | red)  >>5) |  red;
+			dst->green = ( (((green >>5) | green) >>5) | green    ) | (green <<5);
+			dst->blue  = (((((blue  >>5) | blue)  >>5) | blue) >>5) |  blue;
+			DEBUG (,"+- %lu=%04X,%04X,%04X", pixel, dst->red,dst->green,dst->blue);
+		}
+	} else if (GRPH_Depth == 16) {
+		for (i = 0; i < len; i++, pix++) {
+			CARD32 pixel = (clnt->DoSwap ? Swap32(*pix) : *pix);
+			CARD16 red   = pixel & 0xF800,
+			       green = pixel & 0x07E0,
+			       blue  = pixel << 11;
+			dst->red   = (((((red   >>5) | red)   >>5) | red)  >>5) | red;
+			dst->green = (  ((green >>6) | green) >>1) |             (green <<5);
+			dst->blue  = (((((blue  >>5) | blue)  >>5) | blue) >>5) | blue;
+			DEBUG (,"+- %lu=%04X,%04X,%04X", pixel, dst->red,dst->green,dst->blue);
+		}
+	} else { // (GRPH_Depth == 24/32)
+		for (i = 0; i < len; i++, pix++) {
+			CARD32 pixel = (clnt->DoSwap ? Swap32(*pix) : *pix);
+			CARD16 red   = pixel >> 16,
+			       green = pixel & 0xFF00,
+			       blue  = pixel & 0x00FF;
+			dst->red   = red   | (red   <<8);
+			dst->green = green | (green >>8);
+			dst->blue  = blue  | (blue  <<8);
+			DEBUG (,"+- %lu=%04X,%04X,%04X", pixel, dst->red,dst->green,dst->blue);
+		}
+ 	}
 	DEBUG (,"+");
 	
 	ClntReply (QueryColors, (sizeof(xrgb) * len), ".");
