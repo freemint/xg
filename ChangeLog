@@ -1,3 +1,12 @@
+2001-09-08: 0.13.1
+   - implemented GetImage request.  now xmag (screen magnifier) and
+     the 'AutoGrab Window' function of xv are working.
+   - corrected RGB return values of QueryColors request, only the
+     first value was set before.
+   - changed colormap return value of GetWindowAttributes request to
+     the default colormap, workaround for xv's 'AutoGrab Window'
+     function.
+
 2001-09-05: 0.13
    - implemented support for 16/24/32 bits color depth graphic modes.
    - fixed a tricky bug which was responsible for white drawings over
