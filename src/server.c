@@ -454,41 +454,6 @@ RQ_GetScreenSaver (CLIENT * clnt, xGetScreenSaverReq * q)
 
 //------------------------------------------------------------------------------
 void
-RQ_ChangeKeyboardControl (CLIENT * clnt, xChangeKeyboardControlReq * q)
-{
-	PRINT (- X_ChangeKeyboardControl," ");
-}
-
-//------------------------------------------------------------------------------
-void
-RQ_GetKeyboardControl (CLIENT * clnt, xGetKeyboardControlReq * q)
-{
-	// Returns the current control values for the keyboard
-	//
-	// (no request parameters)
-	//
-	// BOOL   globalAutoRepeat:
-	// CARD16 sequenceNumber:
-	// CARD32 ledMask:
-	// CARD8  keyClickPercent:
-	// CARD8  bellPercent:
-	// CARD16 bellPitch:
-	// CARD16 bellDuration:
-	// BYTE   map[32]:         bit masks start here
-	//...........................................................................
-	
-	ClntReplyPtr (GetKeyboardControl, r);
-	
-	memset (r, sizeof(xGetKeyboardControlReply), 0);
-	
-	ClntReply (GetKeyboardControl,, "l2:");
-	
-	PRINT (- X_GetKeyboardControl," ");
-}
-
-
-//------------------------------------------------------------------------------
-void
 RQ_ChangeHosts (CLIENT * clnt, xChangeHostsReq * q)
 {
 	PRINT (- X_ChangeHosts," ");
