@@ -1,3 +1,7 @@
+2001-01-12: 0.03.1
+   - corrected child-parameter for grabbed button events, that fixed problems
+     with gtk-menues.
+
 2001-01-07: 0.03
    - Grabbed pointer event propagation corrected.
    - README supplemented.
