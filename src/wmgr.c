@@ -36,7 +36,7 @@ extern const short _app;
 
 BOOL    WMGR_Active = xFalse;;
 CARD16  WMGR_Cursor = 0;
-#define WMGR_DECOR    4
+#define WMGR_DECOR    5
 short   WMGR_Decor  = WMGR_DECOR;
 #define A_WIDGETS     (NAME|MOVER|CLOSER|SMALLER)
 #define P_WIDGETS     0
