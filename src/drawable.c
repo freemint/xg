@@ -1,16 +1,24 @@
+//==============================================================================
+//
+// drawable.c
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #include "main.h"
 #include "tools.h"
 #include "clnt.h"
 #include "pixmap.h"
 #include "window.h"
 #include "gcontext.h"
-#include "event.h"
 #include "font.h"
 #include "grph.h"
 #include "x_gem.h"
 #include "gemx.h"
 
-#include <stdlib.h>
 #include <stdio.h>
 
 #include <X11/X.h>
@@ -34,7 +42,7 @@ DrawDelete (p_DRAWABLE draw, p_CLIENT clnt)
 
 
 //------------------------------------------------------------------------------
-static inline GRECT * 
+static inline GRECT *
 SizeToRCT (GRECT * dst, const short * src)
 {
 	__asm__ volatile ("
@@ -47,6 +55,38 @@ SizeToRCT (GRECT * dst, const short * src)
 		: "d0","d1"         // clobbered
 	);
 	return dst;
+}
+
+//------------------------------------------------------------------------------
+static inline CARD16
+SizeToClp (GRECT * dst, GRECT * clip, CARD16 n_clip, const short * src)
+{
+	CARD16 nClp = 0;
+	
+	while (n_clip--) {
+		if (clip->x <= 0) {
+			 dst->x = 0;
+			 dst->w = (clip->w >= src[0] ? clip->w : src[0]) + clip->x;
+		} else {
+			dst->x = clip->x;
+			if (clip->w + clip->x > src[0]) dst->w = src[0] - clip->x;
+			else                            dst->w = clip->w;
+		}
+		if (clip->y <= 0) {
+			 dst->y = 0;
+			 dst->h = (clip->h >= src[1] ? clip->h : src[1]) + clip->y;
+		} else {
+			dst->y = clip->y;
+			if (clip->h + clip->y > src[1]) dst->h = src[1] - clip->y;
+			else                            dst->h = clip->h;
+		}
+		if (dst->w > 0  &&  dst->h > 0) {
+			dst++;
+			nClp++;
+		}
+		clip++;
+	}
+	return nClp;
 }
 
 
@@ -141,309 +181,6 @@ RQ_GetGeometry (CLIENT * clnt, xGetGeometryReq * q)
 	}
 }
 
-//------------------------------------------------------------------------------
-void
-RQ_PutImage (CLIENT * clnt, xPutImageReq * q)
-{
-	p_DRAWABLE draw = DrawFind (q->drawable);
-	GC       * gc   = GcntFind (q->gc);
-	
-	if (!draw.p) {
-		Bad(Drawable, q->drawable, PutImage,);
-		
-	} else if (!gc) {
-		Bad(GC, q->gc, PutImage,);
-	
-	} else if ((q->format == XYBitmap  &&  q->depth != 1) ||
-	           (q->format != XYBitmap  &&  q->depth != draw.p->Depth)) {
-		Bad(Match,, PutImage, /* q->depth */);
-	
-	} else if ((q->format == ZPixmap  &&  q->leftPad) ||
-	           q->leftPad >= PADD_BITS) {
-		Bad(Match,, PutImage, /* q->leftPad */);
-	
-	} else {
-		GRECT r[2] = { {0, 0, q->width, q->height} };
-		
-		if (q->dstX < 0) { r[1].x = 0; r[0].w -= r[0].x = -q->dstX; }
-		else             { r[1].x = q->dstX; }
-		if (q->dstY < 0) { r[1].y = 0; r[0].h -= r[0].y = -q->dstY; }
-		else             { r[1].y = q->dstY; }
-		if (r[0].x + r[0].w > draw.p->W) r[0].w = draw.p->W - r[0].x;
-		if (r[0].y + r[0].h > draw.p->H) r[0].h = draw.p->H - r[0].y;
-		
-		if (r[0].w > 0  &&  r[0].h > 0) {
-			MFDB mfdb = { (q +1), q->width, q->height,
-			              (q->width + q->leftPad + PADD_BITS -1) /16,
-			              0, q->depth, 0,0,0 };
-			
-			r[0].x += q->leftPad;
-			r[1].w =  r[0].w;
-			r[1].h =  r[0].h;
-			
-			if (q->depth == 1) {   // all possible formats are matching
-				
-				DEBUG (PutImage, " '%s' %c:%lX G:%lX [%i+%i,%i/%u,%u*%u] = %lu\n"
-				       "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]",
-				       (q->format == XYBitmap ? "Bitmap" :
-				        q->format == XYPixmap ? "XYPixmap" :
-				        q->format == ZPixmap  ? "ZPixmap"  : "???"),
-				       (draw.p->isWind ? 'W' : 'P'), q->drawable, q->gc,
-				       q->dstX, q->leftPad, q->dstY, q->width, q->height, q->depth,
-				       (q->length *4) - sizeof (xPutImageReq),
-				       r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
-				
-				if (draw.p->isWind) WindPutMono (draw.Window, gc, r, &mfdb);
-				else                PmapPutMono (draw.Pixmap, gc, r, &mfdb);
-			
-			} else if (q->format == XYPixmap) {
-				
-				PRINT (- X_PutImage, " '%s' %c:%lX G:%lX [%i+%i,%i/%u,%u*%u] = %lu\n"
-				       "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]",
-				       "XYPixmap", (draw.p->isWind ? 'W' : 'P'), q->drawable, q->gc,
-				       q->dstX, q->leftPad, q->dstY, q->width, q->height, q->depth,
-				       (q->length *4) - sizeof (xPutImageReq),
-				       r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
-				
-			} else if (q->depth == 16) {
-				if (draw.p->isWind) WindPutColor (draw.Window, gc, r, &mfdb);
-				else                PmapPutColor (draw.Pixmap, gc, r, &mfdb);
-				
-			} else if (!(mfdb.fd_addr
-			               = malloc (mfdb.fd_wdwidth *2 * q->height * q->depth))) {
-				printf ("Can't allocate buffer.\n");
-				
-			} else { // q->format == ZPixmap
-				
-				DEBUG (PutImage, " '%s' %c:%lX G:%lX [%i+%i,%i/%u,%u*%u] = %lu\n"
-				       "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]",
-				       "ZPixmap", (draw.p->isWind ? 'W' : 'P'), q->drawable, q->gc,
-				       q->dstX, q->leftPad, q->dstY, q->width, q->height, q->depth,
-				       (q->length *4) - sizeof (xPutImageReq),
-				       r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
-				
-				if (GRPH_Depth == 4) {
-					GrphRasterI4 (mfdb.fd_addr, (char*)(q +1), q->width, q->height);
-				} else if (GRPH_Format == SCRN_INTERLEAVED) {
-					GrphRasterI8 (mfdb.fd_addr, (char*)(q +1), q->width, q->height);
-				} else { // (GRPH_Format == SCRN_PACKEDPIXEL)
-					GrphRasterP8 (mfdb.fd_addr, (char*)(q +1), q->width, q->height);
-				}
-				if (draw.p->isWind) WindPutColor (draw.Window, gc, r, &mfdb);
-				else                PmapPutColor (draw.Pixmap, gc, r, &mfdb);
-				
-				free (mfdb.fd_addr);
-			}
-		
-		} else {
-			PRINT (- X_PutImage, " '%s' %c:%lX G:%lX [%i+%i,%i/%u,%u*%u] = %lu\n"
-			       "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]",
-			       (q->format == XYBitmap ? "Bitmap" :
-			        q->format == XYPixmap ? "XYPixmap" :
-			        q->format == ZPixmap  ? "ZPixmap"  : "???"),
-			       (draw.p->isWind ? 'W' : 'P'), q->drawable, q->gc,
-			       q->dstX, q->leftPad, q->dstY, q->width, q->height, q->depth,
-			       (q->length *4) - sizeof (xPutImageReq),
-			       r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
-		}
-	}
-}
-
-//------------------------------------------------------------------------------
-void
-RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
-{
-	//
-	// fully faked atm
-	//
-	
-	p_DRAWABLE draw = DrawFind(q->drawable);
-	
-	ClntReplyPtr (GetImage, r);
-	
-	size_t size = (q->width * draw.p->Depth +7) /8 * q->height;
-	
-	PRINT (- X_GetImage,
-	       " D:%lX [%i,%i/%u,%u] form=%i mask=%lX -> dpth = %i size = %lu",
-	       q->drawable, q->x,q->y, q->width, q->height, q->format, q->planeMask,
-	       draw.p->Depth, size);
-	
-	r->depth  = draw.p->Depth;
-	r->visual = DFLT_VISUAL;
-	
-	ClntReply (GetImage, size, NULL);
-}
-
-
-//------------------------------------------------------------------------------
-void
-RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
-{
-	p_DRAWABLE src_d = DrawFind(q->srcDrawable);
-	p_DRAWABLE dst_d = DrawFind(q->dstDrawable);
-	GC       * gc    = GcntFind(q->gc);
-	
-	if (!src_d.p) {
-		Bad(Drawable, q->srcDrawable, CopyArea,);
-		
-	} else if (!dst_d.p) {
-		Bad(Drawable, q->dstDrawable, CopyArea,);
-		
-	} else if (!gc) {
-		Bad(GC, q->gc, CopyArea,);
-	
-//	} else if (src_d.p->Depth != dst_d.p->Depth) {
-//		Bad(Match,, CopyArea,"(%c:%X,%c:%X):\n           depth %u != %u.",
-//		            (src_d.p->isWind ? 'W' : 'P'), src_d.p->Id,
-//		            (dst_d.p->isWind ? 'W' : 'P'), dst_d.p->Id,
-//		            src_d.p->Depth, dst_d.p->Depth);
-	
-	} else {
-		BOOL debug = xTrue;
-		GRECT r[4] = { {0,       0,       src_d.p->W,  src_d.p->H},
-		               {0,       0,       dst_d.p->W,  dst_d.p->H},
-		               {q->srcX, q->srcY, q->width +1, q->height +1},
-		               {q->dstX, q->dstY, q->width +1, q->height +1} };
-		
-		if (GrphIntersect (&r[0], &r[2]) && GrphIntersect (&r[1], &r[3])) {
-			if (r[0].w > r[1].w) r[0].w = r[1].w;
-			else                 r[1].w = r[0].w;
-			if (r[0].h > r[1].h) r[0].h = r[1].h;
-			else                 r[1].h = r[0].h;
-			
-			if (src_d.p->isWind) {
-			
-			} else { // src_d is Pixmap
-				MFDB * mfdb = PmapMFDB(src_d.Pixmap);
-				
-				DEBUG (CopyArea," G:%lX P:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)\n"
-					    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]",
-				       q->gc, q->srcDrawable,
-				       q->srcX, q->srcY, q->width, q->height,
-				       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
-				       q->dstX, q->dstY,
-					    r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
-				debug = xFalse;
-				
-				if (src_d.p->Depth == 1) {
-					if (dst_d.p->isWind) WindPutMono (dst_d.Window, gc, r, mfdb);
-					else                 PmapPutMono (dst_d.Pixmap, gc, r, mfdb);
-				
-				} else {
-					if (dst_d.p->isWind) WindPutColor (dst_d.Window, gc, r, mfdb);
-					else                 PmapPutColor (dst_d.Pixmap, gc, r, mfdb);
-				}
-			}
-		}
-		// Hacking: GraphicsExposure should be generated if necessary instead!
-		//
-		if (gc->GraphExpos) {
-			EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
-		}
-		if (debug) {
-			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)\n"
-				    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]  (%s)",
-			       q->gc, (src_d.p->isWind ? 'W' : 'P'), q->srcDrawable,
-			       q->srcX, q->srcY, q->width, q->height,
-			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
-			       q->dstX, q->dstY,
-				    r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h,
-				    (gc->GraphExpos ? "exp" : "-"));
-		}
-	}
-}
-
-//------------------------------------------------------------------------------
-static int
-_mask2plane (CARD32 mask, CARD16 depth)
-{
-	int plane = -1;
-	
-	if (mask) while (++plane < depth) {
-		if (mask & 1) {
-			mask &= ~1uL;
-			break;
-		}
-		mask >>= 1;
-	}
-	return (mask ? -1 : plane);
-}
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void
-RQ_CopyPlane (CLIENT * clnt, xCopyPlaneReq * q)
-{
-	p_DRAWABLE src_d = DrawFind(q->srcDrawable);
-	p_DRAWABLE dst_d = DrawFind(q->dstDrawable);
-	GC       * gc    = GcntFind (q->gc);
-	int        plane;
-	
-	if (!src_d.p) {
-		Bad(Drawable, q->srcDrawable, CopyPlane,);
-		
-	} else if (!dst_d.p) {
-		Bad(Drawable, q->dstDrawable, CopyPlane,);
-		
-	} else if (!gc) {
-		Bad(GC, q->gc, CopyPlane,);
-	
-	} else if ((plane = _mask2plane(q->bitPlane, src_d.p->Depth)) < 0) {
-		Bad(Value, q->bitPlane, CopyPlane,);
-	
-	} else {
-		BOOL debug = xTrue;
-		GRECT r[4] = { {0,       0,       src_d.p->W, src_d.p->H},
-		               {0,       0,       dst_d.p->W, dst_d.p->H},
-		               {q->srcX, q->srcY, q->width,   q->height},
-		               {q->dstX, q->dstY, q->width,   q->height} };
-		
-		if (GrphIntersect (&r[0], &r[2]) && GrphIntersect (&r[1], &r[3])) {
-			if (r[0].w > r[1].w) r[0].w = r[1].w;
-			else                 r[1].w = r[0].w;
-			if (r[0].h > r[1].h) r[0].h = r[1].h;
-			else                 r[1].h = r[0].h;
-			
-			if (src_d.p->isWind) {
-				//
-				
-			} else { // src_d is Pixmap
-				MFDB mfdb = *PmapMFDB(src_d.Pixmap);
-				
-				DEBUG (CopyPlane," #%i(0x%lx)"
-				       " G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX %i,%i",
-				       plane, q->bitPlane, q->gc, (src_d.p->isWind ? 'W' : 'P'),
-				       q->srcDrawable, q->srcX, q->srcY, q->width, q->height,
-			   	    (dst_d.p->isWind ? 'W' : 'P'),
-			   	    q->dstDrawable, q->dstX, q->dstY);
-				
-				if (src_d.p->Depth > 1) {
-					if (plane) {
-						mfdb.fd_addr = src_d.Pixmap->Mem
-						           + src_d.Pixmap->nPads *2 * src_d.Pixmap->H * plane;
-					}
-					mfdb.fd_nplanes = 1;
-				}
-				if (dst_d.p->isWind) WindPutMono (dst_d.Window, gc, r, &mfdb);
-				else                 PmapPutMono (dst_d.Pixmap, gc, r, &mfdb);
-				debug = xFalse;
-			}
-			
-		}
-		if (debug) {
-			PRINT (- X_CopyPlane," #%i(0x%lx)"
-			       " G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX %i,%i",
-			       plane, q->bitPlane, q->gc, (src_d.p->isWind ? 'W' : 'P'),
-			       q->srcDrawable, q->srcX, q->srcY, q->width, q->height,
-			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable, q->dstX, q->dstY);
-		}
-		/*
-		 *  Hacking: GraphicsExposure should be generated if necessary instead!
-		 */
-		if (gc->GraphExpos) {
-			EvntNoExposure (clnt, dst_d.p->Id, X_CopyPlane);
-		}
-	}
-}
-
 
 //------------------------------------------------------------------------------
 void
@@ -462,8 +199,8 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
-		short   hdl = 0;
-		GRECT * sect, _clip;
+		short   hdl = GRPH_Vdi;
+		GRECT * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
@@ -473,14 +210,18 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
-				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
 			DEBUG (FillPoly," W:%lX G:%lX (%lu)", q->drawable, q->gc, len);
 		
 		} else { // Pixmap
-			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-			nClp = 1;
+			if (gc->ClipNum > 0) {
+				sect = alloca (sizeof(GRECT) * gc->ClipNum);
+				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+			} else {
+				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				nClp = 1;
+			}
 			clnt->Fnct->shift_pnt (NULL, pxy, len, q->coordMode);
 			set = (draw.Pixmap->Vdi > 0);
 			hdl = PmapVdi (draw.Pixmap, gc, xFalse);
@@ -523,8 +264,8 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		xArc  * arc = (xArc*)(q +1);
-		short   hdl = 0;
-		GRECT * sect, _clip;
+		short   hdl = GRPH_Vdi;
+		GRECT * sect;
 		PXY     orig;
 		CARD16  nClp;
 		CARD32  color;
@@ -533,18 +274,21 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 			nClp = WindClipLock (draw.Window, 0,
 			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
-				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
 			DEBUG (PolyArc," P:%lX G:%lX (%lu)", q->drawable, q->gc, len);
 		
 		} else { // Pixmap
-			orig.x = 0;
-			orig.y = 0;
-			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-			nClp = 1;
-			set  = (draw.Pixmap->Vdi > 0);
-			hdl  = PmapVdi (draw.Pixmap, gc, xFalse);
+			if (gc->ClipNum > 0) {
+				sect = alloca (sizeof(GRECT) * gc->ClipNum);
+				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+			} else {
+				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				nClp = 1;
+			}
+			*(long*)&orig = 0;
+			set = (draw.Pixmap->Vdi > 0);
+			hdl = PmapVdi (draw.Pixmap, gc, xFalse);
 		}
 		if (nClp && gc_mode (&color, &set, hdl, gc)) {
 			clnt->Fnct->shift_arc (&orig, arc, len);
@@ -587,8 +331,8 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		xArc  * arc = (xArc*)(q +1);
-		short   hdl = 0;
-		GRECT * sect, _clip;
+		short   hdl = GRPH_Vdi;
+		GRECT * sect;
 		PXY     orig;
 		CARD16  nClp;
 		CARD32  color;
@@ -597,18 +341,21 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 			nClp = WindClipLock (draw.Window, 0,
 			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
-				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
 			DEBUG (PolyFillArc," P:%lX G:%lX (%lu)", q->drawable, q->gc, len);
 		
 		} else { // Pixmap
-			orig.x = 0;
-			orig.y = 0;
-			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-			nClp = 1;
-			set  = (draw.Pixmap->Vdi > 0);
-			hdl  = PmapVdi (draw.Pixmap, gc, xFalse);
+			if (gc->ClipNum > 0) {
+				sect = alloca (sizeof(GRECT) * gc->ClipNum);
+				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+			} else {
+				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				nClp = 1;
+			}
+			*(long*)&orig = 0;
+			set = (draw.Pixmap->Vdi > 0);
+			hdl = PmapVdi (draw.Pixmap, gc, xFalse);
 		}
 		if (nClp && gc_mode (&color, &set, hdl, gc)) {
 			clnt->Fnct->shift_arc (&orig, arc, len);
@@ -650,8 +397,8 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
-		short   hdl = 0;
-		GRECT * sect, _clip;
+		short   hdl = GRPH_Vdi;
+		GRECT * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
@@ -661,14 +408,18 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
-				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
 			DEBUG (PolyLine," W:%lX G:%lX (%lu)", q->drawable, q->gc, len);
 		
 		} else { // Pixmap
-			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-			nClp = 1;
+			if (gc->ClipNum > 0) {
+				sect = alloca (sizeof(GRECT) * gc->ClipNum);
+				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+			} else {
+				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				nClp = 1;
+			}
 			clnt->Fnct->shift_pnt (NULL, pxy, len, q->coordMode);
 			set = (draw.Pixmap->Vdi > 0);
 			hdl = PmapVdi (draw.Pixmap, gc, xFalse);
@@ -712,8 +463,8 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
-		short   hdl = 0;
-		GRECT * sect, _clip;
+		short   hdl = GRPH_Vdi;
+		GRECT * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
@@ -723,7 +474,6 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
-				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
 			DEBUG (PolyPoint," W:%lX G:%lX (%lu)", q->drawable, q->gc, len);
@@ -735,8 +485,14 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 				nClp = 0;
 			
 			} else {
-				sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-				nClp = 1;
+				if (gc->ClipNum > 0) {
+					sect = alloca (sizeof(GRECT) * gc->ClipNum);
+					nClp = SizeToClp (sect,
+					                  gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				} else {
+					sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+					nClp = 1;
+				}
 				set = (draw.Pixmap->Vdi > 0);
 				hdl = PmapVdi (draw.Pixmap, gc, xFalse);
 			}
@@ -780,8 +536,8 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		GRECT * rec = (GRECT*)(q +1);
-		short   hdl = 0;
-		GRECT * sect, _clip;
+		short   hdl = GRPH_Vdi;
+		GRECT * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
@@ -791,14 +547,13 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_r2p (&orig, rec, len);
-				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
 			DEBUG (PolyFillRectangle," P:%lX G:%lX (%lu)",
 			       q->drawable, q->gc, len);
 		
 		} else { // Pixmap
-			if (0  &&  draw.p->Depth == 1) {
+			/*if (draw.p->Depth == 1) {   // disabled
 				if (clnt->DoSwap) {
 					size_t  num = len;
 					GRECT * rct = rec;
@@ -810,9 +565,15 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 				PmapFillRects (draw.Pixmap, gc, rec, len);
 				nClp = 0;
 			
-			} else {
-				sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-				nClp = 1;
+			} else*/ {
+				if (gc->ClipNum > 0) {
+					sect = alloca (sizeof(GRECT) * gc->ClipNum);
+					nClp = SizeToClp (sect,
+					                  gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+				} else {
+					sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+					nClp = 1;
+				}
 				clnt->Fnct->shift_r2p (NULL, rec, len);
 				set = (draw.Pixmap->Vdi > 0);
 				hdl = PmapVdi (draw.Pixmap, gc, xFalse);
@@ -857,9 +618,9 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		GRECT * rec = (GRECT*)(q +1);
-		short   hdl = 0;
+		short   hdl = GRPH_Vdi;
 		PXY     orig;
-		GRECT * sect, _clip;
+		GRECT * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
@@ -867,16 +628,19 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 			nClp = WindClipLock (draw.Window, 0,
 			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
-				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
 			DEBUG (PolyRectangle," P:%lX G:%lX (%lu)", q->drawable, q->gc, len);
 		
 		} else { // Pixmap
-			orig.x = 0;
-			orig.y = 0;
-			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-			nClp = 1;
+			if (gc->ClipNum > 0) {
+				sect = alloca (sizeof(GRECT) * gc->ClipNum);
+				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+			} else {
+				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				nClp = 1;
+			}
+			*(long*)&orig = 0;
 			set  = (draw.Pixmap->Vdi > 0);
 			hdl  = PmapVdi (draw.Pixmap, gc, xFalse);
 		}
@@ -933,8 +697,8 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 	} else if (len  &&  gc->ClipNum >= 0) {
 		BOOL    set = xTrue;
 		PXY   * pxy = (PXY*)(q +1);
-		short   hdl = 0;
-		GRECT * sect, _clip;
+		short   hdl = GRPH_Vdi;
+		GRECT * sect;
 		CARD16  nClp;
 		CARD32  color;
 		
@@ -944,14 +708,18 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, CoordModeOrigin);
-				hdl = GRPH_Vdi;
 				v_hide_c (hdl);
 			}
 			DEBUG (PolySegment," W:%lX G:%lX (%lu)", q->drawable, q->gc, len);
 		
 		} else { // Pixmap
-			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-			nClp = 1;
+			if (gc->ClipNum > 0) {
+				sect = alloca (sizeof(GRECT) * gc->ClipNum);
+				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+			} else {
+				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				nClp = 1;
+			}
 			clnt->Fnct->shift_pnt (NULL, pxy, len, CoordModeOrigin);
 			set = (draw.Pixmap->Vdi > 0);
 			hdl = PmapVdi (draw.Pixmap, gc, xFalse);
@@ -983,9 +751,9 @@ static void
 _Image_Text (p_DRAWABLE draw, GC * gc,
              BOOL is8N16, void * text, short len, PXY * pos)
 {
+	short   hdl = GRPH_Vdi;
 	short   arr[len];
-	short   hdl = 0;
-	GRECT * sect, _clip;
+	GRECT * sect;
 	PXY     orig;
 	CARD16  nClp;
 	
@@ -996,7 +764,6 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 			int dmy;
 			orig.x += pos->x;
 			orig.y += pos->y;
-			hdl = GRPH_Vdi;
 			vst_font    (hdl, gc->FontIndex);
 			vst_effects (hdl, gc->FontEffects);
 			if (gc->FontWidth) {
@@ -1009,10 +776,14 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 		}
 		
 	} else { // Pixmap
-		orig.x = pos->x;
-		orig.y = pos->y;
-		sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-		nClp = 1;
+		if (gc->ClipNum > 0) {
+			sect = alloca (sizeof(GRECT) * gc->ClipNum);
+			nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+		} else {
+			sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+			nClp = 1;
+		}
+		orig = *pos;
 		hdl  = PmapVdi (draw.Pixmap, gc, xTrue);
 	}
 	if (nClp) {
@@ -1087,9 +858,9 @@ static void
 _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 {
 	if (t->len) {
+		short   hdl = GRPH_Vdi;
 		short   arr[t->len];
-		short   hdl = 0;
-		GRECT * sect, _clip;
+		GRECT * sect;
 		PXY     orig;
 		CARD16  nClp;
 		
@@ -1100,7 +871,6 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 				int dmy;
 				orig.x += pos->x;
 				orig.y += pos->y;
-				hdl = GRPH_Vdi;
 				vst_font    (hdl, gc->FontIndex);
 				vst_color   (hdl, gc->Foreground);
 				vst_effects (hdl, gc->FontEffects);
@@ -1116,10 +886,14 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 		} else { // Pixmap
 			DEBUG (PolyText8," P:%lX G:%lX (%i,%i)",
 			       q->drawable, q->gc, q->x, q->y);
-			orig.x = pos->x;
-			orig.y = pos->y;
-			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
-			nClp = 1;
+			if (gc->ClipNum > 0) {
+				sect = alloca (sizeof(GRECT) * gc->ClipNum);
+				nClp = SizeToClp (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
+			} else {
+				sect = SizeToRCT (alloca (sizeof(GRECT)), &draw.Pixmap->W);
+				nClp = 1;
+			}
+			orig = *pos;
 			hdl  = PmapVdi (draw.Pixmap, gc, xTrue);
 		}
 		if (nClp) {
