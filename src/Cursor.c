@@ -13,6 +13,7 @@
 #include "tools.h"
 #include "Cursor.h"
 #include "pixmap.h"
+#include "grph.h"
 #include "colormap.h"
 #include "x_gem.h"
 #include "Xapp.h"
@@ -127,12 +128,11 @@ _Crsr_color (CURSOR * crsr, const RGB * fore, const RGB * back)
 {
 	// Setup colors.
 	
-	RGB tmp;
-	crsr->Fgnd = CmapLookup (&tmp, fore);
-	crsr->Bgnd = CmapLookup (&tmp, back);
-	if (crsr->Fgnd == crsr->Bgnd) {
-		crsr->Bgnd = ~crsr->Fgnd;
-	}
+	RGB    tmp;
+	CARD16 bgnd = CmapLookup (&tmp, back),
+	       fgnd = CmapLookup (&tmp, fore);
+	crsr->Bgnd  = CmapPixelIdx (bgnd == fgnd ? ~bgnd : bgnd);
+	crsr->Fgnd  = CmapPixelIdx (fgnd);
 }
 
 

@@ -15,6 +15,7 @@
 #include "font.h"
 #include "pixmap.h"
 #include "grph.h"
+#include "colormap.h"
 #include "x_gem.h"
 
 #include <stdio.h>
@@ -80,11 +81,11 @@ _Gcnt_setup (CLIENT * clnt, GC * gc, CARD32 mask, CARD32 * val, CARD8 req)
 		DEBUG (,"+- pmsk=%lu", gc->PlaneMask);
 	}
 	if (mask & GCForeground) {
-		gc->Foreground = *(val++);
+		gc->Foreground = CmapPixelIdx (*(val++));
 		DEBUG (,"+- fgnd=%lu", gc->Foreground);
 	}
 	if (mask & GCBackground) {
-		gc->Background = *(val++);
+		gc->Background = CmapPixelIdx (*(val++));
 		DEBUG (,"+- bgnd=%lu", gc->Background);
 	}
 	if (mask & GCLineWidth) {

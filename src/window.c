@@ -19,6 +19,7 @@
 #include "selection.h"
 #include "Cursor.h"
 #include "grph.h"
+#include "colormap.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -382,7 +383,7 @@ _Wind_setup (CLIENT * clnt, WINDOW * w, CARD32 mask, CARD32 * val, CARD8 req)
 	if (mask & CWBackPixel) {
 		// overrides prev
 //		PRINT (,"+- bgnd=%lu", *val);
-		w->Back.Pixel = *(val++) /*& ((1uL << (w->Depth)) -1)*/;
+		w->Back.Pixel = CmapPixelIdx (*(val++) /*& ((1uL << (w->Depth)) -1)*/);
 		w->hasBackGnd = xTrue;
 	}
 	if (mask & CWBorderPixmap) {
@@ -392,7 +393,7 @@ _Wind_setup (CLIENT * clnt, WINDOW * w, CARD32 mask, CARD32 * val, CARD8 req)
 	if (mask & CWBorderPixel) {
 		// overrides pref
 //		PRINT (,"+- fgnd=%lu", *val);
-		w->BorderPixel = *(val++) /*& ((1uL << (w->Depth)) -1)*/;
+		w->BorderPixel = CmapPixelIdx (*(val++) /*& ((1uL << (w->Depth)) -1)*/);
 		w->hasBorder   = xTrue;
 	}
 	if (mask & CWBitGravity) {
