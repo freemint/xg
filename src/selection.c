@@ -2,7 +2,7 @@
 //
 // selection.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-08-31 - Initial Version.
@@ -97,7 +97,8 @@ RQ_SetSelectionOwner (CLIENT * clnt, xSetSelectionOwnerReq * q)
 			
 			if (atom->SelOwner) {
 				if (atom->SelOwner != clnt) {
-					EvntSelectionClear (atom->SelOwner, atom->SelWind, q->selection);
+					EvntSelectionClear (atom->SelOwner,
+					                    atom->SelWind->Id, q->selection);
 				}
 				atom->SelWind->nSelections--;
 			}
@@ -187,7 +188,7 @@ RQ_ConvertSelection (CLIENT * clnt, xConvertSelectionReq * q)//, WINDOW * wind)
 		
 		if (slct->SelOwner) {
 			EvntSelectionRequest (slct->SelOwner, q->time,
-			                      slct->SelWind, q->requestor,
+			                      slct->SelWind->Id, q->requestor,
 			                      q->selection, q->target, q->property);
 		} else {
 			EvntSelectionNotify (clnt, q->time, q->requestor,

@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <X11/X.h>
 #include <X11/Xatom.h>
 #include <X11/cursorfont.h>
 
@@ -341,12 +340,12 @@ WmgrActivate (BOOL onNoff)
 					if (w->u.List.AllMasks & StructureNotifyMask) {
 						EvntReparentNotify (w, StructureNotifyMask,
 						                    w->Id, ROOT_WINDOW,
-						                    w->Rect, w->Override);
+						                    *(PXY*)&w->Rect, w->Override);
 					}
 					if (WIND_Root.u.List.AllMasks & SubstructureNotifyMask) {
 						EvntReparentNotify (&WIND_Root, SubstructureNotifyMask,
 						                    w->Id, ROOT_WINDOW,
-						                    w->Rect, w->Override);
+						                    *(PXY*)&w->Rect, w->Override);
 					}
 					WindMap (w, xTrue);
 				} else {
@@ -561,16 +560,8 @@ WmgrWindMap (WINDOW * wind, GRECT * curr)
 			work.y = wind->Rect.y - wind->BorderWidth;
 			work.w = wind->Rect.w;
 			work.h = wind->Rect.h;
-			if (wind->u.List.AllMasks & StructureNotifyMask) {
-				EvntConfigureNotify (wind, StructureNotifyMask,
-				                     wind->Id, above,
-				                     work, wind->BorderWidth, wind->Override);
-			}
-			if (WIND_Root.u.List.AllMasks & SubstructureNotifyMask) {
-				EvntConfigureNotify (&WIND_Root, SubstructureNotifyMask,
-				                     wind->Id, above,
-				                     work, wind->BorderWidth, wind->Override);
-			}
+			EvntConfigureNotify (wind, wind->Id, above,
+			                     &work, wind->BorderWidth, wind->Override);
 		}
 		if (wind->SaveUnder && wind->Override) {
 			GRECT rect = *curr;
@@ -839,16 +830,8 @@ WmgrMessage (short * msg)
 				work.y -= wind->BorderWidth;
 				work.w =  wind->Rect.w;
 				work.h =  wind->Rect.h;
-				if (wind->u.List.AllMasks & StructureNotifyMask) {
-					EvntConfigureNotify (wind, StructureNotifyMask,
-					                     wind->Id, above,
-					                     work, wind->BorderWidth, wind->Override);
-				}
-				if (WIND_Root.u.List.AllMasks & SubstructureNotifyMask) {
-					EvntConfigureNotify (&WIND_Root, SubstructureNotifyMask,
-					                     wind->Id, above,
-					                     work, wind->BorderWidth, wind->Override);
-				}
+				EvntConfigureNotify (wind, wind->Id, above,
+					                  &work, wind->BorderWidth, wind->Override);
 			}
 			WindPointerWatch (xFalse);
 			break;

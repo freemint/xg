@@ -15,6 +15,8 @@
 
 #include <stdarg.h>
 
+#include <X11/X.h>
+
 
 #define AllEventMask   0x01FFFFFFuL
 
@@ -26,7 +28,7 @@ p_CLIENT EvntClient (p_WINDOW wind, CARD32 mask);
 
 // KeyPress/KeyRelease, ButtonPress/ButtonRelease
 BOOL EvntPropagate (p_WINDOW wind, CARD32 mask, BYTE event,
-                    CARD32 rid, CARD32 cid, PXY rxy, BYTE detail);
+                    CARD32 c_id, PXY r_xy, PXY e_xy, BYTE detail);
 
 // EnterNotify/LeaveNotify
 void EvntPointer (p_WINDOW * stack, int anc, int top,
@@ -35,75 +37,194 @@ void EvntPointer (p_WINDOW * stack, int anc, int top,
 void EvntGraphExp (p_CLIENT , p_DRAWABLE ,
                    CARD16 major, short len, const struct s_GRECT * rect);
 
-#define EvntCirculateNotify(w,m, wid, plc)\
-                                         _evnt_w (w,m,CirculateNotify, wid, plc)
-#define EvntCirculateRequest(w,m, wid, plc)\
-                 _evnt_w (w,SubstructureRedirectMask,CirculateRequest, wid, plc)
-void    EvntClientMsg (p_CLIENT, CARD32 id, CARD32 type, BYTE format, void *);
-#define EvntConfigureNotify(w,m, wid, abv, rct, brd, ovr)\
-                         _evnt_w (w,m,ConfigureNotify, wid, abv, &rct, brd, ovr)
-#define EvntCreateNotify(   w,m, wid, rct, brd, ovr)\
-                                 _evnt_w (w,m,CreateNotify, wid, &rct, brd, ovr)
-#define EvntDestroyNotify(  w,m, wid)           _evnt_w (w,m,DestroyNotify, wid)
-#define EvntEnterNotify(    w,   wid, cid, rxy, exy, mod, foc, dtl)\
-                              _evnt_w (w,EnterWindowMask,EnterNotify, wid, cid,\
-                                            *(CARD32*)&(rxy), *(CARD32*)&(exy),\
-                                                                  mod, foc, dtl)
-void    EvntExpose (p_WINDOW, short len, const struct s_GRECT * rect);
-#define EvntFocusIn(        w,   mod, dtl) \
-                                   _evnt_w (w,FocusChangeMask,FocusIn, mod, dtl)
-#define EvntFocusOut(       w,   mod, dtl) \
-                                  _evnt_w (w,FocusChangeMask,FocusOut, mod, dtl)
-#define EvntGravityNotify(  w,m, wid, wxy)\
-                                  _evnt_w (w,m,MapNotify, wid, *(CARD32*)&(wxy))
-#define EvntLeaveNotify(    w,   wid, cid, rxy, exy, mod, foc, dtl)\
-                              _evnt_w (w,LeaveWindowMask,LeaveNotify, wid, cid,\
-                                            *(CARD32*)&(rxy), *(CARD32*)&(exy),\
-                                                                  mod, foc, dtl)
-#define EvntMapNotify(      w,m, wid, ovr)     _evnt_w (w,m,MapNotify, wid, ovr)
-#define EvntMapRequest(     w,m, wid)              _evnt_w (w,m,MapRequest, wid)
-#define EvntMotionNotify(   w,m, wid, cid, rxy, exy)\
-                                           _evnt_w (w,m,MotionNotify, wid, cid,\
-                                             *(CARD32*)&(rxy), *(CARD32*)&(exy))
-#define EvntNoExposure(     c,   drw, req)        _evnt_c (c,NoExpose, drw, req)
-#define EvntPropertyNotify( w,   atm, del)\
-                         _evnt_w (w,PropertyChangeMask,PropertyNotify, atm, del)
-#define EvntReparentNotify( w,m, wid, pid, wxy, ovr)\
-                                         _evnt_w (w,m,ReparentNotify, wid, pid,\
-                                                          *(CARD32*)&(wxy), ovr)
-#define EvntSelectionClear( c,   wid, sel)  _evnt_c (c,SelectionClear, wid, sel)
-#define EvntSelectionNotify(c,   tim, wid, sel, trg, prp)\
-                            _evnt_c (c,SelectionNotify, tim, wid, sel, trg, prp)
-#define EvntSelectionRequest(c,  tim, own, req, sel, trg, prp)\
-                                              _evnt_c (c,SelectionRequest, tim,\
-                                                        own, req, sel, trg, prp)
-#define EvntUnmapNotify(    w,m, wid, cfg)   _evnt_w (w,m,UnmapNotify, wid, cfg)
-#define EvntVisibilityNotify(w,  obs) \
-                          _evnt_w (w,VisibilityChangeMask,VisibilityNotify, obs)
 
+#define _Void   static inline void
+#define CLT    p_CLIENT clnt   // the client the event is sent to
+#define WND    p_WINDOW wind   // the window the event is sent to
+#define MSK    Mask     mask   // event mask
+#define EVN    BYTE     evnt   // event
+#define WID    Window   w_id   // window id the event is about
+#define AID    Window   a_id   // above-sibling id
+#define CID    Window   c_id   // child id
+#define PID    Window   p_id   // parent id
+#define REQ    Window   rqst   // requestor id
+#define DID    Drawable d_id   // drawable id
+#define TIM    Time     tmst   // time stamp
+#define DTL    char     detl   // byte detail
+#define TYP    Atom     type   // 
+#define SEL    Atom     slct   // selection
+#define PRP    Atom     prop   // property
+#define TRG    Atom     trgt   // target
+#define FRM    CARD8    frmt   // 
+#define RCT    GRECT  * rect   // 
+#define WXY    PXY      w_xy   // window x/y
+#define RXY    PXY      r_xy   // root x/y
+#define EXY    PXY      e_xy   // event x/y
+#define BRD    CARD16   brdr   // border-width
+#define OVR    BOOL     ovrd   // override-redirect
+#define CFG    BOOL     cnfg   // from-configure
+#define MOD    BYTE     mode   // place/state
+#define FOC    CARD8    focs   // 
+#define OPC    CARD16   opcd   // major-opcode
+
+_Void EvntCirculateNotify (WND,      WID, DTL);
+_Void EvntCirculateRequest(WND,      WID, DTL);
+ void EvntClientMsg       (CLT,      WID, TYP, FRM, void *);
+_Void EvntConfigureNotify (WND,      WID, AID, RCT, BRD, OVR);
+_Void EvntCreateNotify    (WND,      WID,      RCT, BRD, OVR);
+_Void EvntDestroyNotify   (WND,      WID);
+_Void EvntEnterNotify     (WND,      WID, CID, RXY, EXY, MOD, FOC, DTL);
+ void EvntExpose          (WND,      short len, const struct s_GRECT * rect);
+_Void EvntFocusIn         (WND,                          MOD,      DTL);
+_Void EvntFocusOut        (WND,                          MOD,      DTL);
+_Void EvntGravityNotify   (WND,      WID, WXY);
+_Void EvntKeyButMotion    (CLT, EVN, WID, CID, RXY, EXY, DTL);
+_Void EvntLeaveNotify     (WND,      WID, CID, RXY, EXY, MOD, FOC, DTL);
+_Void EvntMapNotify       (WND,      WID,                OVR);
+_Void EvntMapRequest      (WND,      WID);
+_Void EvntMotionNotify    (WND, MSK, WID, CID, RXY, EXY);
+_Void EvntNoExposure      (CLT,      DID, OPC);
+_Void EvntPropertyNotify  (WND,           TYP,           MOD);
+_Void EvntReparentNotify  (WND, MSK, WID, PID, WXY,      OVR);
+_Void EvntSelectionClear  (CLT,      WID,      SEL);
+_Void EvntSelectionNotify (CLT, TIM, WID,      SEL, TRG, PRP);
+_Void EvntSelectionRequest(CLT, TIM, WID, REQ, SEL, TRG, PRP);
+_Void EvntUnmapNotify     (WND,      WID, CFG);
+_Void EvntVisibilityNotify(WND,      MOD);
 
 //___________to_do_
-//KeyPress
-//KeyRelease
 //KeymapNotify
-//GraphicsExpose
-//NoExpose
-//VisibilityNotify
 //ConfigureRequest
-//GravityNotify
 //ResizeRequest
-//CirculateNotify
-//CirculateRequest
 //ColormapNotify
-//ClientMessage
 //MappingNotify
 
 
-void _evnt_w (p_WINDOW wind, CARD32 mask, CARD16 evnt, ...);
-void _evnt_c (p_CLIENT clnt, CARD16 evnt, ...);
+//___Inline_Funktions__________
+
+_Void EvntCirculateNotify (WND, WID, DTL) {
+	extern void _Evnt_Struct (p_WINDOW , CARD16 , ...);
+	_Evnt_Struct (wind, CirculateNotify, w_id, detl);
+}
+_Void EvntCirculateRequest(WND, WID, DTL) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, SubstructureRedirectMask, CirculateRequest, w_id, detl);
+}
+_Void EvntConfigureNotify (WND, WID, AID, RCT, BRD, OVR) {
+	extern void _Evnt_Struct (p_WINDOW , CARD16 , ...);
+	_Evnt_Struct (wind, ConfigureNotify, w_id, a_id, rect, brdr, ovrd);
+}
+_Void EvntCreateNotify (WND, WID, RCT, BRD, OVR) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16, ...);
+	_Evnt_Window (wind, SubstructureNotifyMask, CreateNotify,
+	              w_id, rect, brdr, ovrd);
+}
+_Void EvntDestroyNotify (WND, WID) {
+	extern void _Evnt_Struct (p_WINDOW , CARD16 , ...);
+	_Evnt_Struct (wind, DestroyNotify, w_id);
+}
+_Void EvntEnterNotify (WND, WID, CID, RXY, EXY, MOD, FOC, DTL) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, EnterWindowMask, EnterNotify,
+	              w_id, c_id, r_xy, e_xy, mode, focs, detl);
+}
+_Void EvntFocusIn (WND, MOD, DTL) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, FocusChangeMask, FocusIn, mode, detl);
+}
+_Void EvntFocusOut (WND, MOD, DTL) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, FocusChangeMask, FocusOut, mode, detl);
+}
+_Void EvntGravityNotify (WND, WID, WXY) {
+	extern void _Evnt_Struct (p_WINDOW , CARD16 , ...);
+	_Evnt_Struct (wind, MapNotify, w_id, w_xy);
+}
+_Void EvntKeyButMotion (CLT, EVN, WID, CID, RXY, EXY, DTL) {
+	extern void _Evnt_Client (p_CLIENT , CARD16 , ...);
+	_Evnt_Client (clnt, evnt, w_id, c_id, r_xy, e_xy, detl);
+}
+_Void EvntLeaveNotify (WND, WID, CID, RXY, EXY, MOD, FOC, DTL) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, LeaveWindowMask, LeaveNotify,
+	         w_id, c_id, r_xy, e_xy, mode, focs, detl);
+}
+_Void EvntMapNotify (WND, WID, OVR) {
+	extern void _Evnt_Struct (p_WINDOW , CARD16 , ...);
+	_Evnt_Struct (wind, MapNotify, w_id, ovrd);
+}
+_Void EvntMapRequest (WND, WID) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, SubstructureRedirectMask, MapRequest, w_id);
+}
+_Void EvntMotionNotify (WND, MSK, WID, CID, RXY, EXY) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, mask, MotionNotify, w_id, c_id, r_xy, e_xy);
+}
+_Void EvntNoExposure (CLT, DID, OPC) {
+	extern void _Evnt_Client (p_CLIENT , CARD16 , ...);
+	_Evnt_Client (clnt, NoExpose, d_id, opcd);
+}
+_Void EvntPropertyNotify (WND, TYP, MOD) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, PropertyChangeMask, PropertyNotify, type, mode);
+}
+_Void EvntReparentNotify (WND, MSK, WID, PID, WXY, OVR) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, mask, ReparentNotify, w_id, p_id, w_xy, ovrd);
+}
+_Void EvntSelectionClear  (CLT, WID, SEL) {
+	extern void _Evnt_Client (p_CLIENT , CARD16 , ...);
+	_Evnt_Client (clnt, SelectionClear, w_id, slct);
+}
+_Void EvntSelectionNotify (CLT, TIM, WID, SEL, TRG, PRP) {
+	extern void _Evnt_Client (p_CLIENT , CARD16 , ...);
+	_Evnt_Client (clnt, SelectionNotify, tmst, w_id, slct, trgt, prop);
+}
+_Void EvntSelectionRequest (CLT, TIM, WID, REQ, SEL, TRG, PRP) {
+	extern void _Evnt_Client (p_CLIENT , CARD16 , ...);
+	_Evnt_Client (clnt, SelectionRequest, tmst, w_id, rqst, slct, trgt, prop);
+}
+_Void EvntUnmapNotify (WND,  WID, CFG) {
+	extern void _Evnt_Struct (p_WINDOW , CARD16 , ...);
+	_Evnt_Struct (wind, UnmapNotify, w_id, cnfg);
+}
+_Void EvntVisibilityNotify (WND, MOD) {
+	extern void _Evnt_Window (p_WINDOW , CARD32 , CARD16 , ...);
+	_Evnt_Window (wind, VisibilityChangeMask, VisibilityNotify, mode);
+}
+
+#undef _Void
+#undef CLT
+#undef WND
+#undef MSK
+#undef EVN
+#undef WID
+#undef AID
+#undef CID
+#undef PID
+#undef REQ
+#undef DID
+#undef TIM
+#undef DTL
+#undef TYP
+#undef SEL
+#undef PRP
+#undef TRG
+#undef FRM
+#undef RCT
+#undef WXY
+#undef RXY
+#undef EXY
+#undef BRD
+#undef OVR
+#undef CFG
+#undef MOD
+#undef FOC
+#undef OPC
+
 
 void FT_Evnt_send_MSB (p_CLIENT , p_WINDOW , CARD16 evnt, va_list);
 void FT_Evnt_send_LSB (p_CLIENT , p_WINDOW , CARD16 evnt, va_list);
-
 
 #endif __EVENT_H__

@@ -16,8 +16,14 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <X11/X.h>
+
 #include <X11/Xproto.h>
+
+
+void _Evnt_Window (p_WINDOW wind, CARD32 mask, CARD16 evnt, ...);
+void _Evnt_Struct (p_WINDOW wind, CARD16 evnt, ...);
+void _Evnt_Client (p_CLIENT clnt, CARD16 evnt, ...);
+
 
 //------------------------------------------------------------------------------
 #ifdef TRACE
@@ -321,21 +327,21 @@ EvntClientMsg (CLIENT * clnt, Window id, Atom type, BYTE format, void * data)
 //==============================================================================
 BOOL
 EvntPropagate (WINDOW * wind, CARD32 mask, BYTE event,
-               Window r_id, Window c_id, PXY r_xy, BYTE detail)
+               Window c_id, PXY r_xy, PXY e_xy, BYTE detail)
 {
-	BOOL exec = xFalse;
-	PXY  e_xy = r_xy;
+	CARD32 chld = (c_id == wind->Id ? None : c_id);
+	BOOL   exec = xFalse;
 	
 	do {
 		if (mask & wind->u.List.AllMasks) {
-			_evnt_w (wind, mask, event,
-			         r_id, c_id, *(CARD32*)&r_xy, *(CARD32*)&e_xy, detail);
+			_Evnt_Window (wind, mask, event, chld, r_xy, e_xy, detail);
 			exec  = xTrue;
 			mask &= !wind->u.List.AllMasks;
 		}
 		if (mask &= wind->PropagateMask) {
 			e_xy.x += wind->Rect.x;
 			e_xy.y += wind->Rect.y;
+			if (c_id) chld = wind->Id;
 		} else {
 			break;
 		}
@@ -422,18 +428,19 @@ EvntPointer (WINDOW ** stack, int anc, int top,
 // l   - CARD32 ('long')
 // s   - CARD16 ('short')
 // b/c - BOOL / CARD8 ('char')
-// p   - PXY, casted to one single CARD32
+// p   - PXY coordinates (not pointer of!)
 // r   - GRECT*
 // d   - detail, CARD8
 // S   - global TIMESTAMP
 // M   - global SETofKEYBUTMASK
 // W   - Id from parameter WINDOW*
+// X   - RootWindow Id
 // T/F - xTrue / xFalse, constant CARD8 (mainly for 'same-screen')
 
 static const char * _EVNT_Form[LASTEvent] = {
 	NULL, NULL,
-	"SwWwppMTd","SwWwppMTd",              // KeyPress,    KeyRelease
-	"SwWwppMTd","SwWwppMTd",              // ButtonPress, ButtonRelease
+	"SXWwppMTd","SXWwppMTd",              // KeyPress,    KeyRelease
+	"SXWwppMTd","SXWwppMTd",              // ButtonPress, ButtonRelease
 	"SwWwppMT", "SwWwppMccd","SwWwppMccd",// MotionNotify,EnterNotify,LeaveNotify
 	"Wcd",      "Wcd",                    // FocusIn,     FocusOut
 	NULL, //KeymapNotify
@@ -475,15 +482,13 @@ FT_Evnt_send_MSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 		case 's': ARG (CARD16); break;
 		case 'c': ARG (CARD8);  break;
 		case 'b': ARG (BOOL);   break;
-		case 'p':
-			*(PXY*)ptr = *(PXY*)&va_arg (vap, CARD32);
-			ptr += 4;
-			break;
+		case 'p': ARG (PXY);    break;
 		case 'r':
 			*(GRECT*)ptr = *va_arg (vap, GRECT*);
 			ptr += 8;
 			break;
 		case 'd': evn->u.u.detail   = va_arg (vap, CARD8);       break;
+		case 'X': *(Window*)ptr     = ROOT_WINDOW;     ptr += 4; break;
 		case 'S': *(Time*)ptr       = MAIN_TimeStamp;  ptr += 4; break;
 		case 'M': *(KeyButMask*)ptr = MAIN_KeyButMask; ptr += 2; break;
 		case 'T': *ptr              = xTrue;           ptr += 1; break;
@@ -515,10 +520,11 @@ FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 		case 'c': ARG   (CARD8);  break;
 		case 'b': ARG   (BOOL);   break;
 		case 'p':
-			SwapPXY ((PXY*)ptr, (PXY*) &va_arg (vap, CARD32));  ptr += 4; break;
+			SwapPXY ((PXY*)ptr,  &va_arg (vap, PXY));           ptr += 4; break;
 		case 'r':
 			SwapRCT ((GRECT*)ptr, va_arg (vap, GRECT*));        ptr += 8; break;
 		case 'd': evn->u.u.detail   = va_arg (vap, CARD8);               break;
+		case 'X': *(Window*)ptr     = SWAP32(ROOT_WINDOW);     ptr += 4; break;
 		case 'S': *(Time*)ptr       = Swap32(MAIN_TimeStamp);  ptr += 4; break;
 		case 'M': *(KeyButMask*)ptr = Swap16(MAIN_KeyButMask); ptr += 2; break;
 		case 'T': *ptr              = xTrue;                   ptr += 1; break;
@@ -530,7 +536,7 @@ FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 
 //------------------------------------------------------------------------------
 void
-_evnt_w (WINDOW * wind, CARD32 mask, CARD16 evnt, ...)
+_Evnt_Window (WINDOW * wind, CARD32 mask, CARD16 evnt, ...)
 {
 	CARD16     num = (wind->u.List.AllMasks < 0 ? wind->u.List.p->Length : 1);
 	WINDEVNT * lst = (num > 1 ? wind->u.List.p->Event : &wind->u.Event);
@@ -564,7 +570,51 @@ _evnt_w (WINDOW * wind, CARD32 mask, CARD16 evnt, ...)
 
 //------------------------------------------------------------------------------
 void
-_evnt_c (CLIENT * clnt, CARD16 evnt, ...)
+_Evnt_Struct (WINDOW * wind, CARD16 evnt, ...)
+{
+	if (evnt < 2 || evnt >= LASTEvent) {
+		printf ("\33pERROR\33q invalid event value %u for W:%X.\n",
+		        evnt, wind->Id);
+		return;
+	}
+	if (!_EVNT_Form[evnt]) {
+		printf ("\33pERROR\33q undefined event set at %u for W:%X.\n",
+		        evnt, wind->Id);
+		return;
+	}
+	
+	if (wind->u.List.AllMasks & StructureNotifyMask) {
+		CARD16     num = (wind->u.List.AllMasks < 0 ? wind->u.List.p->Length : 1);
+		WINDEVNT * lst = (num > 1 ? wind->u.List.p->Event : &wind->u.Event);
+		while (num--) {
+			if (lst->Mask & StructureNotifyMask) {
+				va_list   vap;
+				va_start (vap, evnt);
+				lst->Client->Fnct->event (lst->Client, wind, evnt, vap);
+				va_end (vap);
+			}
+			lst++;
+		}
+	}
+	if ((wind = wind->Parent) &&
+	    (wind->u.List.AllMasks & SubstructureNotifyMask)) {
+		CARD16     num = (wind->u.List.AllMasks < 0 ? wind->u.List.p->Length : 1);
+		WINDEVNT * lst = (num > 1 ? wind->u.List.p->Event : &wind->u.Event);
+		while (num--) {
+			if (lst->Mask & SubstructureNotifyMask) {
+				va_list   vap;
+				va_start (vap, evnt);
+				lst->Client->Fnct->event (lst->Client, wind, evnt, vap);
+				va_end (vap);
+			}
+			lst++;
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+void
+_Evnt_Client (CLIENT * clnt, CARD16 evnt, ...)
 {
 	if (evnt < 2 || evnt >= LASTEvent) {
 		printf ("\33pERROR\33q invalid event value %u.\n", evnt);
@@ -579,6 +629,8 @@ _evnt_c (CLIENT * clnt, CARD16 evnt, ...)
 		va_end (vap);
 	}
 }
+
+
 //==============================================================================
 //
 // Callback Functions
