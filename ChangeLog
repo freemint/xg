@@ -1,3 +1,15 @@
+2001-07-01: 0.09.4
+   - activated the 'About' box (as wished by lp_ and other :-) ) to display the
+     version number.
+   - heavily reworked management of window properties to make the built-in
+     window manager's accesses to ICCC values easyer and speeds it up a bit.
+   - adapted to gemlib 0.41.
+2001-06-23: 0.09.3
+   - fixed ReparentWindow() handling for setting to root parent.
+   - implemented wmgr notification for WM_HINTS properties changes to allow
+     clients to update the bitmap of a iconifyed window (as xv does while
+     working).  same done for icon window names.
+   - decreased debug output a bit.
 2001-06-23: 0.09.2
    - improved a bit the detection of gray scale colors for better matching the
      client's ideas of colors using the 4x8x4 color model.

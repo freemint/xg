@@ -26,7 +26,7 @@ $(OBJDIR)/%.o: %.c ; rm -f $(PRG) ; $(CC) $(CCFLAGS) -D_$(<:.c=)_ -c $< -o $@
 
 ALL: $(PRG)
 
-SRC = Atom.c Cursor.c Pointer.c Property.c Request.c \
+SRC = Atom.c Cursor.c Pointer.c Property.c Prop_ICCC.c Request.c \
       clnt.c clnt_swap.c colormap.c config.c draw_img.c drawable.c \
       event.c font.c font_init.c fontable.c gcontext.c grph.c keyboard.c \
       main.c pixm_mono.c pixmap.c selection.c srvr.c \
