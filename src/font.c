@@ -559,9 +559,25 @@ RQ_SetFontPath (CLIENT * clnt, xSetFontPathReq * q)
 	PRINT (- X_SetFontPath," (%u)", q->nFonts);
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_GetFontPath (CLIENT * clnt, xGetFontPathReq * q)
 {
+	// Returns the search path for fonts.  Due to the lack of own font
+	// management, simply the VDI's default font directory is returned.
+	//
+	// Reply:
+	// CARD16 nPaths: number of diretorys
+	
+	ClntReplyPtr (GetFontPath, r);
+	const char * src = "/c/gemsys";
+	char       * dst = (char*)(r +1);
+	
 	PRINT (- X_GetFontPath," ");
+	
+	r->nPaths = 1;
+	*dst      = (char)(sizeof(src) -1);
+	strncpy (dst +1, src, sizeof (src) -1);
+	
+	ClntReply (GetFontPath, sizeof (src) -1, ".");
 }
