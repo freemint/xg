@@ -663,10 +663,10 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 			       q->drawable, q->gc, len);
 		
 		} else { // Pixmap
-			size_t  num = len;
-			GRECT * rct = rec;
-			if (draw.p->Depth == 1) {
+			if (0  &&  draw.p->Depth == 1) {
 				if (clnt->DoSwap) {
+					size_t  num = len;
+					GRECT * rct = rec;
 					while (num--) {
 						SwapRCT(rct, rct);
 						rct++;
