@@ -56,7 +56,8 @@ clip_children (WINDOW * wind, PXY orig, PRECT * dst, PRECT * clip)
 		wind = wind->NextSibl;
 	}
 	if (num) {
-		short beg, end, d;
+		short top, bot;
+		short beg, end;
 		PRECT ** list = (PRECT**)dst;
 		PRECT  * area = (PRECT*)(list + num);
 
@@ -81,43 +82,45 @@ clip_children (WINDOW * wind, PXY orig, PRECT * dst, PRECT * clip)
 		// find free rectangles between child geometries
 					
 		beg = 0;
-		d   = clip->lu.y;
+		bot = clip->lu.y;
 		do {
 			short x = clip->lu.x;
-			short u = d;
-			if (u < list[beg]->lu.y) { // found area above first child geometry
+			if (bot < list[beg]->lu.y) { // found area above first child geometry
+				top = list[beg]->lu.y;
 				area->lu.x = x;
-				area->lu.y = u;
+				area->lu.y = bot;
 				area->rd.x = clip->rd.x;
-				area->rd.y = (u = list[beg]->lu.y) -1;
+				area->rd.y = top -1;
 				area++;
 				cnt++;
+			} else {
+				top = bot;
 			}
-			d = list[beg]->rd.y;
+			bot = list[beg]->rd.y;
 			
 			for (end = beg +1; end < num; ++end) {
-				if (list[end]->lu.y > u) {
-					if (list[end]->lu.y <= d) d = list[end]->lu.y -1;
+				if (list[end]->lu.y > top) {
+					if (list[end]->lu.y <= bot) bot = list[end]->lu.y -1;
 					break;
-				} else if (list[end]->rd.y < d) {
-					d = list[end]->rd.y;
+				} else if (list[end]->rd.y < bot) {
+					bot = list[end]->rd.y;
 				}
 			}
 			i = beg;
 			while (i < end) {
 				if (x < list[i]->lu.x) { // free area on left side of child
 					area->lu.x = x;
-					area->lu.y = u;
+					area->lu.y = top;
 					area->rd.x = list[i]->lu.x -1;
-					area->rd.y = d;
+					area->rd.y = bot;
 					area++;
 					cnt++;
 				}
 				if (x <= list[i]->rd.x) {
 					x = list[i]->rd.x +1;
 				}
-				if (list[i]->rd.y > d) i++;
-				else if (i == beg)     beg = ++i;
+				if      (list[i]->rd.y > bot) i++;
+				else if (i == beg)            beg = ++i;
 				else {
 					short j = i;
 					while (++j < num) list[j-1] = list[j];
@@ -126,16 +129,15 @@ clip_children (WINDOW * wind, PXY orig, PRECT * dst, PRECT * clip)
 			}
 			if (x <= clip->rd.x) { // free area on right side of last child
 				area->lu.x = x;
-				area->lu.y = u;
+				area->lu.y = top;
 				area->rd.x = clip->rd.x;
-				area->rd.y = d;
+				area->rd.y = bot;
 				area++;
 				cnt++;
 			}
-			d++;
 			
 			if (i > beg) {
-				while (i < num  &&  list[i]->lu.y == d
+				while (i < num  &&  list[i]->lu.y == bot
 				       &&  list[i]->lu.x < list[i-1]->lu.x) {
 					short   j    = i;
 					PRECT * save = list[i];
@@ -146,11 +148,13 @@ clip_children (WINDOW * wind, PXY orig, PRECT * dst, PRECT * clip)
 				}
 				i++;
 			}
+			bot++; // to be the top for the next loop
+		
 		} while (beg < num);
 		
-		if (d <= clip->rd.y) { // free area at the bottom
+		if (bot <= clip->rd.y) { // free area at the bottom
 			area->lu.x = clip->lu.x;
-			area->lu.y = d;
+			area->lu.y = bot;
 			area->rd   = clip->rd;
 			area++;
 			cnt++;
