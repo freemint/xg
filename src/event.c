@@ -242,7 +242,7 @@ EvntExpose (WINDOW * wind, short len, const struct s_GRECT * rect)
 				}
 			}
 			buf->Left     += sizeof(xEvent) * len;
-			MAIN_FDSET_wr |= 1uL << lst->Client->Fd;
+			MAIN_FDSET_wr |= lst->Client->FdSet;
 		}
 		lst++;
 	}
@@ -285,7 +285,7 @@ EvntGraphExp (CLIENT * clnt, p_DRAWABLE draw,
 		}
 	}
 	buf->Left     += sizeof(xEvent) * len;
-	MAIN_FDSET_wr |= 1uL << clnt->Fd;
+	MAIN_FDSET_wr |= clnt->FdSet;
 }
 
 //==============================================================================
@@ -321,7 +321,7 @@ EvntClientMsg (CLIENT * clnt, Window id, Atom type, BYTE format, void * data)
 		memcpy (evn->u.clientMessage.u.b.bytes, data, 20);
 	}
 	buf->Left     += sizeof(xEvent);
-	MAIN_FDSET_wr |= 1uL << clnt->Fd;
+	MAIN_FDSET_wr |= clnt->FdSet;
 }
 
 //==============================================================================
@@ -593,7 +593,7 @@ FT_Evnt_send_MSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 		case '*':                                            ptr += 4; break;
 	}
 	buf->Left     += sizeof(xEvent);
-	MAIN_FDSET_wr |= 1uL << clnt->Fd;
+	MAIN_FDSET_wr |= clnt->FdSet;
 }
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void
@@ -629,7 +629,7 @@ FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
 		case '*':                                              ptr += 4; break;
 	}
 	buf->Left     += sizeof(xEvent);
-	MAIN_FDSET_wr |= 1uL << clnt->Fd;
+	MAIN_FDSET_wr |= clnt->FdSet;
 }
 
 //==============================================================================
@@ -747,7 +747,7 @@ RQ_SendEvent (CLIENT * clnt, xSendEventReq * q)
 					}
 				}
 				buf->Left     += sizeof(xEvent);
-				MAIN_FDSET_wr |= 1uL << lst->Client->Fd;
+				MAIN_FDSET_wr |= lst->Client->FdSet;
 			}
 			lst++;
 		}
