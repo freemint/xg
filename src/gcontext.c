@@ -566,7 +566,7 @@ RQ_SetClipRectangles (CLIENT * clnt, xSetClipRectanglesReq * q)
 	
 	} else { //..................................................................
 		
-		PRINT (SetClipRectangles," G:%lX %i,%i", q->gc, q->xOrigin, q->yOrigin);
+		DEBUG (SetClipRectangles," G:%lX %i,%i", q->gc, q->xOrigin, q->yOrigin);
 		
 		if (gc->ClipMask) {
 			PmapFree (gc->ClipMask, NULL);
