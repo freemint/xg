@@ -23,8 +23,9 @@ int  GrphSetup (void * format_arr);
 
 BOOL   GrphIntersect  (p_GRECT a, const struct s_GRECT * b);
 BOOL   GrphIntersectP (p_PRECT a, const struct s_PRECT * b);
-CARD16 GrphCombine    (p_GRECT r, const struct s_GRECT * a, CARD16 n,
+CARD16 GrphInterList  (p_GRECT r, const struct s_GRECT * a, CARD16 n,
                                   const struct s_GRECT * b, CARD16 m);
+void   GrphCombine    (p_GRECT a, const struct s_GRECT * b);
 
 
 extern CONST short GRPH_Handle;

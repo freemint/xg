@@ -318,7 +318,7 @@ GrphIntersectP (p_PRECT dst, const struct s_PRECT * src)
 
 //==============================================================================
 CARD16
-GrphCombine (GRECT * rct, const GRECT * a, CARD16 n, const GRECT * b, CARD16 m)
+GrphInterList (GRECT * r, const GRECT * a, CARD16 n, const GRECT * b, CARD16 m)
 {
 	CARD16 cnt = 0;
 	
@@ -326,15 +326,37 @@ GrphCombine (GRECT * rct, const GRECT * a, CARD16 n, const GRECT * b, CARD16 m)
 		const GRECT * bb = b;
 		CARD16        mm = m;
 		while (mm--) {
-			*rct = *a;
-			if (GrphIntersect (rct, bb++)) {
-				rct++;
+			*r = *a;
+			if (GrphIntersect (r, bb++)) {
+				r++;
 				cnt++;
 			}
 		}
 		a++;
 	}
 	return cnt;	
+}
+
+//==============================================================================
+void
+GrphCombine (GRECT * a, const GRECT * b)
+{
+	short d;
+	
+	if ((d = a->x - b->x) > 0) {
+		a->w += d;
+		a->x =  b->x;
+		if (a->w < b->w) a->w = b->w;
+	} else if ((d = (b->x + b->w) - (a->x + a->w)) > 0) {
+		a->w += d;
+	}
+	if ((d = a->y - b->y) > 0) {
+		a->w += d;
+		a->y =  b->y;
+		if (a->h < b->h) a->h = b->h;
+	} else if ((d = (b->y + b->h) - (a->y + a->h)) > 0) {
+		a->h += d;
+	}
 }
 
 
