@@ -118,7 +118,7 @@ SrvrInit (int port)
 	        port, SRVR_Conn.Fd, max_conn);
 	
 	memset (SRVR_ConnTable, 0, sizeof(SRVR_ConnTable));
-	MAIN_FDSET_rd = SrvrConnInsert ((p_CONNECTION)&SRVR_Conn);
+	SrvrConnInsert ((p_CONNECTION)&SRVR_Conn);
 	
 	AtomInit (xTrue);
 	KybdInit ();
@@ -165,6 +165,22 @@ SrvrReset()
 }
 
 
+//==============================================================================
+void
+SrvrGrab (p_CLIENT clnt)
+{
+	SRVR_GrabFD = clnt->FdSet | SRVR_Conn.FdSet;
+}
+
+//==============================================================================
+void
+SrvrUngrab (p_CLIENT clnt)
+{
+	if (clnt) SRVR_GrabFD |= clnt->FdSet;
+	else      SRVR_GrabFD  = 0xFFFFFFFF;
+}
+
+
 //------------------------------------------------------------------------------
 static short excl_flag;
 static BOOL
@@ -194,8 +210,8 @@ _Srvr_Accept (p_CONNECTION conn, BOOL rd, BOOL wr)
 		// a server grab.  this is used to wait for xconsole to become
 		// ready to work if launched at server start.
 		
-		SRVR_GrabFD = (1uL << fd) | SRVR_Conn.FdSet;
-		grab        = xTrue;
+		SrvrGrab (SRVR_ConnTable[fd].Client);
+		grab = xTrue;
 	}
 	
 	return grab;	
@@ -242,26 +258,17 @@ SrvrSelect (short exclusive)
 
 //==============================================================================
 void
-SrvrUngrab (CARD32 mask)
-{
-	SRVR_GrabFD |= mask;
-}
-
-
-//==============================================================================
-long
 SrvrConnInsert (p_CONNECTION conn)
 {
 	if (conn.p->FdSet || SRVR_ConnTable[conn.p->Fd].p) {
 		printf ("\33pError\33q SrvrConnInsert() \n");
-		return 0;
 	
 	} else {
 		conn.p->FdSet              = 1ul << conn.p->Fd;
+		MAIN_FDSET_rd             |= conn.p->FdSet;
 		SRVR_ConnTable[conn.p->Fd] = conn;
 		SRVR_ConnNum++;
 	}
-	return conn.p->FdSet;
 }
 
 //==============================================================================
@@ -272,7 +279,9 @@ SrvrConnRemove (p_CONNECTION conn)
 		printf ("\33pError\33q SrvrConnRemove() \n");
 	
 	} else {
-		SrvrUngrab (conn.p->FdSet);
+		SrvrUngrab (conn.Client);
+		MAIN_FDSET_wr               &= ~conn.p->FdSet;
+		MAIN_FDSET_rd               &= ~conn.p->FdSet;
 		conn.p->FdSet                = 0;
 		SRVR_ConnTable[conn.p->Fd].p = NULL;
 		SRVR_ConnNum--;
@@ -334,6 +343,31 @@ SrvrSetup (void* buf, CARD16 maxreqlen, int DoSwap, long rid)
 // Callback Functions
 
 #include "Request.h"
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void
+RQ_GrabServer (CLIENT * clnt, xGrabServerReq * q)
+{
+	// Disables processing of requests of other connections than the one this
+	// request arrived on.
+	//
+	// (no parameters)
+	//...........................................................................
+	
+	SrvrGrab (clnt);
+	
+	PRINT (GrabServer," ");
+}
+
+//------------------------------------------------------------------------------
+void
+RQ_UngrabServer (CLIENT * clnt, xUngrabServerReq * q)
+{
+	SrvrUngrab (clnt);
+	
+	PRINT (UngrabServer," ");
+}
+
 
 //------------------------------------------------------------------------------
 void

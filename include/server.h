@@ -36,8 +36,9 @@ struct s_CONNECTION {
 int    SrvrInit   (int port);
 void   SrvrReset  (void);
 BOOL   SrvrSelect (short exclusive);
-void   SrvrUngrab     (CARD32 mask);
-long   SrvrConnInsert (p_CONNECTION);
+void   SrvrGrab       (p_CLIENT);
+void   SrvrUngrab     (p_CLIENT);
+void   SrvrConnInsert (p_CONNECTION);
 void   SrvrConnRemove (p_CONNECTION);
 size_t SrvrSetup      (void * buf, CARD16 maxreqlen, int DoSwap, long rid);
 

@@ -260,7 +260,7 @@ ClntCreate (int fd, const char * name, const char * addr, int port)
 		XrscPoolInit (clnt->Cursors);
 		
 		if (clnt->Name && clnt->Addr && clnt->iBuf.Mem) {
-			MAIN_FDSET_rd  |= SrvrConnInsert ((p_CONNECTION)clnt);
+			SrvrConnInsert ((p_CONNECTION)clnt);
 			clnt->Eval      = (RQSTCB)_Clnt_EvalInit;
 			clnt->iBuf.Left = sizeof(xConnClientPrefix);
 			clnt->iBuf.Done = 0;
@@ -290,11 +290,9 @@ ClntDelete (CLIENT * clnt)
 		const char * f = (clnt->Id > 0 ? "Connection %s:%i closed."
 		                               : "Connection closed.");
 		PRINT (,f, clnt->Addr, clnt->Port);
-		close (clnt->Fd);
-		_CLNT_BaseNum--;
-		MAIN_FDSET_wr &= ~clnt->FdSet;
-		MAIN_FDSET_rd &= ~clnt->FdSet;
 		SrvrConnRemove ((p_CONNECTION)clnt);
+		_CLNT_BaseNum--;
+		close (clnt->Fd);
 		clnt->Fd = -1;
 	}
 	SlctRemove (clnt);
@@ -352,7 +350,7 @@ FT_Clnt_reply_MSB (CLIENT * clnt, CARD32 size, const char * _unused)
 	r->length         = Units(size - sizeof(xReply));
 	
 	clnt->oBuf.Left += Align(size);
-	MAIN_FDSET_wr   |= 1uL << clnt->Fd;
+	MAIN_FDSET_wr   |= clnt->FdSet;
 }
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 static void
@@ -367,7 +365,7 @@ FT_Clnt_reply_LSB (CLIENT * clnt, CARD32 size, const char * form)
 	if (form) ClntSwap (&r->data00, form);
 	
 	clnt->oBuf.Left += Align(size);
-	MAIN_FDSET_wr   |= 1uL << clnt->Fd;
+	MAIN_FDSET_wr   |= clnt->FdSet;
 }
 
 //------------------------------------------------------------------------------
@@ -386,7 +384,7 @@ FT_Clnt_error_MSB (p_CLIENT clnt,
 	e->resourceID     = val;
 	
 	clnt->oBuf.Left += sizeof(xError);
-	MAIN_FDSET_wr   |= 1uL << clnt->Fd;
+	MAIN_FDSET_wr   |= clnt->FdSet;
 }
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 static void
@@ -404,7 +402,7 @@ FT_Clnt_error_LSB (p_CLIENT clnt,
 	e->resourceID     = Swap32(val);
 	
 	clnt->oBuf.Left += sizeof(xError);
-	MAIN_FDSET_wr   |= 1uL << clnt->Fd;
+	MAIN_FDSET_wr   |= clnt->FdSet;
 }
 
 
@@ -571,20 +569,5 @@ RQ_GetMotionEvents (CLIENT * clnt, xGetMotionEventsReq * q)
 {
 	PRINT (- X_GetMotionEvents," W:%lX T:%lX - T:%lX",
 	       q->window, q->start, q->stop);
-}
-
-
-//------------------------------------------------------------------------------
-void
-RQ_GrabServer (CLIENT * clnt, xGrabServerReq * q)
-{
-	PRINT (- X_GrabServer," ");
-}
-
-//------------------------------------------------------------------------------
-void
-RQ_UngrabServer (CLIENT * clnt, xUngrabServerReq * q)
-{
-	PRINT (- X_UngrabServer," ");
 }
 

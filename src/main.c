@@ -242,7 +242,7 @@ main (int argc, char * argv[])
 				
 				} else if (_MAIN_Xcons && WIND_ChngTrigger) {
 					signal (SIGCHLD, NULL);
-					SrvrUngrab (0xFFFFFFFF);
+					SrvrUngrab (NULL);
 					set_printf (xFalse);
 					printf ("-------------------END-BUFFERED-------------------\n");
 					_MAIN_Xcons = 0;
@@ -259,7 +259,7 @@ sig_child (int sig)
 {
 	if (Pkill (0, _MAIN_Xcons)) {
 		signal (SIGCHLD, NULL);
-		SrvrUngrab (0xFFFFFFFF);
+		SrvrUngrab (NULL);
 		set_printf (xFalse);
 		printf ("%s","");
 		_MAIN_Xcons = 0;
