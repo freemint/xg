@@ -104,7 +104,7 @@ RQ_GetPointerMapping (CLIENT * clnt, xGetPointerMappingReq * _unused_)
 	ClntReplyPtr (GetPointerMapping, r);
 	int i;
 	
-	DEBUG (GetPointerMapping,);
+	DEBUG (GetPointerMapping," ");
 	
 	for (i = 0; i < PNTR_MAP; ++i) {
 		((CARD8*)(r +1))[i] = PNTR_Table[i+1];
@@ -150,7 +150,7 @@ RQ_GetPointerControl (CLIENT * clnt, xGetPointerControlReq * q)
 	
 	ClntReplyPtr (GetPointerControl, r);
 	
-	DEBUG (GetPointerControl,);
+	DEBUG (GetPointerControl," ");
 	
 	r->accelNumerator   = 1;
 	r->accelDenominator = 1;

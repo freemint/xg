@@ -177,7 +177,7 @@ _Gcnt_setup (CLIENT * clnt, GC * gc, CARD32 mask, CARD32 * val, CARD8 req)
 			Bad(Match,, +req, "          Stipple depth %u.", stip->Depth);
 			return;
 		} else {
-			DEBUG (,"+- stip=0x%X", *val);
+			DEBUG (,"+- stip=0x%lX", *val);
 			if (gc->Stipple) {
 				PmapFree (gc->Stipple, NULL);
 			}
@@ -339,7 +339,7 @@ RQ_CreateGC (CLIENT * clnt, xCreateGCReq * q)
 		
 		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_CreateGC);
 		
-		DEBUG (,);
+		DEBUG (," ");
 	}
 }
 
@@ -379,7 +379,7 @@ RQ_ChangeGC (CLIENT * clnt, xChangeGCReq * q)
 		}
 		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_ChangeGC);
 		
-		DEBUG (,);
+		DEBUG (," ");
 	}
 }
 

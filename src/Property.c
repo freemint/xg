@@ -6,7 +6,7 @@
 // it will be reported to the built-in window manager if changed or created.
 // These are:  XA_WM_COMMAND, XA_WM_NAME, XA_WM_ICON_NAME.
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-07 - Module released for beta state.
 // 2000-06-19 - Initial Version.

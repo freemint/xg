@@ -890,8 +890,8 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 			}
 		
 		} else { // Pixmap
-			DEBUG (PolyText8," P:%lX G:%lX (%i,%i)",
-			       q->drawable, q->gc, q->x, q->y);
+//			DEBUG (PolyText8," P:%lX G:%lX (%i,%i)",
+//			       q->drawable, q->gc, q->x, q->y);
 			if (gc->ClipNum > 0) {
 				sect = alloca (sizeof(PRECT) * gc->ClipNum);
 				nClp = SizeToLst (sect, gc->ClipRect, gc->ClipNum, &draw.Pixmap->W);
