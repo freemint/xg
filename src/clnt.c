@@ -163,15 +163,15 @@ _Clnt_ConnRW (p_CONNECTION conn, BOOL rd, BOOL wr)
 		ClntDelete (CLNT_Requestor);
 	
 	} else {
+		int fd = CLNT_Requestor->Fd;
 		if (rd) {
-			long n = Finstat (CLNT_Requestor->Fd);
+			long n = Finstat (fd);
 			if (n < 0) {
 				longjmp (CLNT_Error, 1);
 			} else {
 				NETBUF * buf = &CLNT_Requestor->iBuf;
-				if (n > buf->Left) n = buf->Left;
-				n = Fread (CLNT_Requestor->Fd, n, buf->Mem + buf->Done);
-				if (n > 0) {
+				if  (n > buf->Left) n = buf->Left;
+				if ((n = Fread (fd, n, buf->Mem + buf->Done)) > 0) {
 					buf->Done += n;
 					if (!(buf->Left -= n)) {
 						CLNT_Requestor->Eval (CLNT_Requestor, (xReq*)buf->Mem);
@@ -185,17 +185,16 @@ _Clnt_ConnRW (p_CONNECTION conn, BOOL rd, BOOL wr)
 			printf ("## oBuf 0x%X -> %lu \n", CLNT_Requestor->Id, _CLNT_MaxObuf);
 		}
 		if (wr) {
-			long n = Foutstat (CLNT_Requestor->Fd);
+			long n = Foutstat (fd);
 			if (n < 0) {
 				longjmp (CLNT_Error, 1);
 			} else {
 				NETBUF * buf = &CLNT_Requestor->oBuf;
-				if (n > buf->Left) n = buf->Left;
-				n = Fwrite (CLNT_Requestor->Fd, n, buf->Mem + buf->Done);
-				if (n > 0) {
+				if  (n > buf->Left)  n = buf->Left;
+				if ((n = Fwrite (fd, n,  buf->Mem + buf->Done)) > 0) {
 					if (!(buf->Left -= n)) {
 						buf->Done     =  0;
-						MAIN_FDSET_wr &= ~(1uL << CLNT_Requestor->Fd);
+						MAIN_FDSET_wr &= ~(1uL << fd);
 					} else {
 						buf->Done += n;
 						if (buf->Left + buf->Done > CNFG_MaxReqBytes) {
