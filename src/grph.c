@@ -58,27 +58,26 @@ BOOL
 GrphInit(void)
 {
 	if (GRPH_Vdi <= 0) {
-		int work_in[16] = { 1, SOLID,BLACK, MRKR_DOT,BLACK, 1,BLACK,
-		                    FIS_SOLID,0,0, 2, 0, 0,0, 0,0 };
-		int w_out[57], dummy;
+		short work_in[16] = { 1, SOLID,G_BLACK, MRKR_DOT,G_BLACK, 1,G_BLACK,
+		                      FIS_SOLID,0,0, 2, 0, 0,0, 0,0 };
+		short w_out[57], dummy;
 		
-		int hdl = GRPH_Handle = graf_handle (&dummy, &dummy, &dummy, &dummy);
-		v_opnvwk (work_in, &hdl, w_out);
-		if (hdl <= 0) {
-			printf("\33pFATAL\33q can't initialize VDI! (%i)\n", hdl);
+		GRPH_Vdi = GRPH_Handle = graf_handle (&dummy, &dummy, &dummy, &dummy);
+		v_opnvwk (work_in, &GRPH_Vdi, w_out);
+		if (GRPH_Vdi <= 0) {
+			printf("\33pFATAL\33q can't initialize VDI! (%i)\n", GRPH_Handle);
 			return xFalse;
 		}
-		GRPH_Vdi      = hdl;
 		GRPH_ScreenW  = w_out[0];
 		GRPH_ScreenH  = w_out[1];
 		GRPH_muWidth  = w_out[3];
 		GRPH_muHeight = w_out[4];
 		GRPH_Fonts   |= w_out[10];
-		vq_extnd (hdl, 1, w_out);
+		vq_extnd (GRPH_Vdi, 1, w_out);
 		GRPH_Depth    = w_out[4];
 		
-		vst_alignment (hdl, TA_LEFT, TA_BASE, w_out, w_out);
-		vsf_perimeter (hdl, PERIMETER_OFF);
+		vst_alignment (GRPH_Vdi, TA_LEFT, TA_BASE, w_out, w_out);
+		vsf_perimeter (GRPH_Vdi, PERIMETER_OFF);
 	}
 	return xTrue;
 }
@@ -135,8 +134,8 @@ GrphSetup (void * format_arr)
 	root = (xWindowRoot*)(pfrm +1);
 	root->windowId         = ROOT_WINDOW;
 	root->defaultColormap  = DFLT_COLORMAP;
-	root->whitePixel       = WHITE;
-	root->blackPixel       = BLACK;
+	root->whitePixel       = G_WHITE;
+	root->blackPixel       = G_BLACK;
 	root->currentInputMask = DFLT_IMSK;
 	root->pixWidth         = WIND_Root.Rect.w;
 	root->pixHeight        = WIND_Root.Rect.h;
@@ -172,7 +171,7 @@ GrphSetup (void * format_arr)
 	{	// search for EdDI ----------------------------------
 		short (*func)(short) = NULL;
 		if (!Getcookie (C_EdDI, (long*)&func) && func) {
-			int w_out[273];
+			short w_out[273];
 			register short ver = 0;
 			__asm__ volatile ("
 				clr.l		d0;

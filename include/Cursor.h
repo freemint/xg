@@ -2,7 +2,7 @@
 //
 // Cursor.h -- Declaration of struct 'CURSOR' and related functions.
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-07 - Module released for beta state.
 // 2000-09-07 - Initial Version.
@@ -11,14 +11,7 @@
 #ifndef __CURSOR_H__
 # define __CURSOR_H__
 
-
-#ifndef __PXY
-# define __PXY
-typedef struct s_PXY {
-	short x;
-	short y;
-} PXY;
-#endif
+#include "types.h"
 
 
 typedef struct s_CURSOR {

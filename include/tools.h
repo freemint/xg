@@ -11,22 +11,7 @@
 #ifndef __TOOLS_H__
 # define __TOOLS_H__
 
-
-#ifndef __PXY
-# define __PXY
-typedef struct s_PXY {
-	short x;
-	short y;
-} PXY;
-#endif
-
-#ifndef __GRECT
-# define __GRECT
-typedef struct s_GRECT {
-	short x, y;
-	short w, h;
-} GRECT;
-#endif
+#include "types.h"
 
 
 static inline CARD16 Swap16 (CARD16 val)

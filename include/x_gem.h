@@ -11,26 +11,12 @@
 #ifndef __X_GEM_H__
 # define __X_GEM_H__
 
+#include "types.h"
+
 # define GRECT   GRECTint
 # include <gem.h>
 # undef GRECT
 
-
-#ifndef __PXY
-# define __PXY
-typedef struct s_PXY {
-	short x;
-	short y;
-} PXY;
-#endif
-
-#ifndef __GRECT
-# define __GRECT
-typedef struct s_GRECT {
-	short x, y;
-	short w, h;
-} GRECT;
-#endif
 
 void vs_clip_r   (int handle, const GRECT * rect);
 void vs_clip_p   (int handle, const PXY   * clip);

@@ -59,7 +59,7 @@ WindClipLockP (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 	BOOL     visb = wind->isMapped;
 	CARD16   nClp = 0;
 	PRECT  * sect, * p_clip;
-	int      a, b, n;
+	short    a, b, n;
 	short    l = 0x7FFF, u = 0x7FFF, r = 0x8000, d = 0x8000;
 	
 	if (border) {
@@ -116,7 +116,7 @@ WindClipLockP (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 	
 	WindUpdate (xTrue);
 	wind_get (0, WF_SCREEN, &a, &b, &n,&n);
-	*pBuf = sect = (PRECT*)((a << 16) | (b & 0xFFFF));
+	*pBuf = sect = (PRECT*)(((long)a << 16) | (b & 0xFFFF));
 	
 	wind_get_first (wind->Handle, &rect);
 	while (rect.w > 0  &&  rect.h > 0) {
@@ -158,7 +158,7 @@ WindDrawPmap (PIXMAP * pmap, PXY orig, p_PRECT sect)
 	MFDB  scrn = { NULL, };
 	PXY   offs = { sect->lu.x - orig.x, sect->lu.y - orig.y };
 	short rd_x = pmap->W -1, rd_y = pmap->H -1;
-	short color[2] = { BLACK, WHITE };
+	short color[2] = { G_BLACK, G_WHITE };
 	PXY   pxy[4];
 	#define s_lu pxy[0]
 	#define s_rd pxy[1]
@@ -363,15 +363,15 @@ draw_deco (PRECT * work, PRECT * area, PRECT * sect, int num)
 	pxy[0].y = pxy[3].y = work->lu.y;
 	pxy[1].y = pxy[2].y = work->rd.y +1;
 	
-	vsf_color (GRPH_Vdi, LWHITE);
-	vsl_color (GRPH_Vdi, LBLACK);
+	vsf_color (GRPH_Vdi, G_LWHITE);
+	vsl_color (GRPH_Vdi, G_LBLACK);
 	v_hide_c  (GRPH_Vdi);
 	do {
 		vs_clip_p (GRPH_Vdi, (PXY*)sect++);
 		for (i = 0; i < n; v_bar_p (GRPH_Vdi, &brdr[i++].lu));
 		v_pline_p (GRPH_Vdi, 4, pxy);
 		if (lft || rgt) {
-			vsl_color (GRPH_Vdi, WHITE);
+			vsl_color (GRPH_Vdi, G_WHITE);
 			if (lft) {
 				v_pline_p (GRPH_Vdi, sizeof(l_a) / sizeof(PXY), l_a);
 				v_pline_p (GRPH_Vdi, sizeof(l_b) / sizeof(PXY), l_b);
@@ -379,7 +379,7 @@ draw_deco (PRECT * work, PRECT * area, PRECT * sect, int num)
 			if (rgt) {
 				v_pline_p (GRPH_Vdi, sizeof(r_a) / sizeof(PXY), r_a);
 			}
-			vsl_color (GRPH_Vdi, LBLACK);
+			vsl_color (GRPH_Vdi, G_LBLACK);
 			if (lft) {
 				v_pline_p (GRPH_Vdi, sizeof(l_c) / sizeof(PXY), l_c);
 				v_pline_p (GRPH_Vdi, sizeof(l_d) / sizeof(PXY), l_d);

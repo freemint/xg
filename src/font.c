@@ -241,7 +241,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 					}
 				}
 				if (*prot) {
-					int i, dmy[3];
+					short i, dmy[3];
 					face = _Font_Create (patt, strlen(patt), 0, xFalse, xTrue);
 					if (!face) {
 						Bad(Alloc,, OpenFont," (generic)");
@@ -253,7 +253,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 					vst_font (GRPH_Vdi, face->Index);
 					i = 0;
 					while (i < h) {
-						int c_h;
+						short c_h;
 						vst_height (GRPH_Vdi, h - i, dmy, dmy, dmy, &c_h);
 						if (c_h <= h) {
 							face->Height = h - i;
@@ -263,7 +263,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 					}
 					i = 0;
 					while (1) {
-						int c_w;
+						short c_w;
 						vst_width  (GRPH_Vdi, w + i, dmy,dmy, &c_w, dmy);
 						if (c_w >= w) {
 							face->Width = w + i;
@@ -271,7 +271,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 						}
 						i++;
 					}
-					vst_width  (GRPH_Vdi, face->Width, dmy,dmy, &w,&h);
+					vst_width  (GRPH_Vdi, face->Width, dmy,dmy, dmy,dmy);
 					_Font_Bounds (face, xTrue);
 					face->Next = *prot;
 					*prot      = face;
@@ -400,7 +400,7 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 				memcpy (info, face->CharInfos, size);
 			} else {
 				xCharInfo * p = info;
-				int c, ld, rd, w;
+				short c, ld, rd, w;
 				vst_font    (GRPH_Vdi, face->Index);
 				vst_effects (GRPH_Vdi, face->Effects);
 				vst_point   (GRPH_Vdi, face->Points, &c, &c, &c, &c);
@@ -458,8 +458,8 @@ RQ_QueryTextExtents (CLIENT * clnt, xQueryTextExtentsReq * q)
 		FONTFACE * face = fabl.p->FontFace;
 		size_t     size = ((q->length *4) - sizeof(xQueryTextExtentsReq)) /2
 		                - (q->oddLength ? 1 : 0);
-		char   str[size +1];
-		int    ext[8], i;
+		char  str[size +1];
+		short ext[8], i;
 		ClntReplyPtr (QueryTextExtents, r);
 		
 		PRINT (QueryTextExtents,"('%s') F:%lX", str, q->fid);

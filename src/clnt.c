@@ -530,10 +530,9 @@ RQ_KillClient (CLIENT * clnt, xKillClientReq * q)
 		}
 	
 	} else if (!c_id) {
-		int owner = -1, dummy;
+		int owner = -1;
 		if (!(q->id & 0x8000) ||
-		    !wind_get (q->id & 0x7FFF, WF_OWNER, &owner, &dummy, &dummy, &dummy)
-		    || owner < 0) {
+		    ((owner = wind_get_one (q->id & 0x7FFF, WF_OWNER)) < 0)) {
 			Bad(Value, q->id, KillClient,);
 		
 		} else {

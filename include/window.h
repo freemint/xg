@@ -12,26 +12,10 @@
 # define ___WINDOW_H__
 
 #include "drawable.h"
+#include "types.h"
 
 
 #define ROOT_DEPTH   1
-
-
-#ifndef __PXY
-# define __PXY
-typedef struct s_PXY {
-	short x;
-	short y;
-} PXY;
-#endif
-
-#ifndef __GRECT
-# define __GRECT
-typedef struct s_GRECT {
-	short x, y;
-	short w, h;
-} GRECT;
-#endif
 
 
 typedef struct s_BTNGRAB * p_BTNGRAB;

@@ -29,8 +29,8 @@ typedef struct {
 } CMAP_NAME;
 
 static CARD8 _CMAP_TransGrey[32] = {
-	BLACK,244,243,255,245,236, 58,246, 242,254,247,249,101,241,235,240,
-	  239,248,238,144,234,237,253,252, 233,187,232,231,251,250,230,WHITE
+	G_BLACK,244,243,255,245,236, 58,246, 242,254,247,249,101,241,235,240,
+	    239,248,238,144,234,237,253,252, 233,187,232,231,251,250,230,G_WHITE
 };
 
 
@@ -39,8 +39,8 @@ void
 CmapPalette (void)
 {
 	short mbuf[8] = { COLORS_CHANGED, ApplId(0), 0,0,0,0,0,0 };
-	int  i, c, rgb[3];
-	c = 16;
+	short rgb[3];
+	int   i, c = 16;
 	for (rgb[0] = 0; rgb[0] <= 1000; rgb[0] += 200) {
 		for (rgb[1] = 0; rgb[1] <= 1000; rgb[1] += 200) {
 			rgb[2] = (rgb[0] | rgb[1] ? 0 : 200);
@@ -64,14 +64,14 @@ CmapInit(void)
 	int i;
 	
 	if (GRPH_Depth == 1) {
-		for (i =  1; i < 16; _CMAP_TransGrey[i++] = BLACK);
-		for (i = 16; i < 31; _CMAP_TransGrey[i++] = WHITE);
+		for (i =  1; i < 16; _CMAP_TransGrey[i++] = G_BLACK);
+		for (i = 16; i < 31; _CMAP_TransGrey[i++] = G_WHITE);
 	
 	} else if (GRPH_Depth <= 4) {
-		for (i =  1; i <  8; _CMAP_TransGrey[i++] = BLACK);
-		for (i =  8; i < 16; _CMAP_TransGrey[i++] = LBLACK);
-		for (i = 16; i < 24; _CMAP_TransGrey[i++] = LWHITE);
-		for (i = 24; i < 31; _CMAP_TransGrey[i++] = WHITE);
+		for (i =  1; i <  8; _CMAP_TransGrey[i++] = G_BLACK);
+		for (i =  8; i < 16; _CMAP_TransGrey[i++] = G_LBLACK);
+		for (i = 16; i < 24; _CMAP_TransGrey[i++] = G_LWHITE);
+		for (i = 24; i < 31; _CMAP_TransGrey[i++] = G_WHITE);
 		
 	} else if (GRPH_Depth <= 8) {
 		CmapPalette();
@@ -121,10 +121,10 @@ CmapLookup (RGB * dst, const RGB * src)
 	
 	if (GRPH_Depth == 1) {
 		if ((long)src->r + src->g + src->b > 98302uL) {
-			pixel                    = WHITE;
+			pixel                    = G_WHITE;
 			dst->r = dst->g = dst->b = 0x0000;
 		} else {
-			pixel                    = BLACK;
+			pixel                    = G_BLACK;
 			dst->r = dst->g = dst->b = 0xFFFF;
 		}
 	
@@ -153,33 +153,33 @@ CmapLookup (RGB * dst, const RGB * src)
 		
 		switch (pixel) {
 			
-			case 0xC00: case 0xC04: case 0xC40: case 0xC44: SET (X,0,0, RED);
-			case 0x800: case 0x400:                         SET (H,0,0, LRED);
-			case 0x0C0: case 0x0C4: case 0x4C0: case 0x4C4: SET (0,X,0, GREEN);
-			case 0x080: case 0x040:                         SET (0,H,0, LGREEN);
-			case 0x00C: case 0x04C: case 0x40C: case 0x44C: SET (0,0,X, BLUE);
-			case 0x008: case 0x004:                         SET (0,0,H, LBLUE);
+			case 0xC00: case 0xC04: case 0xC40: case 0xC44: SET (X,0,0, G_RED);
+			case 0x800: case 0x400:                         SET (H,0,0, G_LRED);
+			case 0x0C0: case 0x0C4: case 0x4C0: case 0x4C4: SET (0,X,0, G_GREEN);
+			case 0x080: case 0x040:                         SET (0,H,0, G_LGREEN);
+			case 0x00C: case 0x04C: case 0x40C: case 0x44C: SET (0,0,X, G_BLUE);
+			case 0x008: case 0x004:                         SET (0,0,H, G_LBLUE);
 			
-			case 0xCC0: case 0xC80: case 0x8C0: case 0xCC4: SET (X,X,0, YELLOW);
-			case 0x880: case 0x840: case 0x480: case 0x440: SET (H,H,0, LYELLOW);
-			case 0xC0C: case 0xC08: case 0x80C: case 0xC4C: SET (X,0,X, MAGENTA);
-			case 0x808: case 0x804: case 0x408: case 0x404: SET (H,0,H, LMAGENTA);
-			case 0x0CC: case 0x0C8: case 0x08C: case 0x4CC: SET (0,X,X, CYAN);
-			case 0x088: case 0x084: case 0x048: case 0x044: SET (0,H,H, LCYAN);
+			case 0xCC0: case 0xC80: case 0x8C0: case 0xCC4: SET (X,X,0, G_YELLOW);
+			case 0x880: case 0x840: case 0x480: case 0x440: SET (H,H,0, G_LYELLOW);
+			case 0xC0C: case 0xC08: case 0x80C: case 0xC4C: SET (X,0,X, G_MAGENTA);
+			case 0x808: case 0x804: case 0x408: case 0x404: SET (H,0,H, G_LMAGENTA);
+			case 0x0CC: case 0x0C8: case 0x08C: case 0x4CC: SET (0,X,X, G_CYAN);
+			case 0x088: case 0x084: case 0x048: case 0x044: SET (0,H,H, G_LCYAN);
 			
 			default: {
 				pixel = (long)src->r + src->g + src->b;
 				if (pixel <= 0x17FFE) {
 					if (pixel <= 0x0BFFF) {
-						dst->r = dst->g = dst->b = 0x3FFF; pixel = BLACK;
+						dst->r = dst->g = dst->b = 0x3FFF; pixel = G_BLACK;
 					} else {
-						dst->r = dst->g = dst->b = 0x7FFF; pixel = LBLACK;
+						dst->r = dst->g = dst->b = 0x7FFF; pixel = G_LBLACK;
 					}
 				} else {
 					if (pixel <= 0x23FFE) {
-						dst->r = dst->g = dst->b = 0xBFFF; pixel = LWHITE;
+						dst->r = dst->g = dst->b = 0xBFFF; pixel = G_LWHITE;
 					} else {
-						dst->r = dst->g = dst->b = 0xFFFF; pixel = WHITE;
+						dst->r = dst->g = dst->b = 0xFFFF; pixel = G_WHITE;
 					}
 				}
 			}
@@ -349,11 +349,11 @@ RQ_QueryColors (CLIENT * clnt, xQueryColorsReq * q)
 	r->nColors = (clnt->DoSwap ? Swap16(len) : len);
 	for (i = 0; i < len; ++i, ++pix) {
 		CARD32 color = (clnt->DoSwap ? Swap32(*pix) : *pix);
-		int    vrgb[3];
+		short  vrgb[3];
 		vq_color (GRPH_Vdi, color, 1, vrgb);
-		vrgb[0] = (vrgb[0] * 256) /1001; rgb->red   = PIXEL(vrgb[0]);
-		vrgb[1] = (vrgb[1] * 256) /1001; rgb->green = PIXEL(vrgb[1]);
-		vrgb[2] = (vrgb[2] * 256) /1001; rgb->blue  = PIXEL(vrgb[2]);
+		vrgb[0] = ((long)vrgb[0] * 256) /1001; rgb->red   = PIXEL(vrgb[0]);
+		vrgb[1] = ((long)vrgb[1] * 256) /1001; rgb->green = PIXEL(vrgb[1]);
+		vrgb[2] = ((long)vrgb[2] * 256) /1001; rgb->blue  = PIXEL(vrgb[2]);
 		DEBUG (,"+- %lu", color);
 	}
 	DEBUG (,"+");

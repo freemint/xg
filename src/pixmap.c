@@ -85,13 +85,13 @@ short
 PmapVdi (p_PIXMAP pmap, p_GC gc, BOOL fonts)
 {
 	if (!pmap->Vdi) {
-		int w_in[20] = { 1, SOLID,gc->Foreground,
-		                 MRKR_DOT,gc->Foreground, 1,gc->Foreground,
-		                 FIS_SOLID,0,gc->Foreground, 2,
-		                 pmap->nPads * 16 -1, pmap->H -1,
-		                 GRPH_muWidth, GRPH_muHeight, 0,0,0,0,0 };
-		int w_out[57];
-		int hdl = GRPH_Handle;
+		short w_in[20] = { 1, SOLID,gc->Foreground,
+		                   MRKR_DOT,gc->Foreground, 1,gc->Foreground,
+		                   FIS_SOLID,0,gc->Foreground, 2,
+		                   pmap->nPads * 16 -1, pmap->H -1,
+		                   GRPH_muWidth, GRPH_muHeight, 0,0,0,0,0 };
+		short w_out[57];
+		short hdl = GRPH_Handle;
 		
 		v_opnbm (w_in, PmapMFDB(pmap), &hdl, w_out);
 		if (hdl <= 0) {
@@ -119,7 +119,7 @@ PmapVdi (p_PIXMAP pmap, p_GC gc, BOOL fonts)
 	}
 	
 	if (fonts) {
-		int dmy;
+		short dmy;
 		if (!pmap->Fonts) {
 			vst_alignment  (pmap->Vdi, TA_LEFT, TA_BASE, &dmy, &dmy);
 			vst_load_fonts (pmap->Vdi, 0);
@@ -151,11 +151,11 @@ PmapPutMono (PIXMAP * pmap, p_GC gc, p_GRECT r, p_MFDB src)
 		        pmap->Depth         *  pmap->nPads *2 * r[0].h);
 	
 	} else {
-		int pxy[8] = { r[0].x,             r[0].y,
-		               r[0].x + r[0].w -1, r[0].y + r[0].h -1,
-		               r[1].x,             r[1].y,
-		               r[1].x + r[1].w -1, r[1].y + r[1].h -1 };
-		int colors[2] = { gc->Foreground, gc->Background };
+		short pxy[8] = { r[0].x,             r[0].y,
+		                 r[0].x + r[0].w -1, r[0].y + r[0].h -1,
+		                 r[1].x,             r[1].y,
+		                 r[1].x + r[1].w -1, r[1].y + r[1].h -1 };
+		short colors[2] = { gc->Foreground, gc->Background };
 		
 		vrt_cpyfm (GRPH_Vdi, (gc->Function == GXor ? MD_TRANS : MD_REPLACE),
 		           pxy, src, PmapMFDB(pmap), colors);
@@ -166,10 +166,10 @@ PmapPutMono (PIXMAP * pmap, p_GC gc, p_GRECT r, p_MFDB src)
 void
 PmapPutColor (PIXMAP * pmap, p_GC gc, p_GRECT r, p_MFDB src)
 {
-	int pxy[8] = { r[0].x,             r[0].y,
-	               r[0].x + r[0].w -1, r[0].y + r[0].h -1,
-	               r[1].x,             r[1].y,
-	               r[1].x + r[1].w -1, r[1].y + r[1].h -1 };
+	short pxy[8] = { r[0].x,             r[0].y,
+	                 r[0].x + r[0].w -1, r[0].y + r[0].h -1,
+	                 r[1].x,             r[1].y,
+	                 r[1].x + r[1].w -1, r[1].y + r[1].h -1 };
 	
 	vro_cpyfm (GRPH_Vdi, gc->Function, pxy, src, PmapMFDB(pmap));
 }

@@ -43,9 +43,9 @@ short   WMGR_Decor  = WMGR_DECOR;
 
 
 #include "intro.c"
-static MFDB _WMGR_Logo = { x_bits, x_width,x_height, (x_width +15) /16, 0, 1 };
-static MFDB _WMGR_Qbuf = { NULL,   x_width,x_height, (x_width +15) /16, 0, 0 };
-static int  _WMGR_P[8] = { 0,0, x_width -1, x_height -1 };
+static MFDB  _WMGR_Logo = { x_bits, x_width,x_height, (x_width +15) /16, 0, 1 };
+static MFDB  _WMGR_Qbuf = { NULL,   x_width,x_height, (x_width +15) /16, 0, 0 };
+static short _WMGR_P[8] = { 0,0, x_width -1, x_height -1 };
 
 static MFDB _WMGR_Icon = { NULL, 0,0, 0, 0, 1 };
 
@@ -53,12 +53,12 @@ static OBJECT * _WMGR_Menu        = NULL;
 static char     _WMGR_MenuEmpty[] = "   ";
 
 static struct { CURSOR L, LD, D, RD, R, X; } _WMGR_Cursor = { 
-	{ NULL,0, XC_left_side,           1uL, {0,0},0, WHITE, RED },
-	{ NULL,0, XC_bottom_left_corner,  1uL, {0,0},0, WHITE, RED },
-	{ NULL,0, XC_bottom_side,         1uL, {0,0},0, WHITE, RED },
-	{ NULL,0, XC_bottom_right_corner, 1uL, {0,0},0, WHITE, RED },
-	{ NULL,0, XC_right_side,          1uL, {0,0},0, WHITE, RED },
-	{ NULL,0, XC_X_cursor,            1uL, {0,0},0, WHITE, RED }
+	{ NULL,0, XC_left_side,           1uL, {0,0},0, G_WHITE, G_RED },
+	{ NULL,0, XC_bottom_left_corner,  1uL, {0,0},0, G_WHITE, G_RED },
+	{ NULL,0, XC_bottom_side,         1uL, {0,0},0, G_WHITE, G_RED },
+	{ NULL,0, XC_bottom_right_corner, 1uL, {0,0},0, G_WHITE, G_RED },
+	{ NULL,0, XC_right_side,          1uL, {0,0},0, G_WHITE, G_RED },
+	{ NULL,0, XC_X_cursor,            1uL, {0,0},0, G_WHITE, G_RED }
 };
 
 static void FT_Wmgr_reply (p_CLIENT , CARD32 size, const char * form);
@@ -117,14 +117,14 @@ WmgrIntro (BOOL onNoff)
 	if (onNoff) {
 		
 		if (GrphInit() && !on_screen) {
-			int  pxy[8] = { (_WMGR_P[4] = (GRPH_ScreenW - x_width)  /2),
-			                (_WMGR_P[5] = (GRPH_ScreenH - x_height) /2),
-			                (_WMGR_P[6] = _WMGR_P[4] + x_width  -1),
-			                (_WMGR_P[7] = _WMGR_P[5] + x_height -1),
-			                _WMGR_P[0], _WMGR_P[1], _WMGR_P[2], _WMGR_P[3] };
-			MFDB scrn   = { NULL };
-			int  clr[2] = { BLACK, YELLOW };
-			int wg[4];
+			short pxy[8] = { (_WMGR_P[4] = (GRPH_ScreenW - x_width)  /2),
+			                 (_WMGR_P[5] = (GRPH_ScreenH - x_height) /2),
+			                 (_WMGR_P[6] = _WMGR_P[4] + x_width  -1),
+			                 (_WMGR_P[7] = _WMGR_P[5] + x_height -1),
+			                 _WMGR_P[0], _WMGR_P[1], _WMGR_P[2], _WMGR_P[3] };
+			MFDB  scrn   = { NULL };
+			short clr[2] = { G_BLACK, G_YELLOW };
+			short wg[4];
 			
 			graf_mouse (BUSYBEE, NULL);
 			WindUpdate (xTrue);
@@ -206,9 +206,9 @@ WmgrInit (BOOL initNreset)
 			if (_app) {
 				for (i = MENU_CLNT_FRST; i <= MENU_CLNT_LAST; ++i) {
 					_WMGR_Menu[i].ob_spec.free_string = _WMGR_MenuEmpty;
-					_WMGR_Menu[i].ob_flags |= HIDETREE;
+					_WMGR_Menu[i].ob_flags |= OF_HIDETREE;
 				}
-				_WMGR_Menu[MENU_CLNT].ob_state |= DISABLED;
+				_WMGR_Menu[MENU_CLNT].ob_state |= OS_DISABLED;
 				menu_bar     (_WMGR_Menu, 1);
 				menu_ienable (_WMGR_Menu, MENU_GWM, 1);
 			}
@@ -373,9 +373,9 @@ WmgrClntInsert (CLIENT * client)
 		while (n <= MENU_CLNT_LAST) {
 			char * tmp = _WMGR_Menu[n].ob_spec.free_string;
 			_WMGR_Menu[n].ob_spec.free_string = ent;
-			if (_WMGR_Menu[n].ob_flags & HIDETREE) {
-				_WMGR_Menu[n].ob_flags         &= ~HIDETREE;
-				_WMGR_Menu[MENU_CLNT].ob_state &= ~DISABLED;
+			if (_WMGR_Menu[n].ob_flags & OF_HIDETREE) {
+				_WMGR_Menu[n].ob_flags         &= ~OF_HIDETREE;
+				_WMGR_Menu[MENU_CLNT].ob_state &= ~OS_DISABLED;
 				_WMGR_Menu[MENU_CLNT_FACE].ob_height
 				                     = _WMGR_Menu[n].ob_y + _WMGR_Menu[n].ob_height;
 				break;
@@ -411,14 +411,14 @@ WmgrClntRemove (CLIENT * client)
 		
 		while (n < MENU_CLNT_LAST
 		       && _WMGR_Menu[n].ob_spec.free_string != client->Entry) n++;
-		while (n < MENU_CLNT_LAST && !(_WMGR_Menu[n+1].ob_flags & HIDETREE)) {
+		while (n < MENU_CLNT_LAST && !(_WMGR_Menu[n+1].ob_flags & OF_HIDETREE)) {
 			_WMGR_Menu[n].ob_spec.free_string = _WMGR_Menu[n+1].ob_spec.free_string;
 			n++;
 		}
 		_WMGR_Menu[n].ob_spec.free_string = _WMGR_MenuEmpty;
-		_WMGR_Menu[n].ob_flags            |= HIDETREE;
+		_WMGR_Menu[n].ob_flags            |= OF_HIDETREE;
 		if (n == MENU_CLNT_FRST) {
-			_WMGR_Menu[MENU_CLNT].ob_state |= DISABLED;
+			_WMGR_Menu[MENU_CLNT].ob_state |= OS_DISABLED;
 		} else {
 			_WMGR_Menu[MENU_CLNT_FACE].ob_height = _WMGR_Menu[n].ob_y;
 		}
@@ -446,7 +446,7 @@ WmgrCalcBorder (GRECT * curr, WINDOW * wind)
 	} else {
 		CARD16 b = wind->BorderWidth;
 		if (b) {
-			if (wind->hasBorder &&  wind->BorderPixel == BLACK) {
+			if (wind->hasBorder &&  wind->BorderPixel == G_BLACK) {
 				b--;
 			}
 			work.x -= b;
@@ -618,7 +618,7 @@ WmgrWidgetOff (CURSOR * new_crsr)
 
 
 //------------------------------------------------------------------------------
-static int
+static short
 desktop_fill (PARMBLK *pblk)
 {
 	pblk->pb_w  += pblk->pb_x  -1;
@@ -635,7 +635,7 @@ desktop_fill (PARMBLK *pblk)
 }
 
 //------------------------------------------------------------------------------
-static int
+static short
 desktop_pmap (PARMBLK *pblk)
 {
 	pblk->pb_w  += pblk->pb_x  -1;
@@ -651,7 +651,7 @@ desktop_pmap (PARMBLK *pblk)
 }
 
 //==============================================================================
-OBJECT  WMGR_Desktop = { -1,-1,-1, 000, LASTOB, NORMAL, {0l}, 0,0, };
+OBJECT  WMGR_Desktop = { -1,-1,-1, 000, OF_LASTOB, OS_NORMAL, {0l}, 0,0, };
 
 void
 WmgrSetDesktop (BOOL onNoff)
@@ -699,7 +699,7 @@ WmgrMenu (short title, short entry, short meta)
 			break;
 		
 		case MENU_QUIT:
-			run = (!(_WMGR_Menu[MENU_CLNT].ob_state & DISABLED) &&
+			run = (!(_WMGR_Menu[MENU_CLNT].ob_state & OS_DISABLED) &&
 			       form_alert (1, (char*)"[2]"
 			                   "[Really quit the server|and all runng clients?]"
 			                   "[ quit |continue]")
@@ -760,8 +760,8 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 {
 	GRECT work, sect;
 	MFDB  screen = { NULL };
-	int   pxy[8] = { 0, 0, _WMGR_Icon.fd_w -1, _WMGR_Icon.fd_h -1 };
-	int   col[2] = { BLACK, WHITE };
+	short pxy[8] = { 0, 0, _WMGR_Icon.fd_w -1, _WMGR_Icon.fd_h -1 };
+	short col[2] = { G_BLACK, G_WHITE };
 	PXY   rec[2];
 	
 	WindUpdate (xTrue);
@@ -774,7 +774,7 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 	rec[1].y = (rec[0].y = work.y) + work.h -1;
 	
 	vswr_mode (GRPH_Vdi, MD_REPLACE);
-	vsf_color (GRPH_Vdi, LWHITE);
+	vsf_color (GRPH_Vdi, G_LWHITE);
 	v_hide_c  (GRPH_Vdi);
 	wind_get_first (wind->Handle, &sect);
 	while (sect.w > 0  &&  sect.h > 0) {
@@ -1009,7 +1009,7 @@ WmgrButton (void)
 		}
 		
 		vswr_mode (GRPH_Vdi, MD_XOR);
-		vsl_color (GRPH_Vdi, BLACK);
+		vsl_color (GRPH_Vdi, G_BLACK);
 		vsl_udsty (GRPH_Vdi, 0xAAAA);
 		vsl_type  (GRPH_Vdi, USERLINE);
 		v_hide_c (GRPH_Vdi);

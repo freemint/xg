@@ -327,8 +327,8 @@ RQ_CreateGC (CLIENT * clnt, xCreateGCReq * q)
 		gc->FillRule    = EvenOddRule;
 		gc->ArcMode     = ArcChord;
 		gc->PlaneMask   = (1uL << gc->Depth) -1;
-		gc->Foreground  = WHITE;
-		gc->Background  = BLACK;
+		gc->Foreground  = G_WHITE;
+		gc->Background  = G_BLACK;
 		gc->Tile        = NULL;
 		gc->Stipple     = NULL;
 		gc->ClipMask    = NULL;

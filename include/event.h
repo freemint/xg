@@ -11,16 +11,9 @@
 #ifndef __EVENT_H__
 # define __EVENT_H__
 
-# include <stdarg.h>
+#include "types.h"
 
-
-#ifndef __PXY
-# define __PXY
-typedef struct s_PXY {
-	short x;
-	short y;
-} PXY;
-#endif
+#include <stdarg.h>
 
 
 #define AllEventMask   0x01FFFFFFuL

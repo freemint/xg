@@ -9,21 +9,14 @@
 //==============================================================================
 //
 #ifndef __GCONTEXT_H__
-#	define __GCONTEXT_H__
+# define __GCONTEXT_H__
 
 #include "fontable.h"
+#include "types.h"
 
 #include <X11/X.h>
 #include <X11/Xproto.h>
 
-
-#ifndef __PXY
-# define __PXY
-typedef struct s_PXY {
-	short x;
-	short y;
-} PXY;
-#endif
 
 typedef struct s_GC {
 	XRSC(FONTABLE, isFont);

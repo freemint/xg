@@ -17,12 +17,6 @@
 # endif
 
 
-typedef struct s_PRECT {
-	PXY lu;
-	PXY rd;
-} PRECT;
-
-
 BOOL GrphInit  (void);
 void GrphExit  (void);
 int  GrphSetup (void * format_arr);

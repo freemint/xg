@@ -32,7 +32,7 @@ WINDOW WIND_Root = {
 	{ 0,0, 0,0 }, 0u, 0, ROOT_DEPTH,
 	xTrue, xTrue, NotUseful, CenterGravity, ForgetGravity, xFalse,
 	xTrue, xFalse, xFalse, xFalse,  xFalse, xFalse, xFalse,   0u,
-	BLACK, {WHITE},   NoEventMask, {{ NoEventMask, NULL }},
+	G_BLACK, {G_WHITE},   NoEventMask, {{ NoEventMask, NULL }},
 	NULL, NULL, NULL,NULL, NULL,NULL, NULL, NULL
 };
 
@@ -95,7 +95,7 @@ WindInit (BOOL initNreset)
 				PmapFree (WIND_Root.Back.Pixmap, NULL);
 			}
 			WIND_Root.hasBackGnd = xFalse;
-			WIND_Root.Back.Pixel = WHITE;
+			WIND_Root.Back.Pixel = G_WHITE;
 		}
 	}
 	_MAP_IncX = 0;
@@ -157,7 +157,7 @@ WindButton (CARD16 prev_mask, int count)
 	                   None);
 	
 	if ((MAIN_KeyButMask & K_ALT) && (MAIN_KeyButMask & Button2Mask) && wind) {
-		int dmy;
+		short dmy;
 		printf ("W:%X [%i,%i/%i,%i/%i] * %i \n", wind->Id,
 		        wind->Rect.x, wind->Rect.y, wind->Rect.w, wind->Rect.h,
 		        wind->BorderWidth, wind->Depth);
@@ -878,8 +878,8 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 		
 		wind->nSelections = 0;
 		
-		wind->BorderPixel = BLACK;
-		wind->Back.Pixel  = WHITE;
+		wind->BorderPixel = G_BLACK;
+		wind->Back.Pixel  = G_WHITE;
 		
 		wind->PropagateMask  = AllEventMask;
 		wind->u.Event.Mask   = 0uL;

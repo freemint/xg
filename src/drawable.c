@@ -759,7 +759,7 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 		nClp = WindClipLockP (draw.Window, 0,
 		                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 		if (nClp) {
-			int dmy;
+			short dmy;
 			orig.x += pos->x;
 			orig.y += pos->y;
 			vst_font    (hdl, gc->FontIndex);
@@ -785,7 +785,7 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 		hdl  = PmapVdi (draw.Pixmap, gc, xTrue);
 	}
 	if (nClp) {
-		BOOL bg_draw = (gc->Background != WHITE);
+		BOOL bg_draw = (gc->Background != G_WHITE);
 		if (is8N16) FontLatin1_C (arr, text, len);
 		else        FontLatin1_W (arr, text, len);
 		if (!bg_draw) {
@@ -869,7 +869,7 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 			nClp = WindClipLockP (draw.Window, 0,
 			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
 			if (nClp) {
-				int dmy;
+				short dmy;
 				orig.x += pos->x;
 				orig.y += pos->y;
 				vst_font    (hdl, gc->FontIndex);

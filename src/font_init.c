@@ -47,7 +47,7 @@ typedef struct {
 } VQT_FHDR;
 
 
-static const short _FONT_Poto[] = {
+static const short _FONT_Proto[] = {
 	' ','!','"','#','$','%','&', 39, '(',')','*','+',',','-','.','/',
 	'0','1','2','3','4','5','6','7', '8','9',':',';','<','=','>','?',
 	'@','A','B','C','D','E','F','G', 'H','I','J','K','L','M','N','O',
@@ -108,7 +108,7 @@ _Font_Create (const char * name, size_t len, unsigned type, BOOL sym, BOOL mono)
 void
 _Font_Bounds (FONTFACE * face, BOOL mono)
 {
-	int dist[5], width, minADE, maxADE, dmy[3];
+	short dist[5], width, minADE, maxADE, dmy[3];
 	
 	vqt_fontinfo (GRPH_Vdi, &minADE, &maxADE, dist, &width, dmy);
 	face->Ascent  = dist[4];
@@ -152,7 +152,7 @@ FontInit (short count)
 	FONTFACE ** list = &_FONT_List;
 	FILE      * f_db;
 	char        buf[258];
-	int i, j, k;
+	int         i, j;
 	
 	while (*list) list = &(*list)->Next;
 	
@@ -282,9 +282,9 @@ FontInit (short count)
 	printf ("  loaded %i font%s\n", count, (count == 1 ? "" : "s"));
 	for (i = 1; i <= count; i++) {
 		struct FONT_DB * db = font_db;
-		char _tmp[1000];
-		VQT_FHDR * fhdr = (VQT_FHDR*)_tmp;
-		XFNT_INFO  info;
+		char         _tmp[1000];
+		VQT_FHDR   * fhdr = (VQT_FHDR*)_tmp;
+		XFNT_INFO    info;
 		const char * fmly = info.family_name,
 		           * wght = info.style_name,
 		           * creg = "ISO8859",
@@ -292,12 +292,13 @@ FontInit (short count)
 		           * fndr = NULL, * setw = NULL, * astl = NULL;
 		char         slnt[3] = "\0\0", resx[6] = "72", resy[6] = "72",
 		             spcg[2] = "\0";
-		BOOL       isMono, isSymbol;
+		BOOL         isMono, isSymbol;
 		char       * p;
+		short        type, dmy;
 		
-		vqt_ext_name (GRPH_Vdi, i, info.font_name, &j, &k);
-		isMono   = (k & 0x01 ? 1 : 0);
-		isSymbol = (k & 0x10 ? 1 : 0);
+		vqt_ext_name (GRPH_Vdi, i, info.font_name, &dmy, &type);
+		isMono   = (type & 0x01 ? 1 : 0);
+		isSymbol = (type & 0x10 ? 1 : 0);
 		
 		info.size           = sizeof(info);
 		info.font_name[0]   = '\0';
@@ -438,13 +439,14 @@ FontInit (short count)
 		         slnt, (setw ? setw : ""), (astl ? astl : ""),
 		          resx, resy, spcg, creg, cenc);
 		for (j = 0; j < info.pt_cnt; ++j) {
-			int len, wdth, pxsz, avrg, dmy;
+			int   len, avrg;
+			short wdth, pxsz;
 			vst_point (GRPH_Vdi, info.pt_sizes[j], &dmy,&dmy, &wdth, &pxsz);
 			
 			if (spcg[0] == 'P') {
 				short ext[8];
-				vqt_extent_n (GRPH_Vdi, _FONT_Poto, sizeof(_FONT_Poto) /2, ext);
-				avrg = ((ext[4] - ext[0]) *10) / (sizeof(_FONT_Poto) /2);
+				vqt_extent_n (GRPH_Vdi, _FONT_Proto, sizeof(_FONT_Proto) /2, ext);
+				avrg = ((ext[4] - ext[0]) *10) / (sizeof(_FONT_Proto) /2);
 			} else {
 				avrg = wdth * 10;
 			}

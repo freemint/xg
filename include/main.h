@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// main.h
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-05-30 - Initial Version.
+//==============================================================================
+//
 #ifndef __MAIN_H__
 # define __MAIN_H__
 # ifdef NODEBUG
@@ -65,14 +75,14 @@ void WindPointerMove  (const p_PXY mouse);
 
 
 static inline void WindUpdate (onNoff) {
-	extern int   wind_update (int);
+	extern short wind_update (short);
 	extern short _MAIN_Wupdt;
 	if      (onNoff)      { wind_update (1); _MAIN_Wupdt++; }
 	else if (_MAIN_Wupdt) { wind_update (0); _MAIN_Wupdt--; }
 }
 
 static inline void WindMctrl (onNoff) {
-	extern int   wind_update (int);
+	extern short wind_update (short);
 	extern short _MAIN_Mctrl;
 	if      (onNoff)      { wind_update (3); _MAIN_Mctrl++; }
 	else if (_MAIN_Mctrl) { wind_update (2); _MAIN_Mctrl--; }
