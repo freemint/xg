@@ -316,6 +316,27 @@ GrphIntersectP (p_PRECT dst, const struct s_PRECT * src)
 # endif
 }
 
+//==============================================================================
+CARD16
+GrphCombine (GRECT * rct, const GRECT * a, CARD16 n, const GRECT * b, CARD16 m)
+{
+	CARD16 cnt = 0;
+	
+	while (n--) {
+		const GRECT * bb = b;
+		CARD16        mm = m;
+		while (mm--) {
+			*rct = *a;
+			if (GrphIntersect (rct, bb++)) {
+				rct++;
+				cnt++;
+			}
+		}
+		a++;
+	}
+	return cnt;	
+}
+
 
 //==============================================================================
 void
