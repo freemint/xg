@@ -580,6 +580,7 @@ WindPutColor (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 
 
 //------------------------------------------------------------------------------
+/*
 static void
 _put_mono (p_WINDOW wind, p_GC gc, PXY offs, p_MFDB src,
            PRECT * sect, CARD16 nSct, PRECT * clip, CARD16 nClp)
@@ -605,6 +606,7 @@ _put_mono (p_WINDOW wind, p_GC gc, PXY offs, p_MFDB src,
 		clip++;
 	}
 }
+*/
 
 //------------------------------------------------------------------------------
 static void
@@ -662,8 +664,10 @@ WindPutImg (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
 		clip->rd.y = (clip->lu.y = rct[1].y + orig.y) + rct[1].h -1;
 	}
 	v_hide_c (GRPH_Vdi);
-	if (wind->Depth == 1) _put_mono  (wind, gc, offs, src, sect,nSct, clip,nClp);
-	else                  _put_color (wind, gc, offs, src, sect,nSct, clip,nClp);
+	//
+	// src and dst must always have the same color depth !!!
+	//
+	_put_color (wind, gc, offs, src, sect,nSct, clip,nClp);
 	v_show_c (GRPH_Vdi, 1);
 }
 
