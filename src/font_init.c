@@ -323,6 +323,7 @@ FontInit (short count)
 		while (fgets (buf, sizeof(buf), f_db)) {
 			int len = strlen (buf);
 			if (buf[len-1] == '\n') buf[--len] = '\0';
+			if (buf[0] == '#') continue;
 			
 			if (sscanf (buf, "%i: %u,%u,%u%c%n",
 			            &i, &type, &isSymbol, &isMono, &c,&j) == 5  &&  c == ' ') {
@@ -461,8 +462,11 @@ FontInit (short count)
 			db = db->next;
 		}
 		
-		if (f_db) fprintf (f_db, "%i: %u,%u,%u %s\n", info.id,
-		                   info.format, isSymbol, isMono, info.file_name1);
+		if (f_db) {
+			fprintf (f_db, "%i: %u,%u,%u %s\n", info.id,
+			               info.format, isSymbol, isMono, info.file_name1);
+			fflush  (f_db);
+		}
 		
 		if (db && db->list) {
 			*list = db->list;
@@ -658,8 +662,10 @@ FontInit (short count)
 			}
 		}
 	}
-	
-	if (f_db) fclose (f_db);
+	if (f_db) {
+		fputs ("# end of db\n", f_db);
+		fclose (f_db);
+	}
 	
 	while (font_db) {
 		struct FONT_DB * db = font_db;
