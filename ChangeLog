@@ -1,3 +1,6 @@
+2001-03-20: 0.06.4
+   - fixed wrong offset for pixmap to window copy of CopyArea() request.
+   - corrected Y coordinate for text drawing.
 2001-03-19: 0.06.3
    - improved font handling: Ascent, Descent and Halfline should now be correct
      for Speedo and TrueType fonts also.
