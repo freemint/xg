@@ -1,2 +1,10 @@
-*~
+.cvsignore
+*.%
+*.tgz
+Makefile
+dist
+doc
+txt
+VDI.enhancer
 obj
+Xserver
