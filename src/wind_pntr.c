@@ -374,10 +374,15 @@ WindPointerMove (const p_PXY pointer_xy)
 
 #include "Request.h"
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_QueryPointer (CLIENT * clnt, xQueryPointerReq * q)
 {
+	// Returns the ponter coordinates relative to the root window and to the
+	// given window.
+	//
+	// CARD32 id: requested window
+	//
 	// Reply:
 	// BOOL   sameScreen:
 	// Window root:
@@ -385,68 +390,76 @@ RQ_QueryPointer (CLIENT * clnt, xQueryPointerReq * q)
 	// INT16  rootX, rootY:
 	// INT16  winX,  winY:
 	// CARD16 mask:
+	//...........................................................................
 	
-	WINDOW * wind = WindFind (q->id);
+	WINDOW * wind;
+	GRECT    work;
 	
-	if (!wind) {
+	if (!(wind = WindFind(q->id)) && !wind_get_work (q->id & 0x7FFF, &work)) {
 		Bad(Window, q->id, QueryPointer,);
 	
-	} else {
+	} else { //..................................................................
+		
 		ClntReplyPtr (QueryPointer, r);
+		PXY pos = WindPointerPos (NULL);
 		
 		DEBUG (QueryPointer," W:%lX", q->id);
 		
-		r->sameScreen = xTrue;
-		r->mask       = MAIN_KeyButMask;
-		r->child      = None;
+		r->root  = ROOT_WINDOW;
+		r->rootX = pos.x;
+		r->rootY = pos.y;
+		r->mask  = MAIN_KeyButMask;
+		r->child = None;
 		
-		if (!_WIND_PointerRoot) {
-			GRECT work;
-			short hdl = wind_get_top();
-			wind_get_work (hdl, &work);
-			r->root  = ROOT_WINDOW|hdl;
-			r->rootX = MAIN_PointerPos->x - work.x;
-			r->rootY = MAIN_PointerPos->y - work.y;
-		
-		} else if (_WIND_PointerRoot == &WIND_Root) {
-			r->root  = ROOT_WINDOW;
-			r->rootX = MAIN_PointerPos->x - WIND_Root.Rect.x;
-			r->rootY = MAIN_PointerPos->y - WIND_Root.Rect.y;
+		if (!PXYinRect (MAIN_PointerPos, &WIND_Root.Rect)) {
+			r->sameScreen = xFalse;
+			r->winX       = 0;
+			r->winY       = 0;
 		
 		} else {
-			*(PXY*)&r->rootX = WindPointerPos (wind);
-			r->root          = _WIND_PointerRoot->Id;
-		}
-		
-		if (q->id == r->root) {
-			r->winX  = r->rootX;
-			r->winY  = r->rootY;
-		
-		} else if (q->id == ROOT_WINDOW) {
-			r->winX = MAIN_PointerPos->x - WIND_Root.Rect.x;
-			r->winY = MAIN_PointerPos->y - WIND_Root.Rect.y;
-			r->child = r->root;
-		
-		} else {
-			*(PXY*)&r->winX = WindPointerPos (wind);
-			if ((wind = _WIND_PointerRoot)) {
-				while (wind != &WIND_Root) {
-					if (wind->Id == q->id) {
-						r->child = _WIND_PointerRoot->Id;
-						break;
+			r->sameScreen = xTrue;
+			
+			if (!wind) {
+				pos.x = MAIN_PointerPos->x - work.x;
+				pos.y = MAIN_PointerPos->y - work.y;
+			
+			} else if (wind == &WIND_Root) {
+				short hdl = wind_find (MAIN_PointerPos->x, MAIN_PointerPos->y);
+				if (hdl > 0) {
+					r->child = ROOT_WINDOW|hdl;
+					if ((wind = wind->StackTop)) {
+						do if (wind->isMapped  &&  wind->Handle == hdl) {
+							r->child = wind->Id;
+							break;
+						} while ((wind = wind->PrevSibl));
 					}
-					wind = wind->Parent;
+				}
+			} else {
+				pos = WindPointerPos (NULL);
+				work.x = work.y = 0;
+				work.w = wind->Rect.w;
+				work.h = wind->Rect.h;
+				if (PXYinRect (&pos, &work) && (wind = wind->StackTop)) {
+					do if (wind->isMapped && PXYinRect (&pos, &wind->Rect)) {
+						r->child = wind->Id;
+						break;
+					} while ((wind = wind->PrevSibl));
 				}
 			}
+			r->winX = pos.x;
+			r->winY = pos.y;
 		}
 		ClntReply (QueryPointer,, "wwPP.");
 	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_TranslateCoords (CLIENT * clnt, xTranslateCoordsReq * q)
 {
+	// Takes the source coordinates relative to the source window and returns
+	// them relative to the destination window.
+	//
 	// Window srcWid:
 	// Window dstWid:
 	// INT16 srcX, srcY:
@@ -490,6 +503,7 @@ RQ_TranslateCoords (CLIENT * clnt, xTranslateCoordsReq * q)
 		Bad(Window, q->dstWid, TranslateCoords,"(): destination not found.");
 	
 	} else { //..................................................................
+		
 		ClntReplyPtr (TranslateCoords, r);
 		
 		DEBUG (TranslateCoords," %i/%i for W:%lX on W:%lX",
@@ -499,20 +513,28 @@ RQ_TranslateCoords (CLIENT * clnt, xTranslateCoordsReq * q)
 		r->dstX       = q->srcX + p_src.x - p_dst.x;
 		r->dstY       = q->srcY + p_src.y - p_dst.y;
 		r->child      = None;
-		if (wdst  &&  r->dstX >= 0  &&  r->dstX < wdst->Rect.w
-		          &&  r->dstY >= 0  &&  r->dstY < wdst->Rect.h
-		          &&  wdst->StackTop  &&  WindVisible (wdst)) {
-			p_dst = *(PXY*)&r->dstX;
-			wdst  = wdst->StackTop;
-			do {
-				if (PXYinRect (&p_dst, &wdst->Rect) && wdst->isMapped) {
-					r->child = wdst->Id;
-					p_dst.x -= wdst->Rect.x;
-					p_dst.y -= wdst->Rect.y;
-					if (!(wdst = wdst->StackTop)) break;
-					else                          continue;
+		
+		if (wdst == &WIND_Root) {
+			short hdl = wind_find (MAIN_PointerPos->x, MAIN_PointerPos->y);
+			if (hdl > 0) {
+				r->child = ROOT_WINDOW|hdl;
+				if ((wdst = wdst->StackTop)) {
+					do if (wdst->isMapped  &&  wdst->Handle == hdl) {
+						r->child = wdst->Id;
+						break;
+					} while ((wdst = wdst->PrevSibl));
 				}
-			} while ((wdst = wdst->PrevSibl));
+			}
+		} else if (wdst) {
+			if (r->dstX >= 0  &&  r->dstX < wdst->Rect.w &&
+		       r->dstY >= 0  &&  r->dstY < wdst->Rect.h &&
+		       (wdst = wdst->StackTop)) {
+				p_dst = *(PXY*)&r->dstX;
+				do if (wdst->isMapped && PXYinRect (&p_dst, &wdst->Rect)) {
+					r->child = wdst->Id;
+					break;
+				} while ((wdst = wdst->PrevSibl));
+			}
 		}
 		ClntReply (TranslateCoords,, "wP");
 	}
