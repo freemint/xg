@@ -54,7 +54,6 @@ struct s_DRAWABLE;   typedef union  u_DRAWABLE {
 	p_WINDOW            Window;
 } p_DRAWABLE;
 struct s_CLIENT;     typedef struct s_CLIENT   * p_CLIENT;
-struct s_PROPERTY;   typedef struct s_PROPERTY * p_PROPERTY;
 struct s_CURSOR;     typedef struct s_CURSOR   * p_CURSOR;
 
 
