@@ -610,6 +610,29 @@ KybdEvent (CARD16 scan, CARD8 meta)
 
 
 //==============================================================================
+static void
+KYBD_GetMapping (CARD8 * map)
+{
+	static CARD8 keys[] = {
+		KEYCODE(KC_SHFT_R), KEYCODE(KC_SHFT_L), KEYCODE(KC_CTRL),
+		KEYCODE(KC_ALT),    KEYCODE(KC_LOCK),   KEYCODE(KC_ALTGR), 0 };
+	int   i, n = sizeof(keys) -1;
+	CARD8 mask = KYBD_PrvMeta;
+	
+	if ((keys[n] = KYBD_Pending)) mask |= 1 << n;
+	else                          n--;
+	memset (map, 0, 32);
+	for (i = 0; i <= n && mask; i++) {
+		if (mask & 1) {
+			CARD8 k    = keys[i];
+			map[k /8] |= 1 << (k & 0x07);
+		}
+		mask >>= 1;
+	}
+}
+
+
+//==============================================================================
 //
 // Callback Functions
 
@@ -735,9 +758,20 @@ RQ_ChangeKeyboardMapping (CLIENT * clnt, xChangeKeyboardMappingReq * q)
 	PRINT (- X_ChangeKeyboardMapping," ");
 }
 
-//------------------------------------------------------------------------------
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_QueryKeymap (CLIENT * clnt, xQueryKeymapReq * q)
 {
-	PRINT (- X_QueryKeymap," ");
+	// Returns a bit vector for the logical state of the keyboard, where each
+	// bit set to 1 indicates that the corresponding key is currently pressed.
+	//...........................................................................
+	
+	ClntReplyPtr (QueryKeymap, r);
+	
+	PRINT (QueryKeymap," ");
+	
+	KYBD_GetMapping (r->map);
+	
+	ClntReply (QueryKeymap,, NULL);
 }
