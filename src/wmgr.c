@@ -793,8 +793,7 @@ WmgrSetDesktop (BOOL onNoff)
 	
 	if (onNoff) {
 		WIND_UPDATE_BEG;
-		WMGR_Desktop.ob_width  = GRPH_ScreenW;
-		WMGR_Desktop.ob_height = GRPH_ScreenH;
+		*(GRECT*)&WMGR_Desktop.ob_x = WIND_Root.Rect;
 		if (WIND_Root.hasBackPix) {
 			ublk.ub_code = desktop_pmap;
 			WMGR_Desktop.ob_type         = G_USERDEF;
@@ -808,7 +807,8 @@ WmgrSetDesktop (BOOL onNoff)
 			WMGR_Desktop.ob_type       = G_BOX;
 			WMGR_Desktop.ob_spec.index = 0x000011F0L | WIND_Root.Back.Pixel;
 		}
-		wind_set (0, WF_NEWDESK, (int)&WMGR_Desktop, 0, 0,0);
+		wind_set (0, WF_NEWDESK,
+		          (long)&WMGR_Desktop >>16, (short)&WMGR_Desktop, 0,0);
 		WIND_UPDATE_END;
 	
 	} else if (WMGR_Desktop.ob_type) {
@@ -1000,7 +1000,7 @@ WmgrMessage (short * msg)
 					Atom data[5] = { WM_DELETE_WINDOW };
 					EvntClientMsg (clnt, wind->Id, WM_PROTOCOLS, 32, data);
 				} else {
-					reset = (ClntDelete (clnt) == 0);
+					reset = (!ClntDelete (clnt) && !WMGR_Active);
 				}
 			}
 		}	break;
