@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// wind_draw.c
+//
+// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-07 - Module released for beta state.
+// 2000-09-19 - Initial Version.
+//==============================================================================
+//
 #include "window_P.h"
 #include "event.h"
 #include "gcontext.h"
@@ -12,12 +22,15 @@
 
 //==============================================================================
 CARD16
-WindClipLock (WINDOW * wind, CARD16 border, const GRECT * a_clip, short n_clip,
+WindClipLock (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
               PXY * orig, GRECT ** pBuf)
 {
 	WINDOW * pwnd;
-	GRECT    work = wind->Rect, clip;
+	GRECT    work = wind->Rect, rect, * sect;
+	BOOL     visb = wind->isMapped;
 	CARD16   nClp = 0;
+	int      a, b, n;
+	short    l = 0x7FFF, u = 0x7FFF, r = 0x8000, d = 0x8000;
 	
 	if (border) {
 		work.x -= border;
@@ -38,20 +51,66 @@ WindClipLock (WINDOW * wind, CARD16 border, const GRECT * a_clip, short n_clip,
 		if ((work.y += pwnd->Rect.y) < 0) { work.h += work.y; work.y = 0; }
 		orig->x += pwnd->Rect.x;
 		orig->y += pwnd->Rect.y;
-		if (pwnd == &WIND_Root) break;
+		if (pwnd == &WIND_Root  || !(visb &= pwnd->isMapped)) break;
 		wind = pwnd;
 	}
-	if (a_clip) {
-		clip = *a_clip;
-		if (n_clip > 0) {
-			clip.x += orig->x;
-			clip.y += orig->y;
-		} else if (!n_clip) {
-			a_clip = NULL;
+	if (!visb ||  work.w <= 0  ||  work.h <= 0) return 0;
+	
+	if (!n_clip || !clip) {
+		clip   = &work;
+		n_clip = 1;
+	
+	} else if (n_clip < 0) {
+		if (!GrphIntersect (&work, clip)) return 0;
+		clip   = &work;
+		n_clip = 1;
+		
+	} else { // (n_clip > 0)
+		GRECT * c = alloca (sizeof(GRECT) * n_clip);
+		n         = 0;
+		while (n_clip--) {
+			c[n]   =  *(clip++);
+			c[n].x += orig->x;
+			c[n].y += orig->y;
+			if (GrphIntersect (c + n, &work)) n++;
 		}
-	} else {
-		n_clip = 0;
+		clip = c;
+		if (!(n_clip = n)) return 0;
 	}
+	
+	WindUpdate (xTrue);
+	wind_get (0, WF_SCREEN, &a, &b, &n,&n);
+	*pBuf = sect = (GRECT*)((a << 16) | (b & 0xFFFF));
+	
+	wind_get_first (wind->Handle, &rect);
+	while (rect.w > 0  &&  rect.h > 0) {
+		const GRECT * c = clip;
+		n               = n_clip;
+		do {
+			*sect = rect;
+			if (GrphIntersect (sect, c++)) {
+				a = sect->x + sect->w -1;
+				b = sect->y + sect->h -1;
+				if (l > sect->x) l = sect->x;
+				if (u > sect->y) u = sect->y;
+				if (r < a)       r = a;
+				if (d < b)       d = b;
+				nClp++;
+				sect++;
+			}
+		} while (--n);
+		wind_get_next (wind->Handle, &rect);
+	}
+	if (nClp) {
+		sect->x = l;
+		sect->y = u;
+		sect->w = r - l +1;
+		sect->h = d - u +1;
+	
+	} else {
+		WindUpdate (xFalse);
+	}
+/*	
 	if (work.w > 0 && work.h > 0  && (!a_clip || GrphIntersect (&work, &clip))) {
 		GRECT * sec;
 		int     a, b, c;
@@ -83,7 +142,7 @@ WindClipLock (WINDOW * wind, CARD16 border, const GRECT * a_clip, short n_clip,
 			*pBuf = NULL;
 			WindUpdate (xFalse);
 		}
-	}
+	}*/
 	return nClp;
 }
 
