@@ -431,7 +431,7 @@ RQ_AllocNamedColor (CLIENT * clnt, xAllocNamedColorReq * q)
 		
 		ClntReply (AllocNamedColor,, "l:::");
 	}
-	PRINT (AllocNamedColor," M:%lX '%.*s'", q->cmap, q->nbytes, (char*)(q +1));
+	DEBUG (AllocNamedColor," M:%lX '%.*s'", q->cmap, q->nbytes, (char*)(q +1));
 }
 
 
@@ -513,8 +513,7 @@ RQ_QueryColors (CLIENT * clnt, xQueryColorsReq * q)
 			dst->red   = PIXEL(red);
 			dst->green = PIXEL(green);
 			dst->blue  = PIXEL(blue);
-			DEBUG (,"+- %lu", pixel);
-			DEBUG (,"+-%04X,%04X,%04X", dst->red,dst->green,dst->blue);
+			DEBUG (,"+- %lu=%04X,%04X,%04X", pixel, dst->red,dst->green,dst->blue);
 		}
 	} else if (GRPH_Format == SCRN_FalconHigh) {
 		for (i = 0; i < len; i++, pix++, dst++) {
