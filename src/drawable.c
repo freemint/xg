@@ -508,6 +508,133 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 
 //------------------------------------------------------------------------------
 void
+RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
+{
+	p_DRAWABLE draw = DrawFind (q->drawable);
+	p_GC       gc   = GcntFind (q->gc);
+	size_t     len  = ((q->length *4) - sizeof (xPolyArcReq)) / sizeof(xArc);
+	
+	if (!draw.p) {
+		Bad(Drawable, q->drawable, PolyArc,);
+		
+	} else if (!gc) {
+		Bad(GC, q->drawable, PolyArc,);
+	
+	} else if (len  &&  gc->ClipNum >= 0) {
+		BOOL    set = xTrue;
+		xArc  * arc = (xArc*)(q +1);
+		short   hdl = 0;
+		GRECT * sect, _clip;
+		PXY     orig;
+		CARD16  nClp;
+		CARD32  color;
+		
+		if (draw.p->isWind) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
+				hdl = GRPH_Vdi;
+				v_hide_c (hdl);
+			}
+			DEBUG (PolyArc," P:%lX G:%lX (%lu)", q->drawable, q->gc, len);
+		
+		} else { // Pixmap
+			orig.x = 0;
+			orig.y = 0;
+			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
+			nClp = 1;
+			set  = (draw.Pixmap->Vdi > 0);
+			hdl  = PmapVdi (draw.Pixmap, gc, xFalse);
+		}
+		if (nClp && gc_mode (&color, &set, hdl, gc)) {
+			clnt->Fnct->shift_arc (&orig, arc, len);
+			if (set) {
+				vsl_width (hdl, gc->LineWidth);
+				vsl_color (hdl, color);
+			}
+			do {
+				int i;
+				vs_clip_r (hdl, sect++);
+				for (i = 0; i < len; ++i) {
+					v_ellarc (hdl,
+					          arc[i].x, arc[i].y, arc[i].width, arc[i].height, 0,0);
+				}
+			} while (--nClp);
+			vs_clip_r (hdl, NULL);
+			
+			if (draw.p->isWind) {
+				v_show_c (hdl, 1);
+				WindClipOff();
+			}
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+void
+RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
+{
+	p_DRAWABLE draw = DrawFind (q->drawable);
+	p_GC       gc   = GcntFind (q->gc);
+	size_t     len  = ((q->length *4) - sizeof (xPolyFillArcReq)) / sizeof(xArc);
+	
+	if (!draw.p) {
+		Bad(Drawable, q->drawable, PolyFillArc,);
+		
+	} else if (!gc) {
+		Bad(GC, q->drawable, PolyFillArc,);
+	
+	} else if (len  &&  gc->ClipNum >= 0) {
+		BOOL    set = xTrue;
+		xArc  * arc = (xArc*)(q +1);
+		short   hdl = 0;
+		GRECT * sect, _clip;
+		PXY     orig;
+		CARD16  nClp;
+		CARD32  color;
+		
+		if (draw.p->isWind) {
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect);
+			if (nClp) {
+				hdl = GRPH_Vdi;
+				v_hide_c (hdl);
+			}
+			DEBUG (PolyFillArc," P:%lX G:%lX (%lu)", q->drawable, q->gc, len);
+		
+		} else { // Pixmap
+			orig.x = 0;
+			orig.y = 0;
+			sect = SizeToRCT (&_clip, &draw.Pixmap->W);
+			nClp = 1;
+			set  = (draw.Pixmap->Vdi > 0);
+			hdl  = PmapVdi (draw.Pixmap, gc, xFalse);
+		}
+		if (nClp && gc_mode (&color, &set, hdl, gc)) {
+			clnt->Fnct->shift_arc (&orig, arc, len);
+			if (set) {
+				vsf_color (hdl, color);
+			}
+			do {
+				int i;
+				vs_clip_r (hdl, sect++);
+				for (i = 0; i < len; ++i) {
+					v_ellpie (hdl,
+					          arc[i].x, arc[i].y, arc[i].width, arc[i].height, 0,0);
+				}
+			} while (--nClp);
+			vs_clip_r (hdl, NULL);
+			
+			if (draw.p->isWind) {
+				v_show_c (hdl, 1);
+				WindClipOff();
+			}
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+void
 RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 {
 	p_DRAWABLE draw = DrawFind (q->drawable);
