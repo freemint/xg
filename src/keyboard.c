@@ -46,7 +46,7 @@ KybdEvent (short scan, short prev_meta)
 		
 		if (pndg) {
 			EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-			               _WIND_PointerRoot->Id, None, &r_xy, pndg);
+			               _WIND_PointerRoot->Id, None, r_xy, pndg);
 			pndg = 0;
 		}
 		if (chng) {
@@ -56,11 +56,11 @@ KybdEvent (short scan, short prev_meta)
 				if (chng & 1) {
 					if (prev_meta & (1 << i)) {
 						EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-						               _WIND_PointerRoot->Id, None, &r_xy,
+						               _WIND_PointerRoot->Id, None, r_xy,
 						               code[i] + KEYSYM_OFFS);
 					} else {
 						EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
-						               _WIND_PointerRoot->Id, None, &r_xy,
+						               _WIND_PointerRoot->Id, None, r_xy,
 						               code[i] + KEYSYM_OFFS);
 					}
 				}
@@ -79,7 +79,7 @@ KybdEvent (short scan, short prev_meta)
 			}
 			pndg += KEYSYM_OFFS;
 			EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
-			               _WIND_PointerRoot->Id, None, &r_xy, pndg);
+			               _WIND_PointerRoot->Id, None, r_xy, pndg);
 		}
 	}
 }

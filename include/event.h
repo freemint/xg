@@ -25,13 +25,14 @@ typedef struct s_PXY {
 
 #define AllEventMask   0x01FFFFFFuL
 
-BOOL EvntSet (p_WINDOW wind, p_CLIENT clnt, CARD32 mask);
-BOOL EvntClr (p_WINDOW wind, p_CLIENT clnt);
-void EvntDel (p_WINDOW wind);
+BOOL     EvntSet    (p_WINDOW wind, p_CLIENT clnt, CARD32 mask);
+BOOL     EvntClr    (p_WINDOW wind, p_CLIENT clnt);
+void     EvntDel    (p_WINDOW wind);
+p_WINDOW EvntSearch (p_WINDOW wind, p_CLIENT clnt, CARD32 mask);
 
 // KeyPress/KeyRelease, ButtonPress/ButtonRelease
 BOOL EvntPropagate (p_WINDOW wind, CARD32 mask, BYTE event,
-                    CARD32 rid, CARD32 cid, PXY * rxy, BYTE detail);
+                    CARD32 rid, CARD32 cid, PXY rxy, BYTE detail);
 
 #define EvntCirculateNotify(w,m, wid, plc)\
                                          _evnt_w (w,m,CirculateNotify, wid, plc)

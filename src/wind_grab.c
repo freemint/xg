@@ -18,6 +18,7 @@
 CLIENT * _WIND_PgrabClient = NULL;
 WINDOW * _WIND_PgrabWindow = NULL;
 CARD32   _WIND_PgrabEvents = 0ul;
+BOOL     _WIND_PgrabOwnrEv = xFalse;
 CARD32   _WIND_PgrabTime   = 0ul;
 
 
@@ -76,6 +77,7 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 			_WIND_PgrabClient = clnt;
 			_WIND_PgrabWindow = wind;
 			_WIND_PgrabEvents = q->eventMask;
+			_WIND_PgrabOwnrEv = q->ownerEvents;
 			_WIND_PgrabTime   = (q->time ? q->time : MAIN_TimeStamp);
 			r->status = GrabSuccess;
 		}

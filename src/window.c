@@ -176,18 +176,41 @@ WindButton (CARD16 prev_mask, int count)
 			}
 		}
 		if (w_id) {
+			WINDOW * wnd_r = NULL, * wnd_p = NULL;
 			PXY e_xy;
-			WindOrigin (_WIND_PgrabWindow, &e_xy);
-			e_xy.x = MAIN_PointerPos->x - e_xy.x;
-			e_xy.y = MAIN_PointerPos->y - e_xy.y;
-			if (butt_r && (_WIND_PgrabEvents & ButtonReleaseMask)) {
+			if (!wind) {
+				wind = &WIND_Root;
+			}
+			if (butt_r
+			    && (!_WIND_PgrabOwnrEv ||
+			        !(wnd_r = EvntSearch (wind, _WIND_PgrabClient,
+			                              ButtonReleaseMask)))
+			    && (_WIND_PgrabEvents & ButtonReleaseMask)) {
+				wnd_r = _WIND_PgrabWindow;
+			}
+			if (butt_p
+			    && (!_WIND_PgrabOwnrEv ||
+			        !(wnd_p = EvntSearch (wind, _WIND_PgrabClient,
+			                              ButtonPressMask)))
+			    && (_WIND_PgrabEvents & ButtonPressMask)) {
+				wnd_p = _WIND_PgrabWindow;
+			}
+			if (wnd_r) {
+				WindOrigin (_WIND_PgrabWindow, &e_xy);
+				e_xy.x = MAIN_PointerPos->x - e_xy.x;
+				e_xy.y = MAIN_PointerPos->y - e_xy.y;
 				_evnt_c (_WIND_PgrabClient, ButtonRelease,
-				         w_id, _WIND_PgrabWindow->Id, c_id,
+				         w_id, wnd_r->Id, c_id,
 				         *(CARD32*)&w_xy, *(CARD32*)&e_xy, butt_r);
 			}
-			if (butt_p && (_WIND_PgrabEvents & ButtonPressMask)) {
+			if (wnd_p) {
+				if (wnd_p != wnd_r) {
+					WindOrigin (_WIND_PgrabWindow, &e_xy);
+					e_xy.x = MAIN_PointerPos->x - e_xy.x;
+					e_xy.y = MAIN_PointerPos->y - e_xy.y;
+				}
 				_evnt_c (_WIND_PgrabClient, ButtonPress,
-				         w_id, _WIND_PgrabWindow->Id, c_id,
+				         w_id, wnd_p->Id, c_id,
 				         *(CARD32*)&w_xy, *(CARD32*)&e_xy, butt_p);
 			}
 		}
@@ -204,11 +227,11 @@ WindButton (CARD16 prev_mask, int count)
 	do {
 		if (butt_r) {
 			EvntPropagate (wind, ButtonReleaseMask, ButtonRelease,
-			               wind->Id, None, &w_xy, butt_r);
+			               wind->Id, None, w_xy, butt_r);
 		}
 		if (butt_p) {
 			EvntPropagate (wind, ButtonPressMask, ButtonPress,
-			               wind->Id, None, &w_xy, butt_p);
+			               wind->Id, None, w_xy, butt_p);
 		}
 		butt_r = butt_p;
 	} while (--count > 0);

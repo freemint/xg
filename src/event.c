@@ -134,6 +134,24 @@ EvntDel (WINDOW * wind)
 	wind->u.Event.Client = NULL;
 }
 
+//==============================================================================
+WINDOW *
+EvntSearch (WINDOW * wind, CLIENT * clnt, CARD32 mask)
+{
+	while (wind) {
+		if (mask & wind->u.List.AllMasks) {
+			CARD16     num = (wind->u.List.AllMasks < 0
+			                  ? wind->u.List.p->Length : 1);
+			WINDEVNT * lst = (num > 1 ? wind->u.List.p->Event : &wind->u.Event);
+			while (num--) {
+				if (lst->Client == clnt  &&  lst->Mask & mask) return wind;
+			}
+		}
+		wind = wind->Parent;
+	}
+	return NULL;
+}
+
 
 //==============================================================================
 void
@@ -211,22 +229,21 @@ EvntClientMsg (CLIENT * clnt, Window id, Atom type, BYTE format, void * data)
 //==============================================================================
 BOOL
 EvntPropagate (WINDOW * wind, CARD32 mask, BYTE event,
-               Window rid, Window cid, PXY * r_xy, BYTE detail)
+               Window r_id, Window c_id, PXY r_xy, BYTE detail)
 {
 	BOOL exec = xFalse;
-	PXY  rxy  = *r_xy;
-	PXY  exy  = *r_xy;
+	PXY  e_xy = r_xy;
 	
 	do {
 		if (mask & wind->u.List.AllMasks) {
 			_evnt_w (wind, mask, event,
-			         rid, cid, *(CARD32*)&rxy, *(CARD32*)&exy, detail);
+			         r_id, c_id, *(CARD32*)&r_xy, *(CARD32*)&e_xy, detail);
 			exec  = xTrue;
 			mask &= !wind->u.List.AllMasks;
 		}
 		if (mask &= wind->PropagateMask) {
-			exy.x += wind->Rect.x;
-			exy.y += wind->Rect.y;
+			e_xy.x += wind->Rect.x;
+			e_xy.y += wind->Rect.y;
 		} else {
 			break;
 		}

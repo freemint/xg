@@ -25,6 +25,7 @@ extern CARD16   _WIND_OpenCounter;
 extern CLIENT * _WIND_PgrabClient;
 extern WINDOW * _WIND_PgrabWindow;
 extern CARD32   _WIND_PgrabEvents;
+extern BOOL     _WIND_PgrabOwnrEv;
 
 BOOL _Wind_PgrabClear (p_CLIENT clnt);
 
