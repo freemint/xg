@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <ctype.h>
 
 
 typedef struct {
@@ -55,7 +56,8 @@ static const short _FONT_Poto[] = {
 	'p','q','r','s','t','u','v','w', 'x','y','z','{','|','}','~'
 };
 
-FONTFACE * _FONT_List = NULL;
+FONTFACE  * _FONT_List  = NULL;
+FONTALIAS * _FONT_Alias = NULL;
 
 
 //------------------------------------------------------------------------------
@@ -137,8 +139,38 @@ FontInit (short count)
 	} * font_db = NULL;
 	
 	FONTFACE ** list = &_FONT_List;
-	FILE      * f_db = NULL;
+	FILE      * f_db;
+	char        buf[258];
 	int i, j, k;
+	
+	if ((f_db = fopen ("/usr/X11/lib/X11/fonts.alias", "r"))) {
+		while (fgets (buf, sizeof(buf), f_db)) {
+			FONTALIAS * alias;
+			size_t len_a, len_b;
+			char * a = buf, * b, * p = strchr (buf, '!');
+			if (p) *p = '\0';
+			while (*a && isspace(*a)) a++;
+			if (!*(b = a)) continue;
+			while (*(++b) &&  *b != ':'  && !isspace(*b));
+			if (!*b) break;
+			len_a = b - a +1;
+			*b = '\0';
+			while (*(++b) && isspace(*b));
+			if (!*b) break;
+			p = strchr (b, '\0');
+			while (isspace(*(--p)));
+			p[1] = '\0';
+			len_b = p - b +1;
+			if (!(alias = malloc (sizeof(FONTALIAS) + len_a + len_b))) break;
+			alias->Next    = _FONT_Alias;
+			alias->Pattern = alias->Name + len_a +1;
+			memcpy (alias->Name,    a, len_a +1);
+			memcpy (alias->Pattern, b, len_b +1);
+			_FONT_Alias = alias;
+		}
+		fclose (f_db);
+		f_db = NULL;
+	}
 	
 	if (   (access ("/var/lib/Xapp", R_OK|W_OK|X_OK) &&
 	        mkdir ("/var/lib/Xapp", S_IRWXU|S_IRWXG|S_IRWXO))
@@ -151,7 +183,7 @@ FontInit (short count)
 	if (f_db) {
 		FONTFACE * face = NULL, ** fptr = NULL;
 		unsigned   type, isMono, isSymbol;
-		char  buf[258], c;
+		char       c;
 		while (fgets (buf, sizeof(buf), f_db)) {
 			int len = strlen (buf);
 			if (buf[len-1] == '\n') buf[--len] = '\0';

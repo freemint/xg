@@ -98,16 +98,16 @@ FontLatin1_W (short * arr, const short * str, int len)
 
 
 //------------------------------------------------------------------------------
-static FONTFACE *
+static FONTFACE **
 _Font_Match (const char * pattern, FONTFACE * start)
 {
-	FONTFACE * face = (start ? start->Next : _FONT_List);
+	FONTFACE ** face = (start ? &start->Next : &_FONT_List);
 	
-	while (face) {
-		if (!fnmatch (pattern, face->Name, FNM_NOESCAPE|FNM_CASEFOLD)) {
+	while (*face) {
+		if (!fnmatch (pattern, (*face)->Name, FNM_NOESCAPE|FNM_CASEFOLD)) {
 			break;
 		}
-		face = face->Next;
+		face = &(*face)->Next;
 	}
 	return face;
 }
@@ -134,14 +134,22 @@ RQ_ListFonts (CLIENT * clnt, xListFontsReq * q)
 	//...........................................................................
    
 	ClntReplyPtr (ListFonts, r);
-	FONTFACE * face = _FONT_List;
-	char     * list = (char*)(r +1);
-	size_t     size = 0;
+	FONTALIAS * alias = _FONT_Alias;
+	FONTFACE  * face  = _FONT_List;
+	char      * list  = (char*)(r +1);
+	size_t      size  = 0;
 	
 	PRINT (ListFonts," '%.*s' max=%u",
 	       q->nbytes, (char*)(q +1), q->maxNames);
 	
 	patt[q->nbytes] = '\0';
+	while (alias) {
+		if (!strcasecmp (patt, alias->Name)) {
+			patt = alias->Pattern;
+			break;
+		}
+		alias = alias->Next;
+	}
 	r->nFonts = 0;
 	while (face  &&  r->nFonts < q->maxNames) {
 		if (!fnmatch (patt, face->Name, FNM_NOESCAPE|FNM_CASEFOLD)) {
@@ -164,9 +172,6 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 	// Font   fid:
 	// CARD16 nbytes: length of pattern
 	char * patt = (char*)(q+1); // search pattern
-	//
-	// Reply:
-	// CARD16 nFonts: number of names found
 	//...........................................................................
    
    if (FablFind (q->fid).p) {
@@ -174,29 +179,43 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 	
 	} else { //..................................................................
 		
-		FONTFACE * face;
-		FONT     * font;
-		unsigned   w, h;
+		FONTALIAS * alias = _FONT_Alias;
+		FONTFACE  * face;
+		FONT      * font;
+		unsigned    w, h;
 
 		PRINT (OpenFont," F:%lX '%.*s'", q->fid, q->nbytes, (char*)(q +1));
 		
 		patt[q->nbytes] = '\0';
-		face = _Font_Match (patt, NULL);
+		while (alias) {
+			if (!strcasecmp (patt, alias->Name)) {
+				patt = alias->Pattern;
+				break;
+			}
+			alias = alias->Next;
+		}
+		face = *_Font_Match (patt, NULL);
 		
 		if (!face  &&  sscanf (patt, "%ux%u", &w, &h) == 2) {
 			char buf[50] = "";
 			sprintf (buf, "*-%u-*-*-*-C-%u0-ISO8859-1", h, w);
-			face = _Font_Match (buf, NULL);
+			face = *_Font_Match (buf, NULL);
 			
 			if (!face) {
 				FONTFACE ** prot = &_FONT_List;
-				while (*prot && ((*prot)->Type < 2
-				       || !(*prot)->isMono || (*prot)->isSymbol)) {
-					prot = &(*prot)->Next;
+				sprintf (buf, "*-Medium-*-*-*-%u-*-*-*-C-*-ISO8859-1", h);
+				while (*(prot = _Font_Match (buf, *prot)) &&
+				       ((*prot)->Type < 2 || (*prot)->isSymbol));
+				if (!*prot) {
+					prot = &_FONT_List;
+					while (*prot && ((*prot)->Type < 2
+					       || !(*prot)->isMono || (*prot)->isSymbol)) {
+						prot = &(*prot)->Next;
+					}
 				}
 				if (*prot) {
 					int i, dmy[3];
-					face = _Font_Create (patt, q->nbytes, 0, xFalse, xTrue);
+					face = _Font_Create (patt, strlen(patt), 0, xFalse, xTrue);
 					if (!face) {
 						Bad(Alloc,, OpenFont," (generic)");
 						return;
@@ -288,46 +307,47 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 		r->minCharOrByte2 = face->MinChr;
 		r->maxCharOrByte2 = face->MaxChr;
 		r->defaultChar    = ' ';
-		r->nFontProps     = 0;
 		r->drawDirection  = FontLeftToRight;
 		r->minByte1       = 0;
 		r->maxByte1       = 0;
 		r->allCharsExist  = xTrue;
 		r->fontAscent     = face->Ascent;
 		r->fontDescent    = face->Descent;
+		r->nFontProps     = 0;
 		if (face->isMono) {
 			r->nCharInfos  = 0;
 		} else {
-			r->nCharInfos  = face->MaxChr - face->MinChr +1;
-			size = r->nCharInfos * sizeof(xCharInfo);
+			xCharInfo * info = (xCharInfo*)((char*)(r +1) + size);
+			r->nCharInfos    = face->MaxChr - face->MinChr +1;
+			size += r->nCharInfos * sizeof(xCharInfo);
 			if (face->CharInfos) {
-				memcpy (r +1, face->CharInfos, size);
+				memcpy (info, face->CharInfos, size);
 			} else {
-				xCharInfo * info = (xCharInfo*)(r +1);
+				xCharInfo * p = info;
 				int c, ld, rd, w;
 				vst_font    (GRPH_Vdi, face->Index);
 				vst_effects (GRPH_Vdi, face->Effects);
 				vst_point   (GRPH_Vdi, face->Points, &c, &c, &c, &c);
 				for (c = face->MinChr; c <= face->MaxChr; ++c) {
 					vqt_width (GRPH_Vdi, c, &w, &ld, &rd);
-					info->leftSideBearing  = ld;
-					info->rightSideBearing = w - rd;
-					info->characterWidth   = w;
-					info->ascent           = face->MaxAsc;
-					info->descent          = face->MaxDesc;
-					info->attributes       = 0;
-					info++;
+					p->leftSideBearing  = ld;
+					p->rightSideBearing = w - rd;
+					p->characterWidth   = w;
+					p->ascent           = face->MaxAsc;
+					p->descent          = face->MaxDesc;
+					p->attributes       = 0;
+					p++;
 				}
 				if ((face->CharInfos = malloc (size))) {
-					memcpy (face->CharInfos, r +1, size);
+					memcpy (face->CharInfos, info, size);
 				}
 			}
 			if (clnt->DoSwap) {
-				short * inf = (short*)(r +1);
-				int     n   = size /2;
+				short * p = (short*)info;
+				int     n = size /2;
 				while (n--) {
-					*inf = Swap16(*inf);
-					inf++;
+					*p = Swap16(*p);
+					p++;
 				}
 			}
 		}

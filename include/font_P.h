@@ -55,6 +55,12 @@ typedef struct s_FONTFACE {
 } FONTFACE;
 extern FONTFACE * _FONT_List;
 
+typedef struct s_FONTALIAS {
+	struct s_FONTALIAS * Next;
+	char               * Pattern;
+	char                 Name[2];
+} FONTALIAS;
+extern FONTALIAS * _FONT_Alias;
 
 FONTFACE * _Font_Create (const char * name, size_t len,
                          unsigned type, BOOL sym, BOOL mono);
