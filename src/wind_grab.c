@@ -21,9 +21,9 @@ CLIENT * _WIND_PgrabClient = NULL;
 WINDOW * _WIND_PgrabWindow = NULL;
 CURSOR * _WIND_PgrabCursor = NULL;
 CARD32   _WIND_PgrabEvents = 0ul;
-BOOL     _WIND_PgrabOwnrEv = xFalse;
 CARD32   _WIND_PgrabTime   = 0ul;
-
+BOOL     _WIND_PgrabOwnrEv = xFalse;
+BOOL     _WIND_PgrabActive;
 
 //------------------------------------------------------------------------------
 static void
@@ -82,10 +82,24 @@ _Wind_PgrabClear (CLIENT * clnt)
 
 #include "Request.h"
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 {
+	// Grabs actively the control of the pointer.
+	//
+	// BOOL   ownerEvents:
+	// Window grabWindow:
+	// CARD16 eventMask:
+	// BYTE   pointerMode, keyboardMode:
+	// Window confineTo:
+	// Cursor cursor:
+	// Time   time:
+	//
+	// Reply:
+	// BYTE status:
+	//...........................................................................
+	
 	WINDOW * wind = WindFind (q->grabWindow);
 	CURSOR * crsr = NULL;
 	
@@ -95,7 +109,8 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 	} else if (q->cursor && !(crsr = CrsrGet(q->cursor))) {
 		Bad(Cursor, q->cursor, GrabPointer,);
 	
-	} else {
+	} else { //..................................................................
+	
 		ClntReplyPtr (GrabPointer, r);
 		CARD32 time = (q->time ? q->time : MAIN_TimeStamp);
 		
@@ -120,6 +135,7 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 		
 		if (r->status == GrabSuccess) {
 			_Wind_PgrabSet (clnt, wind, crsr, q->eventMask, q->ownerEvents, time);
+			_WIND_PgrabActive = xTrue;
 		
 		} else if (crsr) {
 			CrsrFree (crsr, NULL);
@@ -127,29 +143,76 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_ChangeActivePointerGrab (CLIENT * clnt, xChangeActivePointerGrabReq * q)
 {
-	PRINT (- X_ChangeActivePointerGrab," C:%lX T:%lX evnt=%04X",
-	       q->cursor, q->time, q->eventMask);
+	// Changes dynamic parameters if the pointer is actively grabbed by this
+	// client.
+	//
+	// Cursor cursor:
+	// Time   time:
+	// CARD16 eventMask:
+	//...........................................................................
+	
+	CURSOR * crsr = NULL;
+	CARD32   time = (q->time ? q->time : MAIN_TimeStamp);
+	
+	if (q->cursor && !(crsr = CrsrGet(q->cursor))) {
+		Bad(Cursor, q->cursor, ChangeActivePointerGrab,);
+	
+	} else { //..................................................................
+	
+		if (_WIND_PgrabActive  &&  clnt == _WIND_PgrabClient
+		    &&  time >= _WIND_PgrabTime  &&  time <= MAIN_TimeStamp) {
+			
+			PRINT (ChangeActivePointerGrab," C:%lX T:%lX evnt=%04X",
+			       q->cursor, q->time, q->eventMask);
+			
+			_WIND_PgrabEvents = q->eventMask;
+			_WIND_PgrabTime   = time;
+			if (_WIND_PgrabCursor) {
+				CrsrFree (_WIND_PgrabCursor, NULL);
+			}
+			if ((_WIND_PgrabCursor = crsr)) {
+				CrsrSelect (crsr);
+			} else {
+				_Wind_Cursor (_WIND_PgrabWindow);
+			}
+		
+		} else {
+			
+			PRINT (ChangeActivePointerGrab," C:%lX T:%lX evnt=%04X ignored",
+			       q->cursor, q->time, q->eventMask);
+			
+			if (crsr) CrsrFree (crsr, NULL);
+		}
+	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_UngrabPointer (CLIENT * clnt, xUngrabPointerReq * q)
 {
+	// Releases the pointer if this client has it grabbed.
+	//
+	// CARD32 id: time or CurrentTime
+	//...........................................................................
+	
 	CARD32 wid = (_WIND_PgrabWindow ? _WIND_PgrabWindow->Id : 0);
 	
 	if ((!q->id || (q->id >= _WIND_PgrabTime && q->id <= MAIN_TimeStamp))
 	    && _Wind_PgrabClear (clnt)) {
+		
 		PRINT (UngrabPointer," W:%lX T:%lX", wid, q->id);
+		
 		_Wind_Cursor (_WIND_PointerRoot);
 	
 	} else {
 		PRINT (UngrabPointer," W:%lX T:%lX ignored", wid, q->id);
 	}
 }
+
 
 //------------------------------------------------------------------------------
 void
