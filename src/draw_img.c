@@ -49,6 +49,11 @@ RQ_PutImage (CLIENT * clnt, xPutImageReq * q)
 	           q->leftPad >= PADD_BITS) {
 		Bad(Match,, PutImage, /* q->leftPad */);
 	
+	} else if ((short)q->width <= 0  ||  (short)q->height <= 0) {
+		Bad(Value, (short)((short)q->width <= 0 ? q->width : q->height),
+		           PutImage," width = %i height = %i",
+		           (short)q->width, (short)q->height);
+	
 	} else {
 		GRECT r[2] = { {0, 0, q->width, q->height} };
 		
@@ -185,6 +190,11 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 //		            (dst_d.p->isWind ? 'W' : 'P'), dst_d.p->Id,
 //		            src_d.p->Depth, dst_d.p->Depth);
 	
+	} else if ((short)q->width <= 0  ||  (short)q->height <= 0) {
+		Bad(Value, (short)((short)q->width <= 0 ? q->width : q->height),
+		           CopyArea," width = %i height = %i",
+		           (short)q->width, (short)q->height);
+	
 	} else {
 		BOOL debug = xTrue;
 		GRECT r[4] = { {0,       0,       src_d.p->W,  src_d.p->H},
@@ -274,7 +284,12 @@ RQ_CopyPlane (CLIENT * clnt, xCopyPlaneReq * q)
 		Bad(GC, q->gc, CopyPlane,);
 	
 	} else if ((plane = _mask2plane(q->bitPlane, src_d.p->Depth)) < 0) {
-		Bad(Value, q->bitPlane, CopyPlane,);
+		Bad(Value, q->bitPlane, CopyPlane," bit-plane = %lX", q->bitPlane);
+	
+	} else if ((short)q->width <= 0  ||  (short)q->height <= 0) {
+		Bad(Value, (short)((short)q->width <= 0 ? q->width : q->height),
+		           CopyPlane," width = %i height = %i",
+		           (short)q->width, (short)q->height);
 	
 	} else {
 		BOOL debug = xTrue;

@@ -752,10 +752,10 @@ RQ_ClearArea (CLIENT * clnt, xClearAreaReq * q)
 		DEBUG (ClearArea," W:%X [%i,%i/%i,%i]",
 		       wind->Id, q->x, q->y, q->width, q->height);
 		
-		if (!q->width || q->x + q->width > wind->Rect.w) {
+		if (q->width <= 0 || q->x + q->width > wind->Rect.w) {
 			q->width = wind->Rect.w - q->x;
 		}
-		if(!q->height || q->y + q->height > wind->Rect.h) {
+		if(q->height <= 0 || q->y + q->height > wind->Rect.h) {
 			q->height = wind->Rect.h - q->y;
 		}
 		if (q->width > 0  &&  q->height > 0
