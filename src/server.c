@@ -357,7 +357,7 @@ RQ_GrabServer (CLIENT * clnt, xGrabServerReq * q)
 	
 	SrvrGrab (clnt);
 	
-	PRINT (GrabServer," ");
+	DEBUG (GrabServer," ");
 }
 
 //------------------------------------------------------------------------------
@@ -366,7 +366,7 @@ RQ_UngrabServer (CLIENT * clnt, xUngrabServerReq * q)
 {
 	SrvrUngrab (clnt);
 	
-	PRINT (UngrabServer," ");
+	DEBUG (UngrabServer," ");
 }
 
 
