@@ -104,7 +104,7 @@ PmapVdi (p_PIXMAP pmap, p_GC gc, BOOL fonts)
 		pmap->TabIdx     = _PMAP_Offs_Count;
 		_PMAP_Offs_Count = (_PMAP_Offs_Count +1) & 0x000F;
 		
-		printf ("owk -> #%i \n", pmap->Vdi);
+	//	printf ("owk -> #%i \n", pmap->Vdi);
 	
 	}
 	
