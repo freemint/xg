@@ -16,6 +16,7 @@
 #include "event.h"
 #include "Cursor.h"
 #include "grph.h"
+#include "colormap.h"
 #include "Atom.h"
 #include "Property.h"
 #include "Request.h"
@@ -777,7 +778,7 @@ WmgrMessage (short * msg)
 		
 		case WM_TOPPED:
 			if (color_changed) {
-			//	CmapInit();
+				CmapPalette();
 				color_changed = xFalse;
 			}
 			WindCirculate (wind, PlaceOnTop);
@@ -789,7 +790,7 @@ WmgrMessage (short * msg)
 		
 		case WM_ONTOP:
 			if (color_changed) {
-			//	CmapInit();
+				CmapPalette();
 				color_changed = xFalse;
 			}
 		case WM_UNTOPPED:

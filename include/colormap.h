@@ -19,7 +19,8 @@ typedef struct {
 
 void CmapInit(void);
 
-CARD32 CmapLookup (RGB * dst, const RGB * src);
+void   CmapPalette (void);
+CARD32 CmapLookup  (RGB * dst, const RGB * src);
 
 
 #endif __COLORMAP_H__

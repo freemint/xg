@@ -23,57 +23,58 @@
 #include <X11/X.h>
 
 
-#define RGB_HUE(r,g,b) ((r>g?(r>b?r:b):(g>b?g:b))-(r<g?(r<b?r:b):(g<b?g:b)))
-
 typedef struct {
 	const char * name;
 	RGB          rgb;
 } CMAP_NAME;
 
 static CARD8 _CMAP_TransGrey[32] = {
-	BLACK,  BLACK,  BLACK,  BLACK,  BLACK,  BLACK,  BLACK,  BLACK,
-	LBLACK, LBLACK, LBLACK, LBLACK, LBLACK, LBLACK, LBLACK, LBLACK,
-	LWHITE, LWHITE, LWHITE, LWHITE, LWHITE, LWHITE, LWHITE, LWHITE,
-	WHITE,  WHITE,  WHITE,  WHITE,  WHITE,  WHITE,  WHITE,  WHITE
+	BLACK,244,243,255,245,236, 58,246, 242,254,247,249,101,241,235,240,
+	  239,248,238,144,234,237,253,252, 233,187,232,231,251,250,230,WHITE
 };
 
+
+//==============================================================================
+void
+CmapPalette (void)
+{
+	short mbuf[8] = { COLORS_CHANGED, ApplId(0), 0,0,0,0,0,0 };
+	int  i, c, rgb[3];
+	c = 16;
+	for (rgb[0] = 0; rgb[0] <= 1000; rgb[0] += 200) {
+		for (rgb[1] = 0; rgb[1] <= 1000; rgb[1] += 200) {
+			rgb[2] = (rgb[0] | rgb[1] ? 0 : 200);
+			for ( ; rgb[2] <= 1000; rgb[2] += 200) {
+				vs_color (GRPH_Vdi, c++, rgb);
+			}
+		}
+	}
+	for (i = 1; i < 31; i++) {
+		rgb[0] = rgb[1] = rgb[2] = (1001 * i) /31;
+		vs_color (GRPH_Vdi, _CMAP_TransGrey[i], rgb);
+	}
+	shel_write (SWM_BROADCAST, 0, 0, (void*)mbuf, NULL);
+}
 
 
 //==============================================================================
 void
 CmapInit(void)
 {
-	int i, c, rgb[3];
+	int i;
 	
 	if (GRPH_Depth == 1) {
-		for (i =  0; i <= 15; _CMAP_TransGrey[i++] = BLACK);
-		for (i = 16; i <= 31; _CMAP_TransGrey[i++] = WHITE);
+		for (i =  1; i < 16; _CMAP_TransGrey[i++] = BLACK);
+		for (i = 16; i < 31; _CMAP_TransGrey[i++] = WHITE);
 	
 	} else if (GRPH_Depth <= 4) {
+		for (i =  1; i <  8; _CMAP_TransGrey[i++] = BLACK);
+		for (i =  8; i < 16; _CMAP_TransGrey[i++] = LBLACK);
+		for (i = 16; i < 24; _CMAP_TransGrey[i++] = LWHITE);
+		for (i = 24; i < 31; _CMAP_TransGrey[i++] = WHITE);
 		
 	} else if (GRPH_Depth <= 8) {
-		int  fix_i[] = {  1,  6,  12,  19,  25 };
-		char fix_c[] = { 16, 59, 102, 145, 188 };
-		int  f       = 0;
-		c = 16;
-		for (rgb[0] = 0; rgb[0] <= 1000; rgb[0] += 200) {
-			for (rgb[1] = 0; rgb[1] <= 1000; rgb[1] += 200) {
-				for (rgb[2] = 0; rgb[2] <= 1000; rgb[2] += 200) {
-					vs_color (GRPH_Vdi, c++, rgb);
-				}
-			}
-		}
-		_CMAP_TransGrey[0]  = BLACK;
-		_CMAP_TransGrey[31] = WHITE;
-		for (i = 1, c = 255; i < 31; ++i) {
-			int j = (i == fix_i[f] ? fix_c[f++] : c--);
-			rgb[0] = rgb[1] = rgb[2] = (1001 * i) /31;
-			vs_color (GRPH_Vdi, _CMAP_TransGrey[i] = j, rgb);
-		}
-		/*if (1)*/ {
-			short mbuf[8] = { COLORS_CHANGED, ApplId(0), 0,0,0,0,0,0 };
-			shel_write (SWM_BROADCAST, 0, 0, (void*)mbuf, NULL);
-		}
+		CmapPalette();
 		
 	} else { // TrueColor
 		
@@ -138,7 +139,7 @@ CmapLookup (RGB * dst, const RGB * src)
 		BYTE r = ((src->r >> 7) *3) >> 8,
 		     g = ((src->g >> 7) *3) >> 8,
 		     b = ((src->b >> 7) *3) >> 8;
-		pixel  = 16 + ((r *6 +g) *6 +b);
+		pixel  = 15 + ((r *6 +g) *6 +b);
 		dst->r = val[r];
 		dst->g = val[g];
 		dst->b = val[b];
