@@ -41,8 +41,10 @@ CARD32 (*_Cmap_Lookup) (RGB * dst, const RGB * src) = (void*)GrphError;
 #define MAX3(a,b,c)   (a >= b ? a >= c ? a : c : b >= c ? b : c)
 #define MIN3(a,b,c)   (a <= b ? a <= c ? a : c : b <= c ? b : c)
 #define PIXEL(c)      ((c << 8) | c)
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-static CARD32 _lookup_1 (RGB * dst, const RGB * src)
+
+//------------------------------------------------------------------------------
+static CARD32
+_lookup_1 (RGB * dst, const RGB * src)
 {
 	if ((long)src->r + src->g + src->b > 98302uL) {
 		dst->r = dst->g = dst->b = 0x0000;
@@ -52,8 +54,10 @@ static CARD32 _lookup_1 (RGB * dst, const RGB * src)
 		return                     G_BLACK;
 	}
 }
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-static CARD32 _lookup_4 (RGB * dst, const RGB * src)
+
+//------------------------------------------------------------------------------
+static CARD32
+_lookup_4 (RGB * dst, const RGB * src)
 {
 #	define X 0xFFFF
 #	define H 0x8000
@@ -101,8 +105,10 @@ static CARD32 _lookup_4 (RGB * dst, const RGB * src)
 	
 	return pixel;
 }
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-static CARD32 _lookup_8 (RGB * dst, const RGB * src)
+
+//------------------------------------------------------------------------------
+static CARD32
+_lookup_8 (RGB * dst, const RGB * src)
 {
 	CARD32 pixel;
 	
@@ -124,10 +130,35 @@ static CARD32 _lookup_8 (RGB * dst, const RGB * src)
 	}
 	return pixel;
 }
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-static CARD32 _lookup_15 (RGB * dst, const RGB * src)
+
+//------------------------------------------------------------------------------
+static CARD32
+_lookup_15 (RGB * dst, const RGB * src)
 {
 	CARD32 pixel = (src->r & 0xF800) | ((src->g >>5) & 0x07C0) | (src->b >>11);
+	
+	*dst = *src;
+	
+	return pixel;
+}
+
+//------------------------------------------------------------------------------
+static CARD32
+_lookup_16 (RGB * dst, const RGB * src)
+{
+	CARD32 pixel = (src->r & 0xF800) | ((src->g >>5) & 0x07E0) | (src->b >>11);
+	
+	*dst = *src;
+	
+	return pixel;
+}
+
+//------------------------------------------------------------------------------
+static CARD32
+_lookup_24_32 (RGB * dst, const RGB * src)
+{
+	CARD32 pixel = ((CARD32)(src->r & 0xF800) <<8)
+	             | (src->g & 0xF800) | (src->b >>8);
 	
 	*dst = *src;
 	
@@ -142,13 +173,38 @@ static CARD32 _lookup_15 (RGB * dst, const RGB * src)
 //
 CARD16 (*Cmap_PixelIdx) (CARD32 pixel) = (void*)GrphError;
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-static CARD16 _pixel_15 (CARD32 pixel)
+//------------------------------------------------------------------------------
+static CARD16
+_pixel_15 (CARD32 pixel)
 {
 	CARD16 r   = pixel & 0xF800;
 	CARD16 g   = pixel & 0x07C0;
 	CARD16 b   = pixel << 11;
 	RGB    src = { r | (r >>5), g | (g <<5), b | (b >>5) }, dst;
+	
+	return _lookup_8 (&dst, &src);
+}
+
+//------------------------------------------------------------------------------
+static CARD16
+_pixel_16 (CARD32 pixel)
+{
+	CARD16 r   = pixel & 0xF800;
+	CARD16 g   = pixel & 0x07E0;
+	CARD16 b   = pixel << 11;
+	RGB    src = { r | (r >>5), (g >>1) | (g <<5), b | (b >>5) }, dst;
+	
+	return _lookup_8 (&dst, &src);
+}
+
+//------------------------------------------------------------------------------
+static CARD16
+_pixel_24_32 (CARD32 pixel)
+{
+	CARD16 r   = (pixel >>8) & 0xF800;
+	CARD16 g   =  pixel      & 0xFF00;
+	CARD16 b   =  pixel      & 0x00FF;
+	RGB    src = { r | (r >>8), g | (g >>8), b | (b <<8) }, dst;
 	
 	return _lookup_8 (&dst, &src);
 }
@@ -198,10 +254,20 @@ CmapInit(void)
 			if (GRPH_Depth == 8) {
 				i = 0;
 				_Cmap_Lookup = _lookup_8;
-			} else if (GRPH_Format == SCRN_FalconHigh) {
+			} else {
 				i = GRPH_Vdi;
-				_Cmap_Lookup  = _lookup_15;
-				Cmap_PixelIdx = _pixel_15;
+				if (GRPH_Format == SCRN_FalconHigh) {
+					_Cmap_Lookup  = _lookup_15;
+					Cmap_PixelIdx = _pixel_15;
+				} else if (GRPH_Format == SCRN_PackedPixel) {
+					if (GRPH_Depth == 16) {
+						_Cmap_Lookup  = _lookup_16;
+						Cmap_PixelIdx = _pixel_16;
+					} else if (GRPH_Depth == 24 || GRPH_Depth == 32) {
+						_Cmap_Lookup  = _lookup_24_32;
+						Cmap_PixelIdx = _pixel_24_32;
+					}
+				}
 			}
 			CmapPalette (i);
 		}
