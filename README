@@ -4,7 +4,7 @@
                          / \\
                         /   \\  Server for MiNT/GEM
                       ===============================
-                               Jul 11, 2001
+                               Jul 31, 2001
 
 
 Contents
@@ -19,6 +19,11 @@ Contents
 	3. Fonts
 	   3.1. Handling of GEM-Fonts
 	   3.2. Font-Aliasing
+	
+	4. Using The X Server
+	   4.1. Menu Bar Items
+	   4.2. Keyboard Input
+	   4.3. Mouse Actions
 
 
 1. Requirements
@@ -209,3 +214,62 @@ on, which means monospaced fonts of <width> * <height> pixel size.  If an
 request of such a font name appeares and the server can't find it in its
 XLFD list nor in the alias list, it takes a scalable font which can scaled
 best to that geometry and creates a generic XLFD entry.
+
+
+4. Using The X Server
+=====================
+
+After been started the X server checks if  /dev/xconout2  isn't locked by
+some other program and if  /usr/X11/bin/xconsole  exists.  In this case the
+latter on is started acts as a replacement for TosWin2's console window.
+TosWin2 mustn't be terminated for having xconsole started, only closing its
+console window is enough.  Note that also for xconsole the xconout2.xdd
+must be installed.
+
+The next step after this is checking if either  /etc/X11/Xmodmap  and 
+/usr/X11/bin/xmodmap are existing.  In this case it will be started to
+apply user defined keyboard and/or mouse button mappings.  For more
+information see the example file 'Xmodmap.EXMPL' and the xmodmap manpage.
+
+4.1. Menu Bar Items
+-------------------
+
+X11-Server:
+	About:   Views version information.
+
+File:
+	gwm:   Enables/disables the built-in window manager.  In fact, this
+		option controls if X windows have GEM windgets and decor, or not.
+	Quit:   Quits the X server.  If some clients are connected, a
+		confirmation dialog will apear first.
+
+Clients:   Views a list of all client connections.  Selecting one of the
+	entries while the Control key is held down, closes down immediately the
+	corresponding connection.
+
+4.2. Keyboard Input
+-------------------
+
+In opposite to GEM apllications, every X window gets keyboard events always
+and only if it contains the mouse pointer, independent of the fact which is
+the top window.  This means that even if some GEM application has some of
+its wimdows the top window but the mouse pointer is over an X window, all
+keyboard inout will be sent to the latter.  On the other hand, if the
+X server has one of its windows the top window but the mouse pointer is
+somewhere else than over an X window, all keyboard inputs will be
+discarded.
+
+Normaly the X server does no interpretition of any kyeboard input.  There
+is one exception:  The combination Control-Alt-Backspace causes an
+immediate server shutdown and is meant as a "Panic Key".
+
+4.3. Mouse Actions
+------------------
+
+X windows can be resized by clicking on the frame around and dragging to
+the new size.  Some windows may be set to be not resizeable, this can be
+overridden by holding down the Control key.  A short mouseclick onto the
+frame tops/bottoms the window.
+
+Holding down the Alt key while clicking somewhere inside a window allows to
+move it around.

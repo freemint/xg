@@ -1,3 +1,18 @@
+2001-07-31: 0.12
+   - updated and expanded README and Xg.hyp files.  The Xg.hyp now
+     contains also the manpages for xconsole and xmodmap.
+   - if the built-in window manager get activated manually after a
+     server reset or automatically at startup, xmodmap will be tried
+     to be started to apply user defined keyboard and/or mouse button
+     mappings (see Xmodmap.EXMPL file).
+   - improved performing of server reset with respect to the built-in
+      window manager (pseudo client).
+   - implemented ChangeKeyboardMapping request and MappingNotify
+     event.  this makes it possible to change the keyboard mapping
+     for user's purpose, normally done with the 'xmodmap' tool.
+   - implemented QueryKeymap request.
+   - implemented UnmapSubwindows request, was simply forgotten in
+     prior releases.
 2001-07-27: 0.11.2
    - implemented GetKeyboardControl request for clients that want to
      know which keys has auto repeat enabled, like xkeycaps does.
