@@ -203,7 +203,7 @@ _Wind_setup (CLIENT * clnt, WINDOW * w, CARD32 mask, CARD32 * val, CARD8 req)
 	}
 	
 	if (mask & CWBackPixmap) {
-		if (*val) {
+		if (*val != None  &&  *val != ParentRelative) {
 			PIXMAP * pmap = PmapFind (*val);
 			if (!pmap) {
 //				PRINT(," ");
