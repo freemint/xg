@@ -152,11 +152,11 @@ _Gcnt_setup (CLIENT * clnt, GC * gc, CARD32 mask, CARD32 * val, CARD8 req)
 			PRINT(," ");
 			Bad(Pixmap, *val, +req, "          invalid tile.");
 			return;
-	//	} else if (tile->Depth != gc->Depth) {
-	//		PRINT(," ");
-	//		Bad(Match,, +req, "          Tile depth %u not %u.",
-	//		                  tile->Depth, gc->Depth);
-	//		return;
+		} else if (tile->Depth != gc->Depth) {
+			PRINT(," ");
+			Bad(Match,, +req, "          Tile depth %u not %u.",
+			                  tile->Depth, gc->Depth);
+			return;
 		} else {
 			DEBUG (,"+- tile=0x%lX", *val);
 			if (gc->Tile) {
