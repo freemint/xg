@@ -1,3 +1,10 @@
+2001-01-30: 0.04.1
+   - changed syntax and location of the fonts.alias file to get it more
+     flexible and handy.  See the README file for details.
+   - added Panic Key: Ctrl-Alt-Backspace quits the server immediately without
+     any further inquiry.
+   - improved user resizing of windows.
+
 2001-01-28: 0.04
    - added changes by R.Mannigel:
      - wind_set_proc() to set window title icons.
