@@ -78,6 +78,7 @@ clip_children (WINDOW * wind, PXY orig, PRECT * dst, PRECT * clip)
 			}
 			list[j+1] = dst++;
 		}
+		dst -= num;
 		
 		// find free rectangles between child geometries
 					
@@ -161,7 +162,7 @@ clip_children (WINDOW * wind, PXY orig, PRECT * dst, PRECT * clip)
 		}
 		
 		if (cnt) {
-			memmove (dst - num, area - cnt, sizeof(PRECT) * cnt);
+			memmove (dst, area - cnt, sizeof(PRECT) * cnt);
 		}
 	
 	} else { // no children
