@@ -2,7 +2,7 @@
 //
 // font.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-11-15 - Initial Version.
@@ -99,6 +99,48 @@ FontLatin1_W (short * arr, const short * str, int len)
 
 
 //------------------------------------------------------------------------------
+static void
+_Font_Alias (char * buf, const char * src, size_t len)
+{
+	FONTALIAS * alias = _FONT_Subst;
+	int i;
+	
+	for (i = 0; i < len; i++) {
+		buf[i] = src[i];
+	}
+	buf[len] = '\0';
+	
+	while (alias) {
+		char * ptr = strstr (buf, alias->Name);
+		if (ptr) {
+			size_t n_len = strlen (alias->Name);
+			size_t p_len = strlen (alias->Pattern);
+			int    diff  = p_len - n_len;
+			if (diff > 0) {
+				memmove (ptr + p_len, ptr + n_len, len - (ptr - buf) - n_len +1);
+			} else if (diff < 1) {
+				strcpy (ptr + p_len, ptr + n_len);
+			}
+			memcpy (ptr, alias->Pattern, p_len);
+			if ((len += diff) > 255) {
+				len      = 255;
+				buf[len] = '\0';
+			}
+		}
+		alias = alias->Next;
+	}
+	
+	alias = _FONT_Alias;
+	while (alias) {
+		if (!strcasecmp (buf, alias->Name)) {
+			strcpy (buf, alias->Pattern);
+			break;
+		}
+		alias = alias->Next;
+	}
+}
+
+//------------------------------------------------------------------------------
 static FONTFACE **
 _Font_Match (const char * pattern, FONTFACE * start)
 {
@@ -135,25 +177,18 @@ RQ_ListFonts (CLIENT * clnt, xListFontsReq * q)
 	//...........................................................................
    
 	ClntReplyPtr (ListFonts, r);
-	FONTALIAS * alias = _FONT_Alias;
 	FONTFACE  * face  = _FONT_List;
 	char      * list  = (char*)(r +1);
 	size_t      size  = 0;
+	char        buf[500] = "";
 	
 	PRINT (ListFonts," '%.*s' max=%u",
 	       q->nbytes, (char*)(q +1), q->maxNames);
 	
-	patt[q->nbytes] = '\0';
-	while (alias) {
-		if (!strcasecmp (patt, alias->Name)) {
-			patt = alias->Pattern;
-			break;
-		}
-		alias = alias->Next;
-	}
+	_Font_Alias (buf, patt, q->nbytes);
 	r->nFonts = 0;
 	while (face  &&  r->nFonts < q->maxNames) {
-		if (!fnmatch (patt, face->Name, FNM_NOESCAPE|FNM_CASEFOLD)) {
+		if (!fnmatch (buf, face->Name, FNM_NOESCAPE|FNM_CASEFOLD)) {
 			memcpy (list + size, &face->Length, face->Length +1);
 			size += face->Length +1;
 			r->nFonts++;
@@ -180,25 +215,17 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 	
 	} else { //..................................................................
 		
-		FONTALIAS * alias = _FONT_Alias;
 		FONTFACE  * face;
 		FONT      * font;
 		unsigned    w, h;
+		char        buf[500] = "";
 
-		PRINT (OpenFont," F:%lX '%.*s'", q->fid, q->nbytes, (char*)(q +1));
+		PRINT (OpenFont," F:%lX '%.*s'", q->fid, q->nbytes, patt);
 		
-		patt[q->nbytes] = '\0';
-		while (alias) {
-			if (!strcasecmp (patt, alias->Name)) {
-				patt = alias->Pattern;
-				break;
-			}
-			alias = alias->Next;
-		}
-		face = *_Font_Match (patt, NULL);
+		_Font_Alias (buf, patt, q->nbytes);
+		face = *_Font_Match (buf, NULL);
 		
 		if (!face  &&  sscanf (patt, "%ux%u", &w, &h) == 2) {
-			char buf[50] = "";
 			sprintf (buf, "*-%u-*-*-*-C-%u0-ISO8859-1", h, w);
 			face = *_Font_Match (buf, NULL);
 			
@@ -252,8 +279,8 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 				}
 			}
 		}
-		if (!face && strcasecmp (patt, "cursor")) {
-			Bad(Name,, OpenFont,"('%s')", patt);
+		if (!face && (strncasecmp (patt, "cursor", 6) || q->nbytes > 6)) {
+			Bad(Name,, OpenFont,"('%.*s')", (int)q->nbytes, patt);
 		
 		} else if (!(font = XrscCreate (FONT, q->fid, clnt->Fontables))) {
 			Bad(Alloc,, OpenFont,);

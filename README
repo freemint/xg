@@ -1,3 +1,53 @@
+
+                        \\   /
+                         \\ / Version 11 Rel. 6.4
+                         / \\
+                        /   \\  Server for MiNT/GEM
+                      ===============================
+                               Jan 30, 2001
+
+      +-------------------------------------------------------------+
+      |IMPORTANT: Since server version 0.04.1 the file 'fonts.alias'|
+      |           has  changed its syntax and location!  See section|
+      |           'Font-Aliasing' for details.                      |
+      +-------------------------------------------------------------+
+
+
+Contents
+--------
+
+   1. Requirements
+   2. Installation
+      2.1. Preparing Environment
+      2.2. Preparing Directories
+   3. Fonts
+      3.1. Handling of GEM-Fonts
+      3.2. Font-Aliasing
+
+
+Requirements
+============
+
+To get the server running with a useable speed, a machine with a 68030 and
+10 MByte of Ram is needed at least.  Absolutely vital installed and working
+system programs are: FreeMiNT >= 1.15.6 + MiNT-net, NVDI > 3, N.AES.  Maybe
+AES 4.1 is working also, not tested yet.
+
+At the moment only color depths of 1, 4 and 8 planes (2, 16, 256 colors) are
+supported.  Other color depths may cause system crashes/freezes or at least
+unpredictable results.
+
+Screen size (width*height) isn't restricted, but ST-High (640*400) is the
+absolutely minimum to get it useable.
+
+The latest binary version can be downloaded from the homepage at
+   http://X11.freemint.de ,
+there there is also a source snapshot.  The very latest sources are
+accessible from the FreeMiNT CVS Repository at
+   http://wh58-508.st.uni-magdeburg.de/cgi-bin/cvsweb/xg/
+Bug reports should be mailed to <AltF4@freemint.de>.
+
+
 Installation
 ============
 
@@ -6,99 +56,136 @@ requirement of a fix path for the server.  A usefull place might be
 /usr/X11R6/bin/ but everything else works as well.
 
 The next step is to make a directory /var/lib/Xapp/ for the server.  If the
-server is startet by root at the first time, or the directory is writeable by
-the server, it will do the followings steps by itself.  Else do the following
-(as root user):
+server is startet by root at the first time, or the directory is writeable
+by the server, it will do the followings steps by itself.  Else do the
+following (as root user):
 	cd /var/lib ; mkdir Xapp ; chmod 777 Xapp
 
-Preparing of Environment
-------------------------
+Preparing Environment
+---------------------
 
 There are a few things necessary for X-clients to be able to work.
 
-If a client starts, it first parses the environment variable DISPLAY to find out
-at which IP number the server should be connected.  So it's possible to start
-clients from connected machines, having their X-Windows opend on your local
-machine.  The value of DISPLAY has to be of the form "<server-IP>:0.0".  For
-clients running at a local machine, DISPLAY contains simply the value "0:0.0",
-where the first "0" is simply a shortcut for the local IP or even "localhost".
-For clients started on a remote machine connected to an Atari with e.g. the IP
-123.234.34.56, DISPLAY at the remote machine must be than "123.234.34.56:0.0".
+If a client starts, it first parses the environment variable DISPLAY to
+find out at which IP number the server should be connected.  So it's
+possible to start clients from connected machines, having their X-Windows
+opend on your local machine.  The value of DISPLAY has to be of the form
+"<server-IP>:0.0".  For clients running at a local machine, DISPLAY
+contains simply the value "0:0.0", where the first "0" is simply a shortcut
+for the local IP or even "localhost".  For clients started on a remote
+machine connected to an Atari with e.g. the IP 123.234.34.56, DISPLAY at
+the remote machine must be than "123.234.34.56:0.0".
 
 Most comfortable for the user is, to have somewhere in mint.cnf the line
 	setenv DISPLAY 0:0.0
-so it can't be forgotten to set.  Otherway it would be necessary to set it by
-hand in a shell window and start every client from that shell.
+so it can't be forgotten to set.  Otherway it would be necessary to set it
+by hand in a shell window and start every client from that shell.
 
-Preparing directories
+Preparing Directories
 ---------------------
 
 The following isn't necessary for the server itself but should be done for
-clients to have a common directory hirachy.  First there should be a directory
-/usr/X11R6/ as beeing the "XTOPDIR" and a link /usr/X11 pointing to this
-directory as well, for historical reasons.  Next, most clients are looking for
-their configuration files at /usr/X11R6/lib/X11/app-defaults/ (or sometimes at
-/usr/X11/lib/X11/app-defaults/, therefor the link), so this should be created
-also.  These configuration files are such with the suffix ".ad" in packages
-and needs to be renamed without the suffix while copying to the apps-defaults
-e.g. "Xcalc.ad" to only "Xcalc".
+client programs to have a common directory hirachy.
+
+First there should be a directory /etc/X11/app-defaults/ wich will later
+contain default configuration files for several client programs.  These
+configuration files are such with the suffix ".ad" in packages and needs to
+be renamed without the suffix while copying to the app-defaults e.g.
+"Xcalc.ad" to only "Xcalc".  Also the X server will search for optional
+configuration fileas at /etc/X11/.
+
+Next, a directory /usr/X11R6/ should be created as beeing the "XTOPDIR" and
+a link /usr/X11 pointing to this directory as well, for historical reasons.
+Furthermore, some clients are looking for their configuration files not at
+/etc/X11/app-defaults/, but at /usr/X11R6/lib/X11/app-defaults/ (or at
+/usr/X11/lib/X11/app-defaults/, therefor the link) instead, so there should
+be placed a link pointing to /etc/X11/app-defaults/.
+
+After carrying out all the previous steps, the system should have this
+directories and links:
+   /var/lib/Xapp/
+   /etc/X11/app-defaults/
+   /usr/X11R6/lib/X11/app-defaults -> /etc/X11/app-defaults/
+   /usr/X11                        -> X11R6/
 
 
 Fonts
 =====
 
-In X, fonts are named following the XLFD ('X Logical Font Description').  These
-font names are in fact a set of descriptive fields with '-' as delimiters.  The
-format is as following:
-   -fndry-fmly-wght-slnt-sWd-adStyl-pxlSz-ptSz-resx-resy-spc-avgWd-rgstry-enc
+In X, fonts are named following the XLFD ('X Logical Font Description').
+These font names are in fact a set of descriptive fields with '-' as
+delimiters.  The format is as following:
 
-with the field meaning:
+   -fndry-fmly-wght-slnt-sWd-adStl-pxSz-ptSz-resx-resy-spc-avgWd-rgstry-enc
 
-fndry:  Foundry is the name of the organization that supplied or last modified
-   the font, e.g. Adobe, Bitstream.
-fmly:   FamilyName of the font, e.g. Courier, Gothic, Helvetica
-wght:   WeightName, e.g. Bold, Medim, Black
-slnt:   Slant, a code-string with tha encoding: "R"=Roman, "I"=Italic, aso.
-sWd:    SetWidth, e.g. Normal, Condensed, Narrow
-adStyl: AddStyle, e.g. Sans, Serif,
-pxlSz:  PixelSize of the body of the font, similar to the character cell in VDI
-ptSz:   PointSize in decipoint, that is 1/10th point
+with the field meanings:
+
+fndry:     Foundry is the name of the organization that supplied or last
+           modified the font, e.g. Adobe, Bitstream.
+fmly:      FamilyName of the font, e.g. Courier, Gothic, Helvetica
+wght:      WeightName, e.g. Bold, Medim, Black
+slnt:      Slant, a code-string with tha encoding: "R"=Roman, "I"=Italic,
+           "O"=Oblique, aso.
+sWd:       SetWidth, e.g. Normal, Condensed, Narrow
+adStl:     AddStyle, e.g. Sans, Serif,
+pxSz:      PixelSize of the body of the font, similar to the character cell
+           in VDI
+ptSz:      PointSize in decipoint, that is 1/10th point
 resx,resy:   horizontal/vertical resolution for which the font was designed
-spc:    Spacing, code-string to indicate the escapement, that is "P" for
-        proportional and "M" or "C" for monospaced
-avgWd:  AverageWidth of all characters in 1/20th pixels
+spc:       Spacing, code-string to indicate the escapement, that is "P" for
+           proportional and "M" or "C" for monospaced
+avgWd:     AverageWidth of all characters in 1/20th pixels
 rgstry,enc:   CharsetRegistry/Encoding, e.g. ISO8859-1
 
-All of these fields my contain wildcards (a '*').  For example, often clients
-requests a font named '-*-*-*-*-*-*-*-120-*-*-*-*-ISO8859-1' which means some
-font of 12 point height and that charset encoding is needed, no matter of which
-family or style and so on.  The server will than take the first font of where
-this both criteria matches.
+All of these fields my contain wildcards (a '*').  For example, often
+clients requests a font named '-*-*-*-*-*-*-*-120-*-*-*-*-ISO8859-1' which
+means some font of 12 point height and that charset encoding is needed, no
+matter of which family or style and so on.  The server will than take the
+first font of where this both criteria matches.
 
 Handling of GEM-Fonts
 ---------------------
 
-At startup, the server parses all fonts provided by the VDI and translates the
-available informations to XLFD strings.  These are stored in the hash file
-/var/lib/Xapp/fonts.db to accelerate further startups.
+At startup, the server parses all fonts provided by the VDI and translates
+the available informations to XLFD strings.  These are stored in the hash
+file /var/lib/Xapp/fonts.db to accelerate further startups.
 
 Font-Aliasing
 -------------
 
-If there exists a file /usr/X11/lib/X11/fonts.alias it will be read at server
-startup and later be used to substitute font names from client requests.  The
-format of this file is simply
-   <requested font><space/tab><font to use instead>
-in each line.  To edit this file, have a look at /var/lib/Xapp/fonts.db to see
-which fonts are provided.
+If there exists a file /etc/X11/fonts.alias it will be read at server
+startup and later be used to substitute font names from client requests to
+fonts the server provides.  Have a look at the server's font hash file at
+/var/lib/Xapp/fonts.db to see which fonts are provided by your system.
+There is also an example configuration 'fonts.alias.EXMPL' coming along
+whis this file.
 
-There are two often requested pseudo-fonts which should allways be aliased:
+The format of the fonts.alias file is very simple, lines starting with a
+'!' are comment lines and will be ignored.  The relevant lines are formed
+the way "foo: bar" and "foo bar" and means in both cases: "find 'foo' and
+replace it with 'bar'", but in different ways.  The first form (with the
+colon) is used to substitute a _part_ of the font name and the second form
+(without colon) is used to substitute the _whole_ font name.
 
-fixed: A monospaced font that fits best the system capabilities, e.g. the font
-       used the AES, or some other monospaced font of your choice.
+The "foo: bar" form is usefull to replace particular fields of the font
+name, for example the lines
+   -adobe-:   -*-
+   -courier-: -Courier10Pitch-
+would cause that a request for '-adobe-courier-*-*-*-*-*-*-*-*-*-*-*-*'
+would be translated to '-*-Courier10Pitch-*-*-*-*-*-*-*-*-*-*-*-*' which
+matches the speedo font from the NVDI package.  The field demimeters '-'
+should always be used (even if not forced) to avoid wrong results.
 
-variable: Some proportional font which should be of the same height as the font
-          used for fixed.
+The "foo: bar" form is to substitute the whole font name and will be done
+_AFTER_ the part substitution.
+
+There are two often requested pseudo-fonts which should always be aliased:
+
+fixed: A monospaced font that fits best the system capabilities, e.g. the
+       font used the AES, or some other monospaced font of your choice.
+
+variable: Some proportional font which should be of the same height as the
+          font used for fixed.
 
 To use the fonts from the NVDI package, it could looks like
 
@@ -108,17 +195,16 @@ variable -Bitstream-Life-Medium-R-Normal-Serif-16-90-0-0-P-68-ISO8859-1
 The font to be substituted can also be a pattern, like
 
 -adobe-times-*-*-*-*-*-*-*-*-*-*-iso8859-1 \
-                                          -*-times*-medium-*-*-*-*-*-*-*-*-*-*-*
+                                     -*-times*-medium-*-*-*-*-*-*-*-*-*-*-*
 -*-Helvetica-Medium-R-Normal--*-120-*-*-*-*-*-*	\
-                                       -*-gothic*-medium-r-*-*-*-120-*-*-*-*-*-*
+                                  -*-gothic*-medium-r-*-*-*-120-*-*-*-*-*-*
 
-Please pay attention that the '\' isn't allowed in the font.alias file; it's
-only used here for better readability!  Instead both parts have to be in one
-line, with spaces or tabs between.
+Please pay attention that the '\' isn't allowed in the font.alias file;
+it's only used here for better readability!  Instead both parts have to be
+in one line, with spaces or tabs between.
 
-There are other oftern used font names of the form '9x15', '6x13' and so on,
-which means monospaced fonts of <width> * <height> pixel size.  If an request of
-such a font name appeares and the server can't find it in its XLFD list nor in
-the alias list, it takes a scalable font which can scaled best to that geometry
-and creates a generic XLFD entry.
-
+There are other oftern used font names of the form '9x15', '6x13' and so
+on, which means monospaced fonts of <width> * <height> pixel size.  If an
+request of such a font name appeares and the server can't find it in its
+XLFD list nor in the alias list, it takes a scalable font which can scaled
+best to that geometry and creates a generic XLFD entry.

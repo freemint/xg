@@ -60,6 +60,7 @@ typedef struct s_FONTALIAS {
 	char               * Pattern;
 	char                 Name[2];
 } FONTALIAS;
+extern FONTALIAS * _FONT_Subst;
 extern FONTALIAS * _FONT_Alias;
 
 FONTFACE * _Font_Create (const char * name, size_t len,

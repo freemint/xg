@@ -1,8 +1,8 @@
 //==============================================================================
 //
-// font.c
+// font_init.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-12-07 - Initial Version.
@@ -57,6 +57,7 @@ static const short _FONT_Poto[] = {
 };
 
 FONTFACE  * _FONT_List  = NULL;
+FONTALIAS * _FONT_Subst = NULL;
 FONTALIAS * _FONT_Alias = NULL;
 
 
@@ -143,30 +144,42 @@ FontInit (short count)
 	char        buf[258];
 	int i, j, k;
 	
-	if ((f_db = fopen ("/usr/X11/lib/X11/fonts.alias", "r"))) {
+	if ((f_db = fopen ("/etc/X11/fonts.alias", "r"))) {
+		FONTALIAS ** subst = &_FONT_Subst;
+		FONTALIAS ** alias = &_FONT_Alias;
 		while (fgets (buf, sizeof(buf), f_db)) {
-			FONTALIAS * alias;
+			FONTALIAS * elem;
 			size_t len_a, len_b;
-			char * a = buf, * b, * p = strchr (buf, '!');
-			if (p) *p = '\0';
-			while (*a && isspace(*a)) a++;
-			if (!*(b = a)) continue;
-			while (*(++b) &&  *b != ':'  && !isspace(*b));
-			if (!*b) break;
-			*b = '\0';
-			len_a = b - a;
-			while (*(++b) && isspace(*b));
-			if (!*b) break;
-			p = strchr (b, '\0');
-			while (isspace(*(--p)));
-			p[1] = '\0';
-			len_b = p - b +1;
-			if (!(alias = malloc (sizeof(FONTALIAS) + len_a + len_b))) break;
-			alias->Next    = _FONT_Alias;
-			alias->Pattern = alias->Name + len_a +1;
-			memcpy (alias->Name,    a, len_a +1);
-			memcpy (alias->Pattern, b, len_b +1);
-			_FONT_Alias = alias;
+			char * a = buf, * b;
+			BOOL   is_subst;
+			
+			while (isspace(*a)) a++;
+			if (!*a  ||  *a == '!') continue;
+			
+			if (!(len_a = strcspn (a, " \t:\r\n"))) break;
+			b = a + len_a;
+			while (isspace(*(b))) b++;
+			if ((is_subst = (*b == ':'))) {
+				while (isspace(*++b));
+			}
+			if (!(len_b = strcspn (b, " \t\r\n"))) break;
+			
+			if ((elem = malloc (sizeof(FONTALIAS) + len_a + len_b))) {
+				char * p = elem->Pattern = elem->Name + len_a +1;
+				while (len_b--) *(p++) = tolower (*(b++)); *p = '\0';
+				p = elem->Name;
+				while (len_a--) *(p++) = tolower (*(a++)); *p = '\0';
+				if (is_subst) {
+					*subst = elem;
+					subst  = &elem->Next;
+				} else {
+					*alias = elem;
+					alias  = &elem->Next;
+				}
+				elem->Next = NULL;
+			} else {
+				break;
+			}
 		}
 		fclose (f_db);
 		f_db = NULL;
