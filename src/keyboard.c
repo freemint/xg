@@ -2,7 +2,7 @@
 //
 // keyboard.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-11-15 - Initial Version.
@@ -18,7 +18,6 @@
 
 #include <stdio.h>
 
-#include <X11/X.h>
 #include <X11/keysym.h>
 
 
@@ -35,18 +34,16 @@ void
 KybdEvent (short scan, short prev_meta)
 {
 	static BYTE pndg = 0;
-	WINDOW    * wind = _WIND_PointerRoot;
-	if (wind) {
-		CARD8 chng = (MAIN_KeyButMask ^ prev_meta) >> 2;
-		PXY   r_xy = *MAIN_PointerPos;
-		do {
-			r_xy.x -= wind->Rect.x;
-			r_xy.y -= wind->Rect.y;
-		} while ((wind = wind->Parent));
+	
+	if (_WIND_PointerRoot) {
+		CARD8  chng = (MAIN_KeyButMask ^ prev_meta) >> 2;
+		CARD32 c_id = _WIND_PointerRoot->Id;
+		PXY    r_xy = WindPointerPos (NULL);
+		PXY    e_xy = WindPointerPos (_WIND_PointerRoot);
 		
 		if (pndg) {
 			EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-			               _WIND_PointerRoot->Id, None, r_xy, pndg);
+			               _WIND_PointerRoot->Id, r_xy, e_xy, pndg);
 			pndg = 0;
 		}
 		if (chng) {
@@ -56,12 +53,10 @@ KybdEvent (short scan, short prev_meta)
 				if (chng & 1) {
 					if (prev_meta & (1 << i)) {
 						EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-						               _WIND_PointerRoot->Id, None, r_xy,
-						               code[i] + KEYSYM_OFFS);
+						               c_id, r_xy, e_xy, code[i] + KEYSYM_OFFS);
 					} else {
 						EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
-						               _WIND_PointerRoot->Id, None, r_xy,
-						               code[i] + KEYSYM_OFFS);
+						               c_id, r_xy, e_xy, code[i] + KEYSYM_OFFS);
 					}
 				}
 				i++;
@@ -79,7 +74,7 @@ KybdEvent (short scan, short prev_meta)
 			}
 			pndg += KEYSYM_OFFS;
 			EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
-			               _WIND_PointerRoot->Id, None, r_xy, pndg);
+			               c_id, r_xy, e_xy, pndg);
 		}
 	}
 }
