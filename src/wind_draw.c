@@ -17,6 +17,7 @@
 #include "x_gem.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h> // printf
 
 #include <X11/Xproto.h>
@@ -34,92 +35,18 @@ CARD16
 WindClipLock (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
               PXY * orig, GRECT ** pBuf)
 {
-	WINDOW * pwnd;
-	GRECT    work = wind->Rect, rect, * sect;
-	BOOL     visb = wind->isMapped;
-	CARD16   nClp = 0;
-	int      a, b, n;
-	short    l = 0x7FFF, u = 0x7FFF, r = 0x8000, d = 0x8000;
-	
-	if (border) {
-		work.x -= border;
-		work.y -= border;
-		border *= 2;
-		work.w += border;
-		work.h += border;
-	}
-	if (work.x < 0) { work.w += work.x; work.x = 0; }
-	if (work.y < 0) { work.h += work.y; work.y = 0; }
-	
-	*orig = *(PXY*)&wind->Rect;
-	
-	while ((pwnd = wind->Parent)) {
-		if (work.x + work.w > pwnd->Rect.w) work.w = pwnd->Rect.w - work.x;
-		if (work.y + work.h > pwnd->Rect.h) work.h = pwnd->Rect.h - work.y;
-		if ((work.x += pwnd->Rect.x) < 0) { work.w += work.x; work.x = 0; }
-		if ((work.y += pwnd->Rect.y) < 0) { work.h += work.y; work.y = 0; }
-		orig->x += pwnd->Rect.x;
-		orig->y += pwnd->Rect.y;
-		if (pwnd == &WIND_Root  || !(visb &= pwnd->isMapped)) break;
-		wind = pwnd;
-	}
-	if (!visb ||  work.w <= 0  ||  work.h <= 0) return 0;
-	
-	if (!n_clip || !clip) {
-		clip   = &work;
-		n_clip = 1;
-	
-	} else if (n_clip < 0) {
-		if (!GrphIntersect (&work, clip)) return 0;
-		clip   = &work;
-		n_clip = 1;
-		
-	} else { // (n_clip > 0)
-		GRECT * c = alloca (sizeof(GRECT) * n_clip);
-		n         = 0;
-		while (n_clip--) {
-			c[n]   =  *(clip++);
-			c[n].x += orig->x;
-			c[n].y += orig->y;
-			if (GrphIntersect (c + n, &work)) n++;
-		}
-		clip = c;
-		if (!(n_clip = n)) return 0;
-	}
-	
-	WindUpdate (xTrue);
-	wind_get (0, WF_SCREEN, &a, &b, &n,&n);
-	*pBuf = sect = (GRECT*)((a << 16) | (b & 0xFFFF));
-	
-	wind_get_first (wind->Handle, &rect);
-	while (rect.w > 0  &&  rect.h > 0) {
-		const GRECT * c = clip;
-		n               = n_clip;
-		do {
-			*sect = rect;
-			if (GrphIntersect (sect, c++)) {
-				a = sect->x + sect->w -1;
-				b = sect->y + sect->h -1;
-				if (l > sect->x) l = sect->x;
-				if (u > sect->y) u = sect->y;
-				if (r < a)       r = a;
-				if (d < b)       d = b;
-				nClp++;
-				sect++;
-			}
-		} while (--n);
-		wind_get_next (wind->Handle, &rect);
-	}
+	PRECT * p;
+	CARD16  nClp = WindClipLockP (wind, border, clip, n_clip, orig, &p);
 	if (nClp) {
-		sect->x = l;
-		sect->y = u;
-		sect->w = r - l +1;
-		sect->h = d - u +1;
-	
-	} else {
-		WindUpdate (xFalse);
+		CARD16 n = nClp;
+		*pBuf    = (GRECT*)p;
+		do {
+			p->rd.x -= p->lu.x -1;
+			p->rd.y -= p->lu.y -1;
+			p++;
+		} while (--n);
 	}
-	return nClp;
+	return nClp;	
 }
 
 //==============================================================================
@@ -302,7 +229,6 @@ draw_bgnd (WINDOW * wind, PXY orig, PRECT * area,
 		} while (--num);
 	
 	} else {
-		vsf_color (GRPH_Vdi, wind->Back.Pixel);
 		do {
 			PRECT rect = *area;
 			if (GrphIntersectP (&rect, sect)) {
@@ -479,6 +405,9 @@ draw_wind (WINDOW * wind, PRECT * work,
 	
 	if (GrphIntersectP (work, area)) {
 		if (wind->hasBackGnd) {
+			if (!wind->hasBackPix) {
+				vsf_color (GRPH_Vdi, wind->Back.Pixel);
+			}
 			nEvn = draw_bgnd (wind, orig, work, sect, nClp, exps);
 		
 		} else if (exps) {
@@ -647,246 +576,256 @@ WindPutColor (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 }
 
 
+//------------------------------------------------------------------------------
+static CARD16
+clip_children (WINDOW * wind, PXY orig, PRECT * dst, PRECT * clip)
+{
+	CARD16 num = 0, cnt = 0, i;
+	
+	wind = wind->StackBot;
+	while (wind) {
+		if (wind->isMapped) {
+			register int b = wind->BorderWidth;
+			dst->rd.x = (dst->lu.x = orig.x + wind->Rect.x) + wind->Rect.w -1;
+			dst->rd.y = (dst->lu.y = orig.y + wind->Rect.y) + wind->Rect.h -1;
+			if (b) {
+				dst->lu.x -= b;
+				dst->lu.y -= b;
+				dst->rd.x += b;
+				dst->rd.y += b;
+			}
+			if (GrphIntersectP (dst, clip)) {
+				dst++;
+				num++;
+			}
+		}
+		wind = wind->NextSibl;
+	}
+	if (num) {
+		short beg, end, d;
+		PRECT ** list = (PRECT**)dst;
+		PRECT  * area = (PRECT*)(list + num);
+
+		// sort child geometries into list, first by y, then by x
+		
+		list[0] = dst -= num;
+		for (i = 1; i < num; i++) {
+			int j = i;
+			dst++;
+			while (j > 0  &&  list[j-1]->lu.y > dst->lu.y) {
+				list[j] = list[j-1];
+				j--;
+			}
+			while (--j >= 0
+			       &&  list[j]->lu.y == dst->lu.y  &&  list[j]->lu.x > dst->lu.x) {
+				list[j+1] = list[j];
+			}
+			list[j+1] = dst;
+		}
+		
+		// find free rectangles between child geometries
+					
+		beg = 0;
+		d   = clip->lu.y;
+		do {
+			short x = clip->lu.x;
+			short u = d;
+			if (u < list[beg]->lu.y) { // found area above first child geometry
+				area->lu.x = x;
+				area->lu.y = u;
+				area->rd.x = clip->rd.x;
+				area->rd.y = (u = list[beg]->lu.y) -1;
+				area++;
+				cnt++;
+			}
+			d = list[beg]->rd.y;
+			
+			for (end = beg +1; end < num; ++end) {
+				if (list[end]->lu.y > u) {
+					if (list[end]->lu.y <= d) d = list[end]->lu.y -1;
+					break;
+				} else if (list[end]->rd.y < d) {
+					d = list[end]->rd.y;
+				}
+			}
+			i = beg;
+			while (i < end) {
+				if (x < list[i]->lu.x) { // free area on left side of child
+					area->lu.x = x;
+					area->lu.y = u;
+					area->rd.x = list[i]->lu.x -1;
+					area->rd.y = d;
+					area++;
+					cnt++;
+				}
+				if (x <= list[i]->rd.x) {
+					x = list[i]->rd.x +1;
+				}
+				if (list[i]->rd.y > d) i++;
+				else if (i == beg)     beg = ++i;
+				else {
+					short j = i;
+					while (++j < num) list[j-1] = list[j];
+					if (--num < end)  end = num;
+				}
+			}
+			if (x <= clip->rd.x) { // free area on right side of last child
+				area->lu.x = x;
+				area->lu.y = u;
+				area->rd.x = clip->rd.x;
+				area->rd.y = d;
+				area++;
+				cnt++;
+			}
+			d++;
+			
+			if (i > beg) {
+				while (i < num  &&  list[i]->lu.y == d
+				       &&  list[i]->lu.x < list[i-1]->lu.x) {
+					short   j    = i;
+					PRECT * save = list[i];
+					do {
+						list[j] = list[j-1];
+					} while (--j > beg  &&  save->lu.x < list[j]->lu.x);
+					list[j] = save;
+				}
+				i++;
+			}
+		} while (beg < num);
+		
+		if (d <= clip->rd.y) { // free area at the bottom
+			area->lu.x = clip->lu.x;
+			area->lu.y = d;
+			area->rd   = clip->rd;
+			area++;
+			cnt++;
+		}
+		
+		if (cnt) {
+			memmove (dst - num, area - cnt, sizeof(PRECT) * cnt);
+		}
+	
+	} else { // no children
+		*dst = *clip;
+		cnt  = 1;
+	}
+	
+	return cnt;
+}
+
+
 //==============================================================================
 //
 // Callback Functions
 
 #include "Request.h"
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_ClearArea (CLIENT * clnt, xClearAreaReq * q)
 {
+	// Fill the window's area with it's background.
+	//
+	// BOOL   exposures:
+	// Window window:
+	// INT16  x, y:
+	// CARD16 width, height:
+	//...........................................................................
+	
 	WINDOW * wind = WindFind (q->window);
+	BOOL     evn;
 	
 	if (!wind) {
-		Bad(Drawable, q->window, ClearArea,);
+		Bad(Window, q->window, ClearArea,);
 	
-	} else if (wind->Id == ROOT_WINDOW) {
-		if (wind->hasBackGnd) {
-			GRECT * sect;
-			PXY     orig;
-			CARD16  nClp;
-			GRECT   clip = { q->x, q->y,
-			                 (q->width  ? q->width  : wind->Rect.w - q->x),
-			                 (q->height ? q->height : wind->Rect.h - q->y) };
-			if ((nClp = WindClipLock (wind, 0, &clip, 1, &orig, &sect))) {
-				extern OBJECT WMGR_Desktop;
-				do {
-					objc_draw (&WMGR_Desktop, 0, 1,
-					           sect->x, sect->y, sect->w, sect->h);
-					sect++;
-				} while (--nClp);
-				WindClipOff();
-			}
-		}
+	} else if (!wind->ClassInOut) {
+		Bad(Match,, ClearArea,"(W:%X) class InputOnly", wind->Id);
 	
-	} else if (wind->hasBackGnd && !wind->hasBackPix) {
-		GRECT * clip = (GRECT*)&q->x, * sect;
+	} else if ((evn = (q->exposures && (wind->u.List.AllMasks & ExposureMask)))
+	           || wind->hasBackGnd) {
+		PRECT * sect;
 		PXY     orig;
 		CARD16  nClp;
+		GRECT * exps = NULL;
+		CARD16  nEvn = 0;
 		
 		DEBUG (ClearArea," W:%X [%i,%i/%i,%i]",
 		       wind->Id, q->x, q->y, q->width, q->height);
 		
-		if (!clip->w || clip->w + clip->x > wind->Rect.w) {
-			clip->w = wind->Rect.w - clip->x;
+		if (!q->width || q->x + q->width > wind->Rect.w) {
+			q->width = wind->Rect.w - q->x;
 		}
-		if (!clip->h || clip->h + clip->y > wind->Rect.h) {
-			clip->h = wind->Rect.h - clip->y;
+		if(!q->height || q->y + q->height > wind->Rect.h) {
+			q->height = wind->Rect.h - q->y;
 		}
-		if (clip->w > 0  &&  clip->h > 0  &&
-		           (nClp = WindClipLock (wind, 0, clip,1, &orig, &sect))) {
-			GRECT * r = (sect + nClp);
-			short clip_x = (clip->x = r->x - orig.x) + (clip->w = r->w) -1,
-			      clip_y = (clip->y = r->y - orig.y) + (clip->h = r->h) -1;
-			BOOL  e = (q->exposures && (wind->u.List.AllMasks & ExposureMask));
+		if (q->width > 0  &&  q->height > 0
+		    && (nClp = WindClipLockP (wind, 0, (GRECT*)&q->x, 1, &orig, &sect))) {
 			
-			// assemble all mapped and intersecting child geometries
-			short num = 0; // number of mapped childs
+			PRECT clip = sect[nClp];
+			short num;
 			
-			if (wind->StackBot) {
-				WINDOW * w = wind->StackBot;
-				do if (w->isMapped) {
-					register int b = w->BorderWidth;
-					*r = w->Rect;
-					r->w += r->x;
-					r->h += r->y;
-					if ((b  && clip_x  >= (r->x -= b) &&  clip_y  >= (r->y -= b)
-						     && clip->x <  (r->w += b) &&  clip->y <  (r->h += b)) ||
-					    (!b && clip_x  >=  r->x       &&  clip_y  >=  r->y
-					        && clip->x <   r->w       &&  clip->y <   r->h )) {
-						r->x += orig.x;
-						r->y += orig.y;
-						r->w += orig.x -1;
-						r->h += orig.y -1;
-						r++;
-						num++;
-					}
-				} while ((w = w->NextSibl));
-			}
-			
-			vswr_mode (GRPH_Vdi, MD_REPLACE);
-			vsf_color (GRPH_Vdi, wind->Back.Pixel);
-			
-			if (num) {
-				struct { short l, u, r, d; }
-				    * g = (void*)(sect + nClp), // list of childs geometries
-				   ** s = (void*)(g + num),     // sorted pointers into geom. list
-				    * a = (void*)(s + num);     // list of areas to be drawn
-				short cnt = 0;   // counter for free areas
-				short i   = 0;
-				
-				// sort child geometries into list, first by y, then by x
-				
-				s[0] = g++;
-				for (i = 1; i < num; ++i) {
-					register short j = i -1;
-					while (j >= 0  && ( s[j]->u >  g->u  ||
-					                   (s[j]->u == g->u  &&  s[j]->l > g->l) )) {
-						s[j+1] = s[j];
-						j--;
-					}
-					s[j+1] = g++;
+			if (wind->Id == ROOT_WINDOW) {
+				if (evn) {
+					exps = (GRECT*)sect;
+					nEvn = nClp;
 				}
-				
-				{	// find free rectangles between child geometries
-					
-					short beg = 0;
-					short d   = clip->y + orig.y;
+				if (wind->hasBackGnd) {
+					extern OBJECT WMGR_Desktop;
 					do {
-						short x = clip->x + orig.x;
-						short u = d;
-						short end;
-						if (u < s[beg]->u) {
-							// found area above first child geometry
-							a[cnt].l = x;
-							a[cnt].u = u;
-							a[cnt].r = clip_x + orig.x;
-							a[cnt].d = s[beg]->u -1;
-							cnt++;
-							u = s[beg]->u;
-						}
-						d = s[beg]->d;
-						
-						for (end = beg +1; end < num; ++end) {
-							if (s[end]->u > u) {
-								if (s[end]->u <= d) d = s[end]->u -1;
-								break;
-							} else if (s[end]->d < d) {
-								d = s[end]->d;
-							}
-						}
-						i = beg;
-						while (i < end) {
-							if (x < s[i]->l) {
-								// free area on left side of child
-								a[cnt].l = x;
-								a[cnt].u = u;
-								a[cnt].r = s[i]->l -1;
-								a[cnt].d = d;
-								cnt++;
-							}
-							if (x <= s[i]->r) {
-								x = s[i]->r +1;
-							}
-							if (s[i]->d > d)     i++;
-							else if (i == beg)   beg = ++i;
-							else {
-								short j = i;
-								while (++j < num) s[j-1] = s[j];
-								if (--num < end)  end    = num;
-							}
-						}
-						if (x <= clip_x + orig.x) {
-							// free area on right side of last child
-							a[cnt].l = x;
-							a[cnt].u = u;
-							a[cnt].r = clip_x + orig.x;
-							a[cnt].d = d;
-							cnt++;
-						}
-						
-						d++;
-						if (i > beg) {
-							while (i < num  &&  s[i]->u == d  && s[i]->l < s[i-1]->l) {
-								short      j    = i;
-								typeof(*s) save = s[i];
-								do {
-									s[j] = s[j-1];
-								} while (--j > beg  &&  save->l < s[j]->l);
-								s[j] = save;
-							}
-							i++;
-						}
-					} while (beg < num);
-					
-					if (d <= clip_y + orig.y) {
-						// free area on right side of last child
-						a[cnt].l = clip->x + orig.x;
-						a[cnt].u = d;
-						a[cnt].r = clip_x  + orig.x;
-						a[cnt].d = clip_y  + orig.y;
-						cnt++;
-					}
+						sect->rd.x -= sect->lu.x -1;
+						sect->rd.y -= sect->lu.y -1;
+						objc_draw (&WMGR_Desktop, 0, 1,
+						           sect->lu.x, sect->lu.y, sect->rd.x, sect->rd.y);
+						sect->lu.x -= orig.x;
+						sect->lu.y -= orig.y;
+						sect++;
+					} while (--nClp);
 				}
-				#define X_ 0
-				DEBUG (, "          %i child%s, %i area%s",
-				       num, (num == 1 ? "" : "s"), cnt, (cnt == 1 ? "" : "s"));
+				WindClipOff();
+			
+			} else if ((num = clip_children (wind, orig, sect + nClp, &clip))) {
+				PRECT * area = sect + nClp;
 				
-				// draw free rectangles
-				
-				do {
-					int exp =  0;
-					r       =  (GRECT*)(a + cnt);
-					sect->w += sect->x -1;
-					sect->h += sect->y -1;
-					for (i = 0; i < cnt; ++i) {
-						r->x = (sect->x >= a[i].l ? sect->x : a[i].l);
-						r->y = (sect->y >= a[i].u ? sect->y : a[i].u);
-						r->w = (sect->w <= a[i].r ? sect->w : a[i].r);
-						r->h = (sect->h <= a[i].d ? sect->h : a[i].d);
-						if (r->x <= r->w  &&  r->y <= r->h) {
-							v_hide_c (GRPH_Vdi);
-							v_bar_p  (GRPH_Vdi, (PXY*)r);
-							v_show_c (GRPH_Vdi, 1);
-							r++;
-							exp++;
-						}
+				if (evn) {
+					exps = (GRECT*)(area + num);
+				}
+				if (wind->hasBackGnd) {
+					if (!wind->hasBackPix) {
+						vswr_mode (GRPH_Vdi, MD_REPLACE);
+						vsf_color (GRPH_Vdi, wind->Back.Pixel);
 					}
-					if (exp && e) {
-						r = (GRECT*)(a + cnt);
-						for (i = 0; i < exp; ++i) {
-							r[i].w -= r[i].x;
-							r[i].h -= r[i].y;
-							r[i].x -= orig.x;
-							r[i].y -= orig.y;
+					do {
+						CARD16 n = draw_bgnd (wind, orig, sect++, area, num, exps);
+						if (evn) {
+							nEvn += n;
+							exps += n;
 						}
-						EvntExpose (wind, exp, r);
+					} while (--nClp);
+				
+				} else if (evn) do {
+					int i;
+					for (i = 0; i < num; i++) {
+						*exps = *(GRECT*)sect;
+						if (GrphIntersectP ((PRECT*)exps, area + i)) {
+							exps->w -= exps->x -1;
+							exps->h -= exps->y -1;
+							exps->x -= orig.x;
+							exps->y -= orig.y;
+							exps++;
+							nEvn++;
+						}
 					}
 					sect++;
 				} while (--nClp);
-			
-			} else { // the clear area intersects no child areas
-				int i;
-				for (i = 0; i < nClp; ++i) {
-					sect[i].w += sect[i].x -1;
-					sect[i].h += sect[i].y -1;
-					v_hide_c (GRPH_Vdi);
-					v_bar_p  (GRPH_Vdi, (PXY*)sect);
-					v_show_c (GRPH_Vdi, 1);
-				}
-				if (e) {
-					for (i = 0; i < nClp; ++i) {
-						sect[i].w -= sect[i].x;
-						sect[i].h -= sect[i].y;
-						sect[i].x -= orig.x;
-						sect[i].y -= orig.y;
-					}
-					EvntExpose (wind, nClp, sect);
+				
+				if (evn) {
+					exps -= nEvn;
 				}
 			}
 			
+			if (nEvn) {
+				EvntExpose (wind, nEvn, exps);
+			}
 			WindClipOff();
 		}
 	}
