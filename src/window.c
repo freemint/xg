@@ -464,9 +464,19 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 {
 	BOOL     enter = xFalse;
 	WINDOW * pwnd  = wind->Parent, * next = NULL;
+	WINDOW * bott  = wind->Parent; // window below, not to be deleted
+	WINDOW * chck;                 // either grab window or pointer root
+	CARD8    mode;
 	CLIENT * owner;
-	PXY      r_p, e_p;
 	CARD16   n     = 0;
+	
+	if (_WIND_PgrabWindow) {
+		chck = _WIND_PgrabWindow;
+		mode = NotifyUngrab;
+	} else {
+		chck = _WIND_PointerRoot;
+		mode = NotifyNormal;
+	}
 	
 	if (clnt && pwnd->u.List.AllMasks) {
 		EvntClr (pwnd, clnt);
@@ -475,7 +485,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 	while(1) {	
 		if (clnt) {
 			if (wind->u.List.AllMasks) {
-				EvntClr (pwnd, clnt);
+				EvntClr (wind, clnt);
 			}
 			
 			if (!RID_Match (clnt->Id, wind->Id)) {
@@ -507,7 +517,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			continue;
 		}
 		
-		// now  wind is guaranteed not to have childs anymore and aren't be
+		// now wind is guaranteed to have no childs anymore and aren't be
 		// excluded from deleting
 		
 		if (clnt && !RID_Match (clnt->Id, wind->Id)) {
@@ -523,39 +533,46 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			exit(1);
 		}
 		
-		if (wind->isMapped) {
-			if (wind->u.List.AllMasks & StructureNotifyMask) {
-				EvntUnmapNotify (wind, StructureNotifyMask, wind->Id, xFalse);
+		
+		if (wind == chck) {
+			WINDOW * stack[32], * w = wind;
+			int anc = 0;
+			PXY r_xy;
+			while (w != bott) {
+				if (w->Handle > 0) {
+					if (w->isMapped || w->GwmIcon) {
+						wind_close (w->Handle);
+						_WIND_OpenCounter--;
+					}
+					wind_delete (w->Handle);
+				}
+				if (w->isMapped) {
+					WindUnmap (w, xFalse);
+				}
+				stack[anc++] = w;
+				w            = w->Parent;
 			}
-			if (pwnd->u.List.AllMasks & SubstructureNotifyMask) {
-				EvntUnmapNotify (pwnd, SubstructureNotifyMask, wind->Id, xFalse);
+			stack[anc] = bott;
+			WindOrigin (wind, &r_xy);
+			r_xy.x = MAIN_PointerPos->x - r_xy.x;
+			r_xy.y = MAIN_PointerPos->y - r_xy.y;
+			EvntPoiner (stack, anc, anc, r_xy, r_xy, wind->Id, mode);
+			_WIND_PointerRoot = bott;
+			enter             = xTrue;
+		
+		} else {
+			if (wind->Handle > 0) {
+				if (wind->isMapped || wind->GwmIcon) {
+					wind_close (wind->Handle);
+					_WIND_OpenCounter--;
+				}
+				wind_delete (wind->Handle);
+			}
+			if (wind->isMapped) {
+				WindUnmap (wind, xFalse);
 			}
 		}
-		if (wind == _WIND_PgrabWindow) {
-			_Wind_PgrabClear (NULL);
-		}
-		if (wind == _WIND_PointerRoot) {
-			if (!enter) {
-				WindOrigin (pwnd, &r_p);
-				r_p.x = MAIN_PointerPos->x - r_p.x;
-				r_p.y = MAIN_PointerPos->y - r_p.y;
-				WindOrigin (pwnd, &r_p);
-				e_p.x = MAIN_PointerPos->x - e_p.x;
-				e_p.y = MAIN_PointerPos->y - e_p.y;
-				enter = xTrue;
-			}
-			if (wind->u.List.AllMasks & LeaveWindowMask) {
-				EvntLeaveNotify (wind, pwnd->Id, None, r_p, e_p,
-				                 NotifyNormal, ELFlagSameScreen, NotifyAncestor);
-			}
-			if (wind->u.List.AllMasks & FocusChangeMask) {
-				EvntFocusOut (wind, NotifyNormal, NotifyAncestor);
-			}
-			e_p.x += wind->Rect.x;
-			e_p.y += wind->Rect.y;
-			_WIND_PointerRoot = pwnd;
-			CrsrSelect (pwnd->Cursor);
-		}
+		
 		if (wind->u.List.AllMasks & StructureNotifyMask) {
 			EvntDestroyNotify (wind, StructureNotifyMask, wind->Id);
 		}
@@ -568,16 +585,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 		if (wind->Cursor)      CrsrFree  (wind->Cursor, NULL);
 		if (wind->hasBackPix)  PmapFree  (wind->Back.Pixmap, NULL);
 		
-		if (wind->Handle > 0) {
-			if (wind->isMapped || wind->GwmIcon) {
-				wind_close  (wind->Handle);
-				_WIND_OpenCounter--;
-			}
-			wind_delete (wind->Handle);
-		
-		} else {
-			next = wind->NextSibl;
-		}
+		next  = wind->NextSibl;
 		owner = (clnt ? clnt : ClntFind(wind->Id));
 		
 		if (wind->PrevSibl) wind->PrevSibl->NextSibl = wind->NextSibl;
@@ -596,12 +604,8 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 	}
 	
 	if (enter) {
-		if (pwnd->u.List.AllMasks & EnterWindowMask) {
-			EvntEnterNotify (pwnd, pwnd->Id, None, r_p, e_p,
-			                 NotifyNormal, ELFlagSameScreen, NotifyInferior);
-		}
-		if (pwnd->u.List.AllMasks & FocusChangeMask) {
-			EvntFocusIn (pwnd, NotifyNormal, NotifyInferior);
+		if (bott->u.List.AllMasks & FocusChangeMask) {
+			EvntFocusIn (bott, NotifyNormal, NotifyInferior);
 		}
 		if (_WIND_OpenCounter) {
 			WindPointerWatch (xFalse); // correct watch rectangle
