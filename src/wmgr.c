@@ -919,6 +919,7 @@ WmgrButton (void)
 		EVMULTI_OUT ev_o;
 		short       ev, dummy[8];
 		PXY         pc[5],   pw[5];
+		CARD16      cursor = WMGR_Cursor;
 		int         ch, cv,  wh, wv,  mx, my;
 		int         ml = 0, mu = 0, mr = WIND_Root.Rect.w, md = WIND_Root.Rect.h;
 		
@@ -961,7 +962,7 @@ WmgrButton (void)
 			}
 			if (ml >= mr  &&  mu >= md) {
 				ev_i.evi_flags &= ~MU_M1;
-				WMGR_Cursor    =  0x000;
+				cursor         =  0x000;
 				CrsrSelect (&_WMGR_Cursor.X);
 			}
 		}
@@ -975,13 +976,22 @@ WmgrButton (void)
 		pw[0].x =  pw[3].x = pw[4].x = pw[1].x + wind->Rect.w -1;
 		pw[2].y =  pw[3].y =           pw[1].y + wind->Rect.h -1;
 		
-		if (WMGR_Cursor & 0x100) {
+		if (MAIN_KeyButMask & 0x01) {
+			if (cursor == 0x100) {
+				cursor = 0x110;
+				CrsrSelect (&_WMGR_Cursor.LD);
+			} else if (cursor == 0x001) {
+				cursor = 0x011;
+				CrsrSelect (&_WMGR_Cursor.RD);
+			}
+		}
+		if (cursor & 0x100) {
 			int _l = ml;
 			ch = pc[0].x - MAIN_PointerPos->x;
 			wh = pw[1].x - MAIN_PointerPos->x;
 			ml = pw[0].x - mr - wh;
 			mr = pw[0].x - _l - wh;
-		} else if (WMGR_Cursor & 0x001) {
+		} else if (cursor & 0x001) {
 			ch = pc[1].x - MAIN_PointerPos->x;
 			wh = pw[0].x - MAIN_PointerPos->x;
 			ml = pw[1].x + ml - wh;
@@ -989,7 +999,7 @@ WmgrButton (void)
 		} else {
 			ch = wh = 0;
 		}
-		if (WMGR_Cursor & 0x010) {
+		if (cursor & 0x010) {
 			cv = pc[2].y - MAIN_PointerPos->y;
 			wv = pw[3].y - MAIN_PointerPos->y;
 			mu = pw[0].y + mu - wv;
@@ -1019,14 +1029,14 @@ WmgrButton (void)
 				ev_i.evi_flags &= ~MU_TIMER;
 			}
 			if (ev & MU_M1) {
-				if (WMGR_Cursor & 0x100) {
+				if (cursor & 0x100) {
 					pc[0].x = pc[3].x = pc[4].x = mx + ch;
 					pw[1].x = pw[2].x           = mx + wh;
-				} else if (WMGR_Cursor & 0x001) {
+				} else if (cursor & 0x001) {
 					pc[1].x = pc[2].x           = mx + ch;
 					pw[0].x = pw[3].x = pw[4].x = mx + wh;
 				}
-				if (WMGR_Cursor & 0x010) {
+				if (cursor & 0x010) {
 					pc[2].y = pc[3].y = my + cv;
 					pw[2].y = pw[3].y = my + wv;
 				}
