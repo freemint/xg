@@ -77,6 +77,7 @@ main (int argc, char * argv[])
 		short redir = _app;
 		
 		printf ("\33H");
+		signal (SIGCHLD, sig_child);
 		
 		if (xcon >= 0) {
 			const char * args[] = {
@@ -85,7 +86,6 @@ main (int argc, char * argv[])
 			_MAIN_Xcons = WmgrLaunch ("/usr/X11/bin/xconsole",
 			                          sizeof(args) / sizeof(*args), args);
 			if (_MAIN_Xcons > 0) {
-				signal (SIGCHLD, sig_child);
 				set_printf (xTrue);
 				redir = 0;
 			} else {
@@ -264,13 +264,15 @@ main (int argc, char * argv[])
 static void
 sig_child (int sig)
 {
-	if (Pkill (0, _MAIN_Xcons)) {
-		signal (SIGCHLD, NULL);
+	long rusage;
+	
+	if (_MAIN_Xcons && Pkill (0, _MAIN_Xcons)) {
 		SrvrUngrab (NULL);
 		set_printf (xFalse);
 		printf ("%s","");
 		_MAIN_Xcons = 0;
 	}
+	Pwaitpid (-1, 0, &rusage);
 }
 
 //------------------------------------------------------------------------------
