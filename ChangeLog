@@ -1,3 +1,9 @@
+2001-03-25: 0.06.5
+   - improved handling of mouse buttons, doublecliks are working now also if an
+     automatic button grab appears.
+   - corrected replies for QueryPointer() and TranslateCoordinates() requests.
+   - replaced linear array search for color names and atoms by faster binary
+     search, that slightly speeds up client start.
 2001-03-20: 0.06.4
    - fixed wrong offset for pixmap to window copy of CopyArea() request.
    - corrected Y coordinate for text drawing.
