@@ -39,6 +39,8 @@ WINDOW WIND_Root = {
 static short _MAP_Inc, _MAP_IncX, _MAP_IncY;
 static short _WIND_RootX2, _WIND_RootY2;
 
+BOOL WIND_ChngTrigger = xFalse;
+
 
 //==============================================================================
 void
@@ -1179,6 +1181,10 @@ RQ_ChangeWindowAttributes (CLIENT * clnt, xChangeWindowAttributesReq * q)
 		    && wind->Id == ROOT_WINDOW) {
 			WmgrSetDesktop (wind->hasBackGnd);
 			if (desktop) PmapFree (desktop, NULL);
+		}
+		
+		if (!wind->Id != ROOT_WINDOW) {
+			WIND_ChngTrigger = xTrue;
 		}
 	}
 }
