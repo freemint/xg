@@ -362,38 +362,40 @@ void *
 ClntOutBuffer (O_BUFF * buf, size_t need, size_t copy_n, BOOL refuse)
 {
 	char * m = NULL;
-	size_t s;
 	
-	if (need <= buf->Done) {
+	if (need <= buf->Size - buf->Left) {
 		memmove (buf->Mem, buf->Mem + buf->Done, buf->Left + copy_n);
 		buf->Done = 0;
 		m         = buf->Mem + buf->Left;
 	
-	} else if ((m = malloc (s = ((buf->Size + need - buf->Done + O_BLOCK -1)
-	                             / O_BLOCK) * O_BLOCK) )) {
-		CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
-		ClntPrint (clnt, 0, "*** output buffer expanded to %li bytes.", s);
-		if (copy_n += buf->Left) {
-			memcpy (m, buf->Mem + buf->Done, copy_n);
-		}
-		free (buf->Mem);
-		buf->Mem  = m;
-		buf->Size = s;
-		buf->Done = 0;
-		m       += buf->Left;
-		
-	} else if (refuse) {
-		CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
-		ClntPrint (clnt, 0,
-		           "\33pERROR:\33q memory exhausted in output buffer (%li).",
-		           buf->Size + need);
-		longjmp (CLNT_Error, 3);
-		
 	} else {
-		CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
-		ClntPrint (clnt, 0,
-		           "\33pWARNING:\33q memory exhausted in output buffer (%li).",
-		           buf->Size + need);
+		int    i = (buf->Left + need + O_BLOCK -1) / O_BLOCK;
+		size_t s = i * O_BLOCK;
+		if   ((m = malloc (s))) {
+			CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
+			ClntPrint (clnt, 0, "### output buffer expanded to %li bytes. ###", s);
+			if (copy_n += buf->Left) {
+				memcpy (m, buf->Mem + buf->Done, copy_n);
+			}
+			free (buf->Mem);
+			buf->Mem  = m;
+			buf->Size = s;
+			buf->Done = 0;
+			m       += buf->Left;
+			
+		} else if (refuse) {
+			CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
+			ClntPrint (clnt, 0,
+			           "\33pERROR:\33q memory exhausted in output buffer (%li).",
+			           buf->Size + need);
+			longjmp (CLNT_Error, 3);
+			
+		} else {
+			CLIENT * clnt = (CLIENT*)((char*)buf - offsetof (CLIENT, oBuf));
+			ClntPrint (clnt, 0,
+			           "\33pWARNING:\33q memory exhausted in output buffer (%li).",
+			           buf->Size + need);
+		}
 	}
 	return m;
 }
