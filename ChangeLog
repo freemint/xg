@@ -1,3 +1,7 @@
+2001-02-15: 0.05.2
+   - darned memory leakage: remove properties of deleted windows.
+   - implemented ChangeActivePointerGrab() request.
+   - corrected two times too often referenced cursors by pointer grabs.
 2001-02-14: 0.05.1
    - corrected ClearArea() handling of pixmap backgrounds.
    - bugfix in exposure events generation while drawing window contents.
