@@ -209,7 +209,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 			if (face->MaxDesc > face->Ascent /2) {
 				short txt[] = {'g','p','q','y'};
 				short i     = sizeof(txt) /2;
-				while (--i) v_gtext_arr (hdl, &p, 1, &txt[i]);
+				while (--i) v_gtext16n (hdl, p, &txt[i], 1);
 				i = hgt;
 				while (--i && !buf[i]);
 				face->MaxDesc = i - face->Ascent +1;
@@ -217,7 +217,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 			if (face->HalfLine >= face->Ascent) {
 				short txt[] = {'a','c','e','m','n','o','r','s','z'};
 				short i     = sizeof(txt) /2;
-				while (--i) v_gtext_arr (hdl, &p, 1, &txt[i]);
+				while (--i) v_gtext16n (hdl, p, &txt[i], 1);
 				i = -1;
 				while (++i < hgt && !buf[i]);
 				face->HalfLine = face->MinAsc = face->Ascent - i;
@@ -225,7 +225,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 			if (face->MaxAsc >= face->Ascent) {
 				short txt[] = {'A','O','T'};
 				short i     = sizeof(txt) /2;
-				while (--i) v_gtext_arr (hdl, &p, 1, &txt[0]);
+				while (--i) v_gtext16n (hdl, p, &txt[0], 1);
 				i = -1;
 				while (++i < hgt && !buf[i]);
 				face->MaxAsc = face->Ascent - i;
@@ -628,7 +628,7 @@ FontInit (short count)
 			
 			if (spcg[0] == 'P') {
 				short ext[8];
-				vqt_extent_n (GRPH_Vdi, _FONT_Proto, sizeof(_FONT_Proto) /2, ext);
+				vqt_extent16n (GRPH_Vdi, _FONT_Proto, sizeof(_FONT_Proto) /2, ext);
 				avrg = ((ext[4] - ext[0]) *10) / (sizeof(_FONT_Proto) /2);
 			} else {
 				avrg = wdth * 10;

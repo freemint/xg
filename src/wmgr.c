@@ -299,10 +299,10 @@ WmgrActivate (BOOL onNoff)
 					}
 					if (w->isMapped) {
 						WindClrMapped (w, xFalse);
-						wind_get_curr (hdl, (GRECT_lib*)&curr);
+						wind_get_curr (hdl, &curr);
 					} else {
 						w->GwmIcon = xFalse;
-						wind_get_grect (hdl, WF_UNICONIFY, (GRECT_lib*)&curr);
+						wind_get_grect (hdl, WF_UNICONIFY, &curr);
 					}
 				#	define clnt &_WMGR_Client
 					PRINT (ReparentWindow, "(W:%X) revert", w->Id);
@@ -434,8 +434,7 @@ WmgrCalcBorder (GRECT * curr, WINDOW * wind)
 		work.x -= WMGR_DECOR;
 		work.w += WMGR_DECOR *2;
 		work.h += WMGR_DECOR;
-		wind_calc_grect (WC_BORDER, A_WIDGETS,
-		                 (GRECT_lib*)&work, (GRECT_lib*)curr);
+		wind_calc_grect (WC_BORDER, A_WIDGETS, &work, curr);
 	
 	} else {
 		CARD16 b = wind->BorderWidth;
@@ -448,8 +447,7 @@ WmgrCalcBorder (GRECT * curr, WINDOW * wind)
 			work.w += b *2;
 			work.h += b *2;
 		}
-		wind_calc_grect (WC_BORDER, P_WIDGETS,
-		                 (GRECT_lib*)&work, (GRECT_lib*)curr);
+		wind_calc_grect (WC_BORDER, P_WIDGETS, &work, curr);
 	}
 }
 
@@ -475,7 +473,7 @@ WmgrWindHandle (WINDOW * wind)
 {
 	BOOL decor = WMGR_Active && !wind->Override;
 	short hdl = wind_create_grect ((decor ? A_WIDGETS : P_WIDGETS),
-	                               (GRECT_lib*)&WIND_Root.Rect);
+	                               &WIND_Root.Rect);
 	if (hdl > 0) {
 		OBJECT *icons;
 		wind_set (hdl, WF_BEVENT, 0x0001, 0,0,0);
@@ -592,9 +590,8 @@ WmgrWindMap (WINDOW * wind, GRECT * curr)
 		} else {
 			_WMGR_HasFocus = 2;
 		}
-		if (action > 0) wind_open_grect (wind->Handle, (GRECT_lib*)curr);
-		else            wind_set_grect  (wind->Handle, WF_UNICONIFY,
-		                                 (GRECT_lib*)curr);
+		if (action > 0) wind_open_grect (wind->Handle, curr);
+		else            wind_set_grect  (wind->Handle, WF_UNICONIFY, curr);
 		WindSetMapped (wind, xTrue);
 	}
 	return (WMGR_OpenCounter > 1);
@@ -653,7 +650,7 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 		}
 	}
 	WindUpdate (xTrue);
-	wind_get_work (wind->Handle, (GRECT_lib*)&work);
+	wind_get_work (wind->Handle, &work);
 	pxy[2] = icon->fd_w -1;
 	pxy[3] = icon->fd_h -1;
 	pxy[4] = work.x + ((work.w - icon->fd_w) /2);
@@ -667,18 +664,20 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 		vswr_mode (GRPH_Vdi, MD_REPLACE);
 		vsf_color (GRPH_Vdi, G_LWHITE);
 		v_hide_c  (GRPH_Vdi);
-		wind_get_first (wind->Handle, (GRECT_lib*)&sect);
+		wind_get_first (wind->Handle, &sect);
 		while (sect.w > 0  &&  sect.h > 0) {
 			if (GrphIntersect (&sect, &work)) {
-				vs_clip_r (GRPH_Vdi, &sect);
-				v_bar     (GRPH_Vdi, (short*)rec);
+				sect.w += sect.x -1;
+				sect.h += sect.y -1;
+				vs_clip_pxy (GRPH_Vdi, (PXY*)&sect);
+				v_bar       (GRPH_Vdi, (short*)rec);
 				if (mask) vrt_cpyfm (GRPH_Vdi, MD_TRANS, pxy, mask, &screen, col +1);
 				(*cpyfm) (GRPH_Vdi, mode, pxy, icon, &screen, col);
 			}
-			wind_get_next (wind->Handle, (GRECT_lib*)&sect);
+			wind_get_next (wind->Handle, &sect);
 		}
-		vs_clip_r (GRPH_Vdi, NULL);
-		v_show_c  (GRPH_Vdi, 1);
+		vs_clip_off (GRPH_Vdi);
+		v_show_c    (GRPH_Vdi, 1);
 	}
 	WindUpdate (xFalse);
 }
@@ -974,11 +973,11 @@ WmgrMessage (short * msg)
 		}	break;
 		
 		case WM_MOVED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
-			wind_set_curr (msg[3], (GRECT_lib*)(msg +4));
+			wind_set_curr (msg[3], (GRECT*)(msg +4));
 			if (!wind->GwmIcon) {
 				CARD32 above = (wind->PrevSibl ? wind->PrevSibl->Id : None);
 				GRECT work;
-				wind_get_work (msg[3], (GRECT_lib*)&work);
+				wind_get_work (msg[3], &work);
 				work.x -= WIND_Root.Rect.x - WMGR_DECOR;
 				work.y -= WIND_Root.Rect.y;
 				*(PXY*)&wind->Rect = *(PXY*)&work;
@@ -1055,7 +1054,7 @@ WmgrMessage (short * msg)
 			}
 			_Wmgr_SetWidgets (msg[3], 0);
 			WindClrMapped (wind, xFalse);
-			wind_set_grect (msg[3], WF_ICONIFY, (GRECT_lib*)(msg +4));
+			wind_set_grect (msg[3], WF_ICONIFY, (GRECT*)(msg +4));
 			wind_set       (msg[3], WF_BEVENT, 0x0000, 0,0,0);
 			wind_set       (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
 			wind->GwmIcon = xTrue;
@@ -1150,19 +1149,19 @@ WmgrButton (WINDOW * wind)
 		return xFalse;
 	
 	} else {
-		EVMULTI_IN   ev_i = {
+		EVMULT_IN  ev_i = {
 			MU_BUTTON|MU_M1|MU_TIMER, 1,0x03,0x00,
-		   MO_LEAVE, { MAIN_PointerPos->x, MAIN_PointerPos->y, 1,1 },
-		   0, {0,0, 0,0}, 20,0 };
-		EVMULTI_OUT  ev_o;
-		short        ev, dummy[8];
-		CARD16       cursor;
-		PXY          pc[5],              pw[5];
-		int          c_l, c_r, c_u, c_d, w_l, w_r, w_u, w_d;
-		int          mx, my;
-		int          ml = 0, mu = 0, mr = WIND_Root.Rect.w, md = WIND_Root.Rect.h;
-		int          magnet = 0x1111;
-		GRECT        magn;
+			MO_LEAVE, { MAIN_PointerPos->x, MAIN_PointerPos->y, 1,1 },
+			0, {0,0, 0,0}, 20,0 };
+		EVMULT_OUT ev_o;
+		short      ev, dummy[8];
+		CARD16     cursor;
+		PXY        pc[5],              pw[5];
+		int        c_l, c_r, c_u, c_d, w_l, w_r, w_u, w_d;
+		int        mx, my;
+		int        ml = 0, mu = 0, mr = WIND_Root.Rect.w, md = WIND_Root.Rect.h;
+		int        magnet = 0x1111;
+		GRECT      magn;
 		
 		
 		if (move) {
@@ -1175,7 +1174,7 @@ WmgrButton (WINDOW * wind)
 		}
 		cursor = WMGR_Cursor;
 		
-		wind_get_curr (wind->Handle, (GRECT_lib*)pc);
+		wind_get_curr (wind->Handle, (GRECT*)pc);
 		pc[2].x = pc[1].x += (pc[3].x = pc[4].x = pc[0].x) -1;
 		pc[2].y = pc[3].y =   pc[0].y + pc[1].y            -1;
 		pc[4].y =            (pc[1].y = pc[0].y)           +1;
@@ -1223,9 +1222,9 @@ WmgrButton (WINDOW * wind)
 			magn.w = WIND_Root.Rect.x + WIND_Root.Rect.w - c_r - magn.x;
 			magn.y = -1;
 			magn.h = WIND_Root.Rect.y + WIND_Root.Rect.h - c_d - magn.y;
-			ev_i.evi_m2leave = MO_LEAVE;
-			ev_i.evi_m2      = magn;
-			ev_i.evi_flags  |= MU_M2;
+			ev_i.emi_m2leave = MO_LEAVE;
+			ev_i.emi_m2      = magn;
+			ev_i.emi_flags  |= MU_M2;
 		}
 		
 		vswr_mode (GRPH_Vdi, MD_XOR);
@@ -1237,47 +1236,47 @@ WmgrButton (WINDOW * wind)
 			v_pline (GRPH_Vdi, 5, (short*)pc);
 			v_pline (GRPH_Vdi, 5, (short*)pw);
 			v_show_c (GRPH_Vdi, 1);
-			ev = evnt_multi_s (&ev_i, dummy, &ev_o);
-			mx = (ev_o.evo_mouse.x <= ml ? ml :
-			      ev_o.evo_mouse.x >= mr ? mr : ev_o.evo_mouse.x);
-			my = (ev_o.evo_mouse.y <= mu ? mu :
-			      ev_o.evo_mouse.y >= md ? md : ev_o.evo_mouse.y);
+			ev = evnt_multi_fast (&ev_i, dummy, &ev_o);
+			mx = (ev_o.emo_mouse.x <= ml ? ml :
+			      ev_o.emo_mouse.x >= mr ? mr : ev_o.emo_mouse.x);
+			my = (ev_o.emo_mouse.y <= mu ? mu :
+			      ev_o.emo_mouse.y >= md ? md : ev_o.emo_mouse.y);
 			v_hide_c (GRPH_Vdi);
 			v_pline (GRPH_Vdi, 5, (short*)pw);
 			v_pline (GRPH_Vdi, 5, (short*)pc);
 			if (ev & MU_TIMER) {
-				ev_i.evi_flags &= ~MU_TIMER;
+				ev_i.emi_flags &= ~MU_TIMER;
 			}
 			if (ev & MU_M2) {
-				if (ev_i.evi_m2leave == MO_ENTER) {
-					ev_i.evi_m2leave = MO_LEAVE;
+				if (ev_i.emi_m2leave == MO_ENTER) {
+					ev_i.emi_m2leave = MO_LEAVE;
 				} else {
 					if (mx < magn.x) {
-						ev_i.evi_m2.x = magn.x - WMGR_DECOR *2 +1;
-						ev_i.evi_m2.w = WMGR_DECOR *2;
+						ev_i.emi_m2.x = magn.x - WMGR_DECOR *2 +1;
+						ev_i.emi_m2.w = WMGR_DECOR *2;
 						magnet        = 0x1010;
 					} else if (mx >= magn.x + magn.w) {
-						ev_i.evi_m2.x = magn.x + magn.w;
-						ev_i.evi_m2.w = WMGR_DECOR *2;
+						ev_i.emi_m2.x = magn.x + magn.w;
+						ev_i.emi_m2.w = WMGR_DECOR *2;
 						magnet        = 0x1010;
 					} else {
-						ev_i.evi_m2.x = magn.x;
-						ev_i.evi_m2.w = magn.w;
+						ev_i.emi_m2.x = magn.x;
+						ev_i.emi_m2.w = magn.w;
 						magnet        = 0x1111;
 					}
 					if (my >= magn.y + magn.h) {
-						ev_i.evi_m2.y = magn.y + magn.h;
-						ev_i.evi_m2.h = WMGR_DECOR *2;
+						ev_i.emi_m2.y = magn.y + magn.h;
+						ev_i.emi_m2.h = WMGR_DECOR *2;
 						magnet       &= ~0x1010;
 					} else {
-						ev_i.evi_m2.y = magn.y;
-						ev_i.evi_m2.h = magn.h;
+						ev_i.emi_m2.y = magn.y;
+						ev_i.emi_m2.h = magn.h;
 					}
 					if (magnet != 0x1111) {
 						PXY m = { mx, my };
-						if (!PXYinRect (&m, &ev_i.evi_m2)) {
-							ev_i.evi_m2leave = MO_ENTER;
-							ev_i.evi_m2      = magn;
+						if (!PXYinRect (&m, &ev_i.emi_m2)) {
+							ev_i.emi_m2leave = MO_ENTER;
+							ev_i.emi_m2      = magn;
 							magnet           = 0x1111;
 						}
 					}
@@ -1301,13 +1300,13 @@ WmgrButton (WINDOW * wind)
 					pc[1].x = pc[2].x           = mx + c_r;
 					pw[0].x = pw[3].x = pw[4].x = mx + w_r;
 				}
-				*(PXY*)&ev_i.evi_m1 = ev_o.evo_mouse;
+				*(PXY*)&ev_i.emi_m1 = ev_o.emo_mouse;
 			}
 		} while (!(ev & MU_BUTTON));
 		v_show_c (GRPH_Vdi, 1);
 		vsl_type (GRPH_Vdi, SOLID);
 		
-		if (ev_i.evi_flags & MU_TIMER) {
+		if (ev_i.emi_flags & MU_TIMER) {
 			WindCirculate (wind, (wind_get_top() != wind->Handle ? PlaceOnTop
 			                                                     : PlaceOnBottom));
 		

@@ -40,19 +40,19 @@ static void sig_child (int sig);
 static void shutdown  (void);
 
 
-static EVMULTI_IN ev_i = {
+static EVMULT_IN ev_i = {
 	MU_MESAG|MU_TIMER|MU_BUTTON|MU_KEYBD,
 	0x0102,0x03,0x00,
 	MO_ENTER, {},
 	MO_LEAVE, { 0,0, 1,1 },
 };
-static EVMULTI_OUT ev_o;
+static EVMULT_OUT ev_o;
 
 
 long MAIN_FDSET_wr = 0L;
 long MAIN_FDSET_rd = 0L;
 
-PXY  * MAIN_PointerPos = &ev_o.evo_mouse;
+PXY  * MAIN_PointerPos = &ev_o.emo_mouse;
 CARD32 MAIN_TimeStamp  = 0;
 CARD16 MAIN_KeyButMask = 0;
 
@@ -155,14 +155,14 @@ main (int argc, char * argv[])
 			while (run) {
 				short  msg[8];
 				BOOL   reset = xFalse;
-				short  event = evnt_multi_s (&ev_i, msg, &ev_o);
+				short  event = evnt_multi_fast (&ev_i, msg, &ev_o);
 				CARD8  meta  = (*kb_shift & (K_RSHIFT|K_LSHIFT|K_LOCK|K_CTRL|K_ALT))
 				             | (*kb_shift & K_ALTGR ? 0x20 : 0);
 				short  chng;
 				MAIN_TimeStamp = (clock() * (1000 / CLOCKS_PER_SEC) - t_start);
 				
 				if (event & MU_KEYBD) {
-					if (meta == (K_CTRL|K_ALT)  &&  ev_o.evo_kreturn == 0x0E08) {
+					if (meta == (K_CTRL|K_ALT)  &&  ev_o.emo_kreturn == 0x0E08) {
 						if (_app) {
 							fputs ("\33p   X Server Shutdown forced   \33q\n", stderr);
 							exit (1);
@@ -171,7 +171,7 @@ main (int argc, char * argv[])
 							reset = xTrue;
 						}
 					}
-					chng = KybdEvent (ev_o.evo_kreturn, meta);
+					chng = KybdEvent (ev_o.emo_kreturn, meta);
 					if (*KYBD_Pending)  kb_tmout = MAIN_TimeStamp + KYBD_Repeat;
 				} else if (meta != KYBD_PrvMeta || MAIN_TimeStamp > kb_tmout) {
 					chng = KybdEvent (0, meta);
@@ -185,21 +185,21 @@ main (int argc, char * argv[])
 				
 				if (event & MU_BUTTON) {
 					CARD16 prev_mask = MAIN_KeyButMask & 0xFF00;
-					MAIN_But_Mask    = PntrMap(ev_o.evo_mbutton) >>8;
-					if (ev_o.evo_mbutton) {
+					MAIN_But_Mask    = PntrMap(ev_o.emo_mbutton) >>8;
+					if (ev_o.emo_mbutton) {
 						if (!prev_mask) WindMctrl (xTrue);
-						ev_i.evi_bclicks = 0x0101;
+						ev_i.emi_bclicks = 0x0101;
 					} else {
 						WindMctrl (xFalse);
-						ev_i.evi_bclicks = 0x0102;
+						ev_i.emi_bclicks = 0x0102;
 					}
-					if (WindButton (prev_mask, ev_o.evo_mclicks) && _MAIN_Mctrl) {
-						graf_mkstate_p (&ev_o.evo_mouse,
-						                &ev_o.evo_mbutton, &ev_o.evo_kmeta);
-						if (!ev_o.evo_mbutton) {
+					if (WindButton (prev_mask, ev_o.emo_mclicks) && _MAIN_Mctrl) {
+						graf_mkstate (&ev_o.emo_mouse.x, &ev_o.emo_mouse.y,
+						              &ev_o.emo_mbutton, &ev_o.emo_kmeta);
+						if (!ev_o.emo_mbutton) {
 							WindMctrl (xFalse);
 						}
-						MAIN_But_Mask = PntrMap(ev_o.evo_mbutton) >>8;
+						MAIN_But_Mask = PntrMap(ev_o.emo_mbutton) >>8;
 						meta = (*kb_shift & (K_RSHIFT|K_LSHIFT|K_LOCK|K_CTRL|K_ALT))
 				           | (*kb_shift & K_ALTGR ? 0x20 : 0);
 						if (meta != KYBD_PrvMeta
@@ -207,15 +207,15 @@ main (int argc, char * argv[])
 						    && WMGR_Cursor) {
 								WmgrKeybd (chng);
 						}
-						ev_i.evi_bclicks = 0x0102;
+						ev_i.emi_bclicks = 0x0102;
 					}
-					ev_i.evi_bstate = ev_o.evo_mbutton;
+					ev_i.emi_bstate = ev_o.emo_mbutton;
 				}
-				*(PXY*)&ev_i.evi_m2 = ev_o.evo_mouse;
+				*(PXY*)&ev_i.emi_m2 = ev_o.emo_mouse;
 				
 				if (event & MU_MESAG) {
 					if (msg[0] == MN_SELECTED) {
-						if (WmgrMenu (msg[3], msg[4], ev_o.evo_kmeta)) {
+						if (WmgrMenu (msg[3], msg[4], ev_o.emo_kmeta)) {
 							if (WMGR_ExitFlag) {
 								run = xFalse;
 								break;
@@ -293,8 +293,8 @@ shutdown (void)
 void
 MainSetMove (BOOL onNoff)
 {
-	if (onNoff) ev_i.evi_flags |=  MU_M2;
-	else        ev_i.evi_flags &= ~MU_M2;
+	if (onNoff) ev_i.emi_flags |=  MU_M2;
+	else        ev_i.emi_flags &= ~MU_M2;
 }
 
 
@@ -303,14 +303,11 @@ void
 MainSetWatch (const p_GRECT area, BOOL leaveNenter)
 {
 	if (area) {
-		ev_i.evi_flags  |= MU_M1;
-		ev_i.evi_m1leave = leaveNenter;
-		ev_i.evi_m1.x    = area->x;
-		ev_i.evi_m1.y    = area->y;
-		ev_i.evi_m1.w    = area->w;
-		ev_i.evi_m1.h    = area->h;
+		ev_i.emi_flags  |= MU_M1;
+		ev_i.emi_m1leave = leaveNenter;
+		ev_i.emi_m1      = *area;
 	
 	} else {
-		ev_i.evi_flags &= ~MU_M1;
+		ev_i.emi_flags &= ~MU_M1;
 	}
 }

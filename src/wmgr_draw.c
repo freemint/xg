@@ -196,7 +196,7 @@ WmgrDrawDeco (WINDOW * wind, PRECT * work, PRECT * area, PRECT * sect, int num)
 	vsf_color (GRPH_Vdi, G_LWHITE);
 	v_hide_c  (GRPH_Vdi);
 	do {
-		vs_clip_p (GRPH_Vdi, (PXY*)sect++);
+		vs_clip_pxy (GRPH_Vdi, (PXY*)(sect++));
 		for (i = 0; i < f; v_bar (GRPH_Vdi, (short*)&frm[i++].lu));
 		drk = __b + b;
 		if (drk->y) {

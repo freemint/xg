@@ -144,7 +144,7 @@ RQ_GetGeometry (CLIENT * clnt, xGetGeometryReq * q)
 		r->root = ROOT_WINDOW;
 		
 		if (!draw) {
-			wind_get_work (q->id & 0x7FFF, (GRECT_lib*)&r->x);
+			wind_get_work (q->id & 0x7FFF, (GRECT*)&r->x);
 			r->depth       = WIND_Root.Depth;
 			r->x          -= WIND_Root.Rect.x +1;
 			r->y          -= WIND_Root.Rect.y +1;
@@ -223,8 +223,8 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 				vsf_color (hdl, color);
 			}
 			do {
-				vs_clip_p  (hdl, (PXY*)(sect++));
-				v_fillarea (hdl, len, (short*)pxy);
+				vs_clip_pxy (hdl, (PXY*)(sect++));
+				v_fillarea  (hdl, len, (short*)pxy);
 			} while (--nClp);
 			vs_clip_off (hdl);
 			
@@ -291,7 +291,7 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 			}
 			do {
 				int i;
-				vs_clip_p (hdl, (PXY*)(sect++));
+				vs_clip_pxy (hdl, (PXY*)(sect++));
 				for (i = 0; i < len; ++i) {
 					v_ellarc (hdl, arc[i].x, arc[i].y,
 					          arc[i].width, arc[i].height,
@@ -359,7 +359,7 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 			}
 			do {
 				int i;
-				vs_clip_p (hdl, (PXY*)(sect++));
+				vs_clip_pxy (hdl, (PXY*)(sect++));
 				for (i = 0; i < len; ++i) {
 					v_ellpie (hdl, arc[i].x, arc[i].y,
 					          arc[i].width, arc[i].height,
@@ -427,8 +427,8 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 				vsl_width (hdl, gc->LineWidth);
 			}
 			do {
-				vs_clip_p (hdl, (PXY*)(sect++));
-				v_pline   (hdl, len, (short*)pxy);
+				vs_clip_pxy (hdl, (PXY*)(sect++));
+				v_pline     (hdl, len, (short*)pxy);
 			} while (--nClp);
 			vs_clip_off (hdl);
 			
@@ -500,8 +500,8 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 				vsm_color (hdl, color);
 			}
 			do {
-				vs_clip_p (hdl, (PXY*)(sect++));
-				v_pmarker (hdl, len, (short*)pxy);
+				vs_clip_pxy (hdl, (PXY*)(sect++));
+				v_pmarker   (hdl, len, (short*)pxy);
 			} while (--nClp);
 			vs_clip_off (hdl);
 			
@@ -664,7 +664,7 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 			}	
 			do {
 				int i;
-				vs_clip_p (hdl, (PXY*)(sect++));
+				vs_clip_pxy (hdl, (PXY*)(sect++));
 				for (i = 0; i < len; ++i) {
 					PXY p[5];
 					p[0].x = p[3].x = p[4].x = rec[i].x + orig.x;
@@ -737,7 +737,7 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 			}
 			do {
 				int   i;
-				vs_clip_p (hdl, (PXY*)(sect++));
+				vs_clip_pxy (hdl, (PXY*)(sect++));
 				for (i = 0; i < len; i += 2) {
 					v_pline (hdl, 2, (short*)&pxy[i]);
 				}
@@ -807,15 +807,15 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 			vst_color (hdl, gc->Foreground);
 		}
 		do {
-			vs_clip_p (hdl, (PXY*)(sect++));
+			vs_clip_pxy (hdl, (PXY*)(sect++));
 			if (bg_draw) {
-				vswr_mode   (hdl, MD_ERASE);
-				vst_color   (hdl, gc->Background);
-				v_gtext_arr (hdl, &orig, len, arr);
-				vswr_mode   (hdl, MD_TRANS);
-				vst_color   (hdl, gc->Foreground);
+				vswr_mode  (hdl, MD_ERASE);
+				vst_color  (hdl, gc->Background);
+				v_gtext16n (hdl, orig, arr, len);
+				vswr_mode  (hdl, MD_TRANS);
+				vst_color  (hdl, gc->Foreground);
 			}
-			v_gtext_arr (hdl, &orig, len, arr);
+			v_gtext16n (hdl, orig, arr, len);
 		} while (--nClp);
 		vs_clip_off (hdl);
 		
@@ -922,8 +922,8 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 			}
 			vswr_mode (hdl, MD_TRANS);
 			do {
-				vs_clip_p (hdl, (PXY*)(sect++));
-				v_gtext_arr (hdl, &orig, t->len, arr);
+				vs_clip_pxy (hdl, (PXY*)(sect++));
+				v_gtext16n  (hdl, orig, arr, t->len);
 			} while (--nClp);
 			vs_clip_off (hdl);
 			

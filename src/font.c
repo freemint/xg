@@ -528,7 +528,7 @@ RQ_QueryTextExtents (CLIENT * clnt, xQueryTextExtentsReq * q)
 		} else {
 			vst_point  (GRPH_Vdi, fabl.p->FontPoints, ext, ext, ext, ext);
 		}
-		vqt_extent_n (GRPH_Vdi, FontTrans_C (str, text, size, face), size, ext);
+		vqt_extent16n (GRPH_Vdi, FontTrans_C (str, text, size, face), size, ext);
 		r->drawDirection  = FontLeftToRight;
 		r->fontAscent     = face->Ascent;
 		r->fontDescent    = face->Descent;

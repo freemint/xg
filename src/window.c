@@ -47,7 +47,7 @@ void
 WindInit (BOOL initNreset)
 {
 	if (initNreset) {
-		wind_get_work (0, (GRECT_lib*)&WIND_Root.Rect);
+		wind_get_work (0, &WIND_Root.Rect);
 		_MAP_Inc = WIND_Root.Rect.y -1;
 		_WIND_RootX2 = WIND_Root.Rect.x + WIND_Root.Rect.w -1;
 		_WIND_RootY2 = WIND_Root.Rect.y + WIND_Root.Rect.h -1;
@@ -819,7 +819,7 @@ WindResize (WINDOW * wind, GRECT * diff)
 	_Wind_Resize (wind, diff);
 	
 	if (wind->isMapped) {
-		wind_set_curr (wind->Handle, (GRECT_lib*)&curr);
+		wind_set_curr (wind->Handle, &curr);
 		if (!diff->x && !diff->y) {
 			short decor = (wind->GwmDecor ? WMGR_Decor : 0);
 			if (diff->w < decor || diff->h < decor) {

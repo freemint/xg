@@ -15,11 +15,13 @@ typedef struct s_GRECT {
 	short x, y;
 	short w, h;
 } GRECT;
+#define __GRECT
 
 typedef struct s_PXY {
 	short x;
 	short y;
 } PXY;
+#define __PXY
 
 typedef struct s_PRECT {
 	PXY lu;

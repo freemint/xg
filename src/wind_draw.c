@@ -242,7 +242,7 @@ WindClipLock (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 	wind_get (0, WF_SCREEN, &a, &b, &n,&n);
 	*pBuf = sect = (PRECT*)(((long)a << 16) | (b & 0xFFFF));
 	
-	wind_get_first (twnd->Handle, (GRECT_lib*)&rect);
+	wind_get_first (twnd->Handle, &rect);
 	while (rect.w > 0  &&  rect.h > 0) {
 		PRECT * c = p_clip;
 		n         = n_clip;
@@ -259,7 +259,7 @@ WindClipLock (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 				nClp++;
 			}
 		} while (--n);
-		wind_get_next (twnd->Handle, (GRECT_lib*)&rect);
+		wind_get_next (twnd->Handle, &rect);
 	}
 	if (!nClp) {
 		*pBuf = NULL;
@@ -436,7 +436,7 @@ draw_brdr (WINDOW * wind, PRECT * work, PRECT * area, PRECT * sect, int num)
 	vsf_color (GRPH_Vdi, wind->BorderPixel);
 	v_hide_c  (GRPH_Vdi);
 	do {
-		vs_clip_p (GRPH_Vdi, (PXY*)sect++);
+		vs_clip_pxy (GRPH_Vdi, (PXY*)(sect++));
 		for (i = 0; i < n; v_bar (GRPH_Vdi, (short*)&brdr[i++].lu));
 	} while (--num);
 	v_show_c    (GRPH_Vdi, 1);
