@@ -24,11 +24,12 @@ CARD32 CmapLookup  (RGB * dst, const RGB * src);
 
 static inline CARD16 CmapPixelIdx (CARD32 pixel, CARD16 depth)
 {
-	if (depth > 8) {
+	if (GRPH_Depth > 8) {
 		extern CARD16 (*Cmap_PixelIdx) (CARD32 );
-		pixel = Cmap_PixelIdx (pixel);
+		if (depth == 1) pixel =               ~pixel;
+		else            pixel = Cmap_PixelIdx (pixel);
 	}
-	return pixel;
+	return (pixel & ((1uL << depth) -1));
 }
 
 
