@@ -41,7 +41,9 @@ enum {
 extern CONST short GRPH_Format;
 
 struct memory_form;
-extern BOOL (*GraphRaster)(struct memory_form * , CARD16 width, CARD16 height);
+extern BOOL (*GrphRasterPut)(struct memory_form * , CARD16 wdth, CARD16 hght);
+extern BOOL (*GrphRasterGet)(struct memory_form * , PRECT * pxy,
+                             struct memory_form * ptr);
 
 void GrphError (void);
 

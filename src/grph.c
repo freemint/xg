@@ -53,12 +53,19 @@ __depth_lsb_1, __depth_lsb_n,
 * GRPH_DepthLSB[2] = { &__depth_lsb_1, &__depth_lsb_n };
 
 
-static BOOL _raster_I4 (MFDB * mfdb, CARD16 width, CARD16 height);
-static BOOL _raster_I8 (MFDB * mfdb, CARD16 width, CARD16 height);
-static BOOL _raster_P8 (MFDB * mfdb, CARD16 width, CARD16 height);
-static BOOL _raster_16 (MFDB * mfdb, CARD16 width, CARD16 height);
-static BOOL _raster_24 (MFDB * mfdb, CARD16 width, CARD16 height);
-static BOOL _raster_32 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _r_put_I4 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _r_put_I8 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _r_put_P8 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _r_put_16 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _r_put_24 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _r_put_32 (MFDB * mfdb, CARD16 width, CARD16 height);
+
+static BOOL _r_get_I4 (MFDB * mfdb, PRECT * pxy, MFDB * ptr);
+static BOOL _r_get_I8 (MFDB * mfdb, PRECT * pxy, MFDB * ptr);
+static BOOL _r_get_P8 (MFDB * mfdb, PRECT * pxy, MFDB * ptr);
+static BOOL _r_get_16 (MFDB * mfdb, PRECT * pxy, MFDB * ptr);
+static BOOL _r_get_24 (MFDB * mfdb, PRECT * pxy, MFDB * ptr);
+static BOOL _r_get_32 (MFDB * mfdb, PRECT * pxy, MFDB * ptr);
 
 
 //==============================================================================
@@ -167,29 +174,44 @@ GrphSetup (void * format_arr)
 				GRPH_DepthMSB[1]->visl.greenMask  = 0x000007C0uL;
 				GRPH_DepthMSB[1]->visl.blueMask   = 0x0000001FuL;
 				GRPH_DepthMSB[1]->visl.bitsPerRGB = 5;
-				GraphRaster                       = _raster_16;
+				GrphRasterPut                     = _r_put_16;
+				GrphRasterGet                     = _r_get_16;
 			} else if (GRPH_Depth == 16) {
 				GRPH_DepthMSB[1]->visl.redMask    = 0x0000F800uL;
 				GRPH_DepthMSB[1]->visl.greenMask  = 0x000007E0uL;
 				GRPH_DepthMSB[1]->visl.blueMask   = 0x0000001FuL;
 				GRPH_DepthMSB[1]->visl.bitsPerRGB = 6;
-				GraphRaster                       = _raster_16;
+				GrphRasterPut                     = _r_put_16;
+				GrphRasterGet                     = _r_get_16;
 			} else {
 				GRPH_DepthMSB[1]->visl.redMask    = 0x00FF0000uL;
 				GRPH_DepthMSB[1]->visl.greenMask  = 0x0000FF00uL;
 				GRPH_DepthMSB[1]->visl.blueMask   = 0x000000FFuL;
 				GRPH_DepthMSB[1]->visl.bitsPerRGB = 8;
-				if      (GRPH_Depth == 24) GraphRaster = _raster_24;
-				else if (GRPH_Depth == 32) GraphRaster = _raster_32;
+				if        (GRPH_Depth == 24) {
+					GrphRasterPut                  = _r_put_24;
+					GrphRasterGet                  = _r_get_24;
+				} else if (GRPH_Depth == 32) {
+					GrphRasterPut                  = _r_put_32;
+					GrphRasterGet                  = _r_get_32;
+				}
 			}
 		} else {
 			GRPH_DepthMSB[1]->visl.colormapEntries = 1 << GRPH_Depth;
 			GRPH_DepthMSB[1]->visl.bitsPerRGB      = pfrm->depth;
 			if (GRPH_Depth == 4) {
-				if      (GRPH_Format == SCRN_Interleaved) GraphRaster = _raster_I4;
+				if      (GRPH_Format == SCRN_Interleaved) {
+					GrphRasterPut = _r_put_I4;
+					GrphRasterGet = _r_get_I4;
+				}
 			} else if (GRPH_Depth == 8) {
-				if      (GRPH_Format == SCRN_Interleaved) GraphRaster = _raster_I8;
-				else if (GRPH_Format == SCRN_PackedPixel) GraphRaster = _raster_P8;
+				if      (GRPH_Format == SCRN_Interleaved) {
+					GrphRasterPut = _r_put_I8;
+					GrphRasterGet = _r_get_I8;
+				} else if (GRPH_Format == SCRN_PackedPixel) {
+					GrphRasterPut = _r_put_P8;
+					GrphRasterGet = _r_get_P8;
+				}
 			}
 		}
 		r_visl = GRPH_DepthMSB[1]->visl.visualID;
@@ -425,14 +447,14 @@ GrphError (void)
 
 //==============================================================================
 // Graphic depth depending functions for converting images sent from clients to
-// to device depend bitmaps as used by the VDI.  Only necessary for depths with
+// device dependent bitmaps as used by the VDI.  Only necessary for depths with
 // more than 1 plane.
 //
-BOOL (*GraphRaster)(MFDB * , CARD16 width, CARD16 height) = (void*)GrphError;
+BOOL (*GrphRasterPut)(MFDB * , CARD16 width, CARD16 height) = (void*)GrphError;
 
 //------------------------------------------------------------------------------
 static BOOL
-_raster_I4 (MFDB * mfdb, CARD16 width, CARD16 height)
+_r_put_I4 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
 	CARD8 val[16] = { 0,15,1,2,4,6,3,5, 7,8,9,10,12,14,11,13 };
 	short * dst;
@@ -473,7 +495,7 @@ _raster_I4 (MFDB * mfdb, CARD16 width, CARD16 height)
 
 //------------------------------------------------------------------------------
 static BOOL
-_raster_I8 (MFDB * mfdb, CARD16 width, CARD16 height)
+_r_put_I8 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
 	short * dst;
 	char  * src = mfdb->fd_addr;
@@ -549,7 +571,7 @@ _raster_I8 (MFDB * mfdb, CARD16 width, CARD16 height)
 
 //------------------------------------------------------------------------------
 static BOOL
-_raster_P8 (MFDB * mfdb, CARD16 width, CARD16 height)
+_r_put_P8 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
 	char * dst;
 	char * src = mfdb->fd_addr;
@@ -573,7 +595,7 @@ _raster_P8 (MFDB * mfdb, CARD16 width, CARD16 height)
 
 //------------------------------------------------------------------------------
 static BOOL
-_raster_16 (MFDB * mfdb, CARD16 width, CARD16 height)
+_r_put_16 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
 	short * dst;
 	short * src = mfdb->fd_addr;
@@ -595,7 +617,7 @@ _raster_16 (MFDB * mfdb, CARD16 width, CARD16 height)
 
 //------------------------------------------------------------------------------
 static BOOL
-_raster_24 (MFDB * mfdb, CARD16 width, CARD16 height)
+_r_put_24 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
 	short * dst;
 	short * src = mfdb->fd_addr;
@@ -619,7 +641,7 @@ _raster_24 (MFDB * mfdb, CARD16 width, CARD16 height)
 
 //------------------------------------------------------------------------------
 static BOOL
-_raster_32 (MFDB * mfdb, CARD16 width, CARD16 height)
+_r_put_32 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
 	long * src = mfdb->fd_addr;
 	long * dst;
@@ -641,8 +663,285 @@ _raster_32 (MFDB * mfdb, CARD16 width, CARD16 height)
 
 
 //==============================================================================
+// Graphic depth depending functions for converting device dependent bitmaps as
+// used by the VDI to the image format needed by clients.  Only necessary for
+// depths with more than 1 plane.
 //
-// Byte order depend Callback Functions
+BOOL (*GrphRasterGet)(MFDB * , PRECT * , MFDB * ) = (void*)GrphError;
+
+//------------------------------------------------------------------------------
+static BOOL
+_r_get_I4 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
+{
+	static const char pix_idx[16] = {
+		0, 2, 3, 6, 4, 7, 5, 8, 9, 10, 11, 14, 12, 15, 13, 1
+	};
+	short * src;
+	char  * dst = mfdb->fd_addr;
+	int     inc = mfdb->fd_wdwidth *2 * 4;
+	int     h   = mfdb->fd_h;
+	int     x   = 0;
+	
+	if (ptr) {
+		src = (short*)((char*)ptr->fd_addr + (inc * pxy[0].lu.y))
+		    + (pxy[0].lu.x /16);
+		x   = pxy[0].lu.x & 0x0F;
+	
+	} else if ((src = malloc (inc * h))) {
+		MFDB scrn = { NULL, };
+		mfdb->fd_addr = src;
+		v_hide_c (GRPH_Vdi);
+		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
+		v_show_c (GRPH_Vdi, 1);
+		
+	} else {
+		return xFalse;
+	}
+	
+	while (h--) {
+		CARD16  mask = 1 << (15 - x);
+		short * s    = src;
+		int     w    = mfdb->fd_w;
+		while (w--) {
+			register char p = 0, c;
+			if (s[0] & mask) p |= 0x01;
+			if (s[1] & mask) p |= 0x02;
+			if (s[2] & mask) p |= 0x04;
+			if (s[3] & mask) p |= 0x08;
+			c = pix_idx[(int)p] << 4;
+			if (!w--) {
+				*(dst++) = c;
+				break;
+			}
+			if (!(mask >>= 1)) {
+				mask = 1 << 15;
+				s   += 4;
+			}
+			if (s[0] & mask) p |= 0x01;
+			if (s[1] & mask) p |= 0x02;
+			if (s[2] & mask) p |= 0x04;
+			if (s[3] & mask) p |= 0x08;
+			*(dst++) = c | pix_idx[(int)p];
+			if (!(mask >>= 1)) {
+				mask = 1 << 15;
+				s   += 4;
+			}
+		}
+		src += inc / sizeof(*src);
+		dst += (int)dst & 1;
+	}
+	return xTrue;
+}
+
+//------------------------------------------------------------------------------
+static BOOL
+_r_get_I8 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
+{
+	static const char pix_idx[256] = {
+		  0,128, 64,192, 32,160, 96,224, 16,144, 80,208, 48,176,112,240,
+		  9,136, 72,200, 40,168,104,232, 24,152, 88,216, 56,184,120,248,
+		  4,132, 68,196, 36,164,100,228, 20,148, 84,212, 52,180,116,244,
+		 12,140, 76,204, 44,172,108,236, 28,156, 92,220, 60,188,124,252,
+		  3,130, 66,194, 34,162, 98,226, 18,146, 82,210, 50,178,114,242,
+		 11,138, 74,202, 42,170,106,234, 26,154, 90,218, 58,186,122,250,
+		  5,134, 70,198, 38,166,102,230, 22,150, 86,214, 54,182,118,246,
+		 13,142, 78,206, 46,174,110,238, 30,158, 94,222, 62,190,126,254,
+		  2,129, 65,193, 33,161, 97,225, 17,145, 81,209, 49,177,113,241,
+		 10,137, 73,201, 41,169,105,233, 25,153, 89,217, 57,185,121,249,
+		  7,133, 69,197, 37,165,101,229, 21,149, 85,213, 53,181,117,245,
+		 15,141, 77,205, 45,173,109,237, 29,157, 93,221, 61,189,125,253,
+		  6,131, 67,195, 35,163, 99,227, 19,147, 83,211, 51,179,115,243,
+		 14,139, 75,203, 43,171,107,235, 27,155, 91,219, 59,187,123,251,
+		  8,135, 71,199, 39,167,103,231, 23,151, 87,215, 55,183,119,247,
+		255,143, 79,207, 47,175,111,239, 31,159, 95,223, 63,191,127,  1
+	};
+	short * src;
+	char  * dst = mfdb->fd_addr;
+	int     inc = mfdb->fd_wdwidth *2 * 8;
+	int     h   = mfdb->fd_h;
+	int     x   = 0;
+	
+	if (ptr) {
+		src = (short*)((char*)ptr->fd_addr + (inc * pxy[0].lu.y))
+		    + (pxy[0].lu.x /16);
+		x   = pxy[0].lu.x & 0x0F;
+	
+	} else if ((src = malloc (inc * h))) {
+		MFDB scrn = { NULL, };
+		mfdb->fd_addr = src;
+		v_hide_c (GRPH_Vdi);
+		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
+		v_show_c (GRPH_Vdi, 1);
+		
+	} else {
+		return xFalse;
+	}
+	
+	while (h--) {
+		CARD16  mask = 1 << (15 - x);
+		short * s    = src;
+		int     w    = mfdb->fd_w;
+		while (w--) {
+			int p = 0, i;
+			for (i = 0; i < 8; i++) {
+				p <<= 1;
+				if (*(s++) & mask) p |= 1;
+			}
+			*(dst++) = pix_idx[p];
+			if (!(mask >>= 1)) mask = 1 << 15;
+			else               s   -= 8;
+		}
+		src += inc / sizeof(*src);
+		dst += (int)dst & 1;
+	}
+	return xTrue;
+}
+
+//------------------------------------------------------------------------------
+static BOOL
+_r_get_P8 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
+{
+	char * src;
+	char * dst = mfdb->fd_addr;
+	int    inc = mfdb->fd_wdwidth *2 * 8;
+	int    h   = mfdb->fd_h;
+	
+	if (ptr) {
+		src = (char*)ptr->fd_addr + (inc * pxy[0].lu.y) + pxy[0].lu.x;
+	
+	} else if ((src = malloc (inc * h))) {
+		MFDB scrn = { NULL, };
+		mfdb->fd_addr = src;
+		v_hide_c (GRPH_Vdi);
+		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
+		v_show_c (GRPH_Vdi, 1);
+		
+	} else {
+		return xFalse;
+	}
+	
+	while (h--) {
+		char * s = src;
+		int    i;
+		for (i = 0; i < mfdb->fd_w; i++) {
+			*(dst++) = *(s++);
+		}
+		src += inc / sizeof(*src);
+		dst += (int)dst & 1;
+	}
+	return xTrue;
+}
+
+//------------------------------------------------------------------------------
+static BOOL
+_r_get_16 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
+{
+	short * src;
+	short * dst = mfdb->fd_addr;
+	int     inc = mfdb->fd_wdwidth *2 * 16;
+	int     h   = mfdb->fd_h;
+	
+	if (ptr) {
+		src = (short*)((char*)ptr->fd_addr + (inc * pxy[0].lu.y))
+		    + pxy[0].lu.x;
+	
+	} else if ((src = malloc (inc * h))) {
+		MFDB scrn = { NULL, };
+		mfdb->fd_addr = src;
+		v_hide_c (GRPH_Vdi);
+		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
+		v_show_c (GRPH_Vdi, 1);
+		
+	} else {
+		return xFalse;
+	}
+	
+	while (h--) {
+		short * s = src;
+		int     i;
+		for (i = 0; i < mfdb->fd_w; i++) {
+			*(dst++) = *(s++);
+		}
+		src += inc / sizeof(*src);
+	}
+	return xTrue;
+}
+
+//------------------------------------------------------------------------------
+static BOOL
+_r_get_24 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
+{
+	short * src;
+	short * dst = mfdb->fd_addr;
+	int     inc = mfdb->fd_wdwidth *2 * 24;
+	int     h   = mfdb->fd_h;
+	int     w   = (mfdb->fd_w *3 +1) /2;
+	
+	if (ptr) {
+		src = (short*)((char*)ptr->fd_addr + (inc * pxy[0].lu.y))
+		    + pxy[0].lu.x;
+	
+	} else if ((src = malloc (inc * h))) {
+		MFDB scrn = { NULL, };
+		mfdb->fd_addr = src;
+		v_hide_c (GRPH_Vdi);
+		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
+		v_show_c (GRPH_Vdi, 1);
+		
+	} else {
+		return xFalse;
+	}
+	
+	while (h--) {
+		short * s = src;
+		int     i;
+		for (i = 0; i < w; i++) {
+			*(dst++) = *(s++);
+		}
+		src += inc / sizeof(*src);
+	}
+	return xTrue;
+}
+
+//------------------------------------------------------------------------------
+static BOOL
+_r_get_32 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
+{
+	long * src;
+	long * dst = mfdb->fd_addr;
+	int    inc = mfdb->fd_wdwidth *2 * 32;
+	int    h   = mfdb->fd_h;
+	
+	if (ptr) {
+		src = (long*)((char*)ptr->fd_addr + (inc * pxy[0].lu.y))
+		    + pxy[0].lu.x;
+	
+	} else if ((src = malloc (inc * h))) {
+		MFDB scrn = { NULL, };
+		mfdb->fd_addr = src;
+		v_hide_c (GRPH_Vdi);
+		vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)pxy, &scrn, mfdb);
+		v_show_c (GRPH_Vdi, 1);
+		
+	} else {
+		return xFalse;
+	}
+	
+	while (h--) {
+		long * s = src;
+		int    i;
+		for (i = 0; i < mfdb->fd_w; i++) {
+			*(dst++) = *(s++);
+		}
+		src += inc / sizeof(*src);
+	}
+	return xTrue;
+}
+
+
+//==============================================================================
+//
+// Byte order dependent Callback Functions
 
 //------------------------------------------------------------------------------
 void
