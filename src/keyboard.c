@@ -34,22 +34,32 @@
 #define KEYSYM_OFFS   8
 #define KEYCODE(s)    (s + KEYSYM_OFFS)
 
-#define KC_SHFT_L   0x2A // 42
 #define KC_SHFT_R   0x36 // 54
+#define KC_SHFT_L   0x2A // 42
 #define KC_CTRL     0x1D // 29
 #define KC_ALT      0x38 // 56
 #define KC_LOCK     0x3A // 58
 #define KC_ALTGR    0x00 //
 
-static KeyCode KYBD_Mod[8][2];
-static KeySym  KYBD_Map[140][4];
+static CARD8 KYBD_Static[][2] = {      // assignment of keycodes to the bits
+	{ KEYCODE(KC_SHFT_R),ShiftMask   }, // of the mask returned from Kbshift()
+	{ KEYCODE(KC_SHFT_L),ShiftMask   }, // and VDI.  AltGr is remapped from bit
+	{ KEYCODE(KC_CTRL),  ControlMask }, // 7 to bit 5.
+	{ KEYCODE(KC_ALT),   Mod1Mask    },
+	{ KEYCODE(KC_LOCK),  LockMask    },
+	{ KEYCODE(KC_ALTGR), Mod2Mask    },
+	{ 0, }                      // <-- this one is used to hold a pending keycode
+};                             //     to generate a KeyRelease event
+CARD8 * KYBD_Pending = KYBD_Static[numberof(KYBD_Static)-1];
+
+static KeyCode KYBD_ModMap[8][2];
+static KeySym  KYBD_Symbol[140][4];
 static CARD8   KYBD_Set[256];
 static CARD8   KYBD_Rep[32];
 
 const CARD8 KYBD_CodeMin = KEYSYM_OFFS;
 CARD8       KYBD_CodeMax;
 CARD8       KYBD_PrvMeta = 0;
-CARD8       KYBD_Pending = 0;
 CARD16      KYBD_Repeat;
 
 #define K_ENGLISH   AESLANG_ENGLISH
@@ -168,13 +178,13 @@ static void
 set_map (SCANTAB * tab, size_t num)
 {
 	while (num--) {
-		KeySym * k = &KYBD_Map[tab->scan][tab->col];
+		KeySym * k = &KYBD_Symbol[tab->scan][tab->col];
 		if (*k  &&  *k != XK_VoidSymbol) {
 			printf ("    * can't map code %i:%i to %04lX '%.1s', is %04lX \n",
 			        tab->scan, tab->col, tab->sym,
 			        (tab->chr >= ' ' ? (char*)&tab->chr : ""), *k);
 		} else {
-			set_sym (KYBD_Map[tab->scan], tab->col, tab->sym);
+			set_sym (KYBD_Symbol[tab->scan], tab->col, tab->sym);
 			if (tab->chr) {
 				KYBD_Set[tab->chr] = tab->scan;
 			}
@@ -201,16 +211,16 @@ ins_map (const char * set)
 			printf ("    * no space to map keycode%s for '%c%s'\n",
 			        (*set ? "s" : ""), asc, set);
 			return num;
-		} while (KYBD_Map[scan][0] != XK_VoidSymbol);
+		} while (KYBD_Symbol[scan][0] != XK_VoidSymbol);
 		
-		KYBD_Set[asc]     = scan;
-		KYBD_Map[scan][0] = Tos2Iso[asc];
+		KYBD_Set[asc]        = scan;
+		KYBD_Symbol[scan][0] = Tos2Iso[asc];
 		num++;
 	//	printf ("    mapped '%c'(%04lX) to keycode %i[0] \n",
 	//	        asc, Tos2Iso[asc], scan);
 		if (*set  &&  (asc = *(set++)) != ' ') {
-			KYBD_Set[asc]     = scan;
-			KYBD_Map[scan][1] = Tos2Iso[asc];
+			KYBD_Set[asc]        = scan;
+			KYBD_Symbol[scan][1] = Tos2Iso[asc];
 			num++;
 		//	printf ("    mapped '%c'(%04lX) to keycode %i[1] \n",
 		//	        asc, Tos2Iso[asc], scan);
@@ -224,7 +234,7 @@ static int
 analyse_ktbl (const char * tbl, int shift)
 {
 	// Analyse a standard keytable returned by Keytbl() and store the results in
-	// the KeyCode-to-KeySym translation table KYBD_Map[].
+	// the KeyCode-to-KeySym translation table KYBD_Symbol[].
 	//...........................................................................
 	
 	int    n   = 0;
@@ -246,7 +256,7 @@ analyse_ktbl (const char * tbl, int shift)
 					// scancode already defined for this ascii, so it must be a
 					// numblock key
 					//
-					if (KYBD_Map[scan][shift] == XK_VoidSymbol) {
+					if (KYBD_Symbol[scan][shift] == XK_VoidSymbol) {
 						sym = XK_KP_Space + asc;
 					} else {
 						asc = 0;
@@ -260,8 +270,8 @@ analyse_ktbl (const char * tbl, int shift)
 					case '*'...'+': case '-'...'/': {
 						// replace the numblock key's symbol
 						//
-						int s = KYBD_Set[asc];
-						KYBD_Map[s][0] = XK_KP_Space + asc;
+						int scn = KYBD_Set[asc];
+						KYBD_Symbol[scn][0] = XK_KP_Space + asc;
 					}
 					case '('...')':
 						KYBD_Set[asc] = scan;
@@ -276,7 +286,7 @@ analyse_ktbl (const char * tbl, int shift)
 				}
 			}
 			if (sym) {
-				set_sym (KYBD_Map[scan], shift, sym);
+				set_sym (KYBD_Symbol[scan], shift, sym);
 				sym = NoSymbol;
 				
 			} else if (asc) {
@@ -297,7 +307,7 @@ static int
 analyse_xtbl (const KEYPAIR * tbl, int shift)
 {
 	// Analyse an extended keytable as returned by Keytbl() in TOS >= 4.0 and
-	// store the results in the KeyCode-to-KeySym translation table KYBD_Map[].
+	// store the results in the KeyCode-to-KeySym translation table KYBD_Symbol[].
 	//...........................................................................
 	
 	int   n = 0;
@@ -305,14 +315,14 @@ analyse_xtbl (const KEYPAIR * tbl, int shift)
 	
 	while ((scan = tbl->scan)) {
 		CARD8 asc = tbl->asc;
-		if (scan > numberof(KYBD_Map)) {
+		if (scan > numberof(KYBD_Symbol)) {
 			WmgrIntro (xFalse);
 			printf ("    * ignored scancode 0x%02X for 0x%02X '%.1s'\n",
 			        scan, asc, (asc >= ' ' ? (char*)&asc : ""));
 		
 		} else if (!KYBD_Set[asc]) {
 			KYBD_Set[asc] = scan;
-			set_sym (KYBD_Map[scan], 2 + shift, Tos2Iso[asc]);
+			set_sym (KYBD_Symbol[scan], 2 + shift, Tos2Iso[asc]);
 		
 		} else {
 			WmgrIntro (xFalse);
@@ -344,7 +354,7 @@ KybdInit (void)
 		i            = Kbrate (-1, -1);
 		KYBD_Repeat  = ((unsigned)(i & 0xFF00) >>6) *5;
 		KYBD_Table   = Keytbl ((void*)-1, (void*)-1, (void*)-1);
-		KYBD_CodeMax = KYBD_CodeMin + numberof(KYBD_Map) -1;
+		KYBD_CodeMax = KYBD_CodeMin + numberof(KYBD_Symbol) -1;
 		
 		printf ("  Keyboard diagnostics: (TOS %i.%02i) \n",
 		        os_ver >> 8, os_ver & 0x00FF);
@@ -362,9 +372,9 @@ KybdInit (void)
 		//	  AltGr   = (nil)
 */		
 		memset (KYBD_Set, 0, sizeof(KYBD_Set));
-		for (i = 0; i < numberof(KYBD_Map); i++) {
-			KYBD_Map[i][0] = KYBD_Map[i][1] = 
-			KYBD_Map[i][2] = KYBD_Map[i][3] = XK_VoidSymbol;
+		for (i = 0; i < numberof(KYBD_Symbol); i++) {
+			KYBD_Symbol[i][0] = KYBD_Symbol[i][1] = 
+			KYBD_Symbol[i][2] = KYBD_Symbol[i][3] = XK_VoidSymbol;
 		}
 		
 		// analyse the standard keytables
@@ -463,7 +473,7 @@ KybdInit (void)
 			set_map (fnc_tab, numberof(fnc_tab));
 			memset (KYBD_Rep, 0, sizeof(KYBD_Rep));
 			i = KYBD_CodeMax - KEYSYM_OFFS +1;
-			do if (KYBD_Map[i][0] != XK_VoidSymbol) {
+			do if (KYBD_Symbol[i][0] != XK_VoidSymbol) {
 				KYBD_Rep[i /8 +1] |= 1 << (i & 0x07);
 			} while (--i);
 			set_map (mod_tab, numberof(mod_tab));
@@ -494,19 +504,19 @@ KybdInit (void)
 		n_xtr += ins_map("опи н Ы Я");
 		
 		i = KYBD_CodeMax - KEYSYM_OFFS +1;
-		while (KYBD_Map[--i][0] == XK_VoidSymbol);
+		while (KYBD_Symbol[--i][0] == XK_VoidSymbol);
 		KYBD_CodeMax = i + KEYSYM_OFFS;
 		
 		// build modifier mapping table (for GetModifierMapping request)
 		
-		memset (KYBD_Mod, 0, sizeof(KYBD_Mod));
-		KYBD_Mod[0][0] = KEYCODE(KC_SHFT_L);
-		KYBD_Mod[0][1] = KEYCODE(KC_SHFT_R);
-		KYBD_Mod[1][0] = KEYCODE(KC_LOCK);
-		KYBD_Mod[2][0] = KEYCODE(KC_CTRL);
-		KYBD_Mod[3][0] = KEYCODE(KC_ALT);
-		if (KYBD_Atari) KYBD_Mod[3][1] = KEYCODE(KC_ALTGR);
-		else            KYBD_Mod[4][0] = KEYCODE(KC_ALTGR);
+		memset (KYBD_ModMap, 0, sizeof(KYBD_ModMap));
+		KYBD_ModMap[0][0] = KEYCODE(KC_SHFT_L);
+		KYBD_ModMap[0][1] = KEYCODE(KC_SHFT_R);
+		KYBD_ModMap[1][0] = KEYCODE(KC_LOCK);
+		KYBD_ModMap[2][0] = KEYCODE(KC_CTRL);
+		KYBD_ModMap[3][0] = KEYCODE(KC_ALT);
+		if (KYBD_Atari) KYBD_ModMap[3][1] = KEYCODE(KC_ALTGR);
+		else            KYBD_ModMap[4][0] = KEYCODE(KC_ALTGR);
 		
 		printf ("    got keycodes: %i unShift, %i Shift",   n_usf, n_sft);
 		if (n_alt || n_asf) printf (", %i Alt, %i AltShft", n_alt, n_asf);
@@ -541,7 +551,7 @@ KybdEvent (CARD16 scan, CARD8 meta)
 		if     (!code)        code  = KYBD_Set[scan];
 		else if (code >= 120) code -= 118;
 		
-		if (KYBD_Map[code][0] == XK_VoidSymbol) {
+		if (KYBD_Symbol[code][0] == XK_VoidSymbol) {
 			printf ("*** unknown scan code %02X:%02X ***\n", code, scan & 0xFF);
 		}
 	}
@@ -550,28 +560,24 @@ KybdEvent (CARD16 scan, CARD8 meta)
 		CARD32 c_id = _WIND_PointerRoot->Id;
 		PXY    r_xy = WindPointerPos (NULL);
 		PXY    e_xy = WindPointerPos (_WIND_PointerRoot);
+		CARD8  shft = (meta & (K_LSHIFT|K_RSHIFT) ? ShiftMask : 0);
+		int    i    = 0;
 		
-		static CARD16 modi[2][6] = {
-			{ KC_SHFT_R, KC_SHFT_L, KC_CTRL,     KC_ALT,   KC_LOCK,  KC_ALTGR },
-			{ ShiftMask, ShiftMask, ControlMask, Mod1Mask, LockMask, Mod2Mask } };
-		CARD8 mask = (meta & (K_LSHIFT|K_RSHIFT) ? ShiftMask : 0);
-		int   i    = 0;
-		
-		if (KYBD_Pending) {
+		if (*KYBD_Pending) {
 			EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-			               c_id, r_xy, e_xy, KYBD_Pending);
-			KYBD_Pending = 0;
+			               c_id, r_xy, e_xy, *KYBD_Pending);
+			*KYBD_Pending = 0;
 		}
 		while (chng) {
 			if (chng & 1) {
 				if (meta & (1 << i)) {
-					MAIN_Key_Mask |= modi[1][i];
+					MAIN_Key_Mask |= KYBD_Static[i][1];
 					EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
-					               c_id, r_xy, e_xy, KEYCODE(modi[0][i]));
+					               c_id, r_xy, e_xy, KYBD_Static[i][0]);
 				} else {
-					MAIN_Key_Mask &= ~modi[1][i] | mask;
+					MAIN_Key_Mask &= ~KYBD_Static[i][1] | shft;
 					EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-					               c_id, r_xy, e_xy, KEYCODE(modi[0][i]));
+					               c_id, r_xy, e_xy, KYBD_Static[i][0]);
 				}
 			}
 			chng >>=1;
@@ -580,7 +586,7 @@ KybdEvent (CARD16 scan, CARD8 meta)
 		if (code) {
 			CARD8 save = MAIN_Key_Mask;
 			if (scan < 0x0100) {
-				MAIN_Key_Mask = (Tos2Iso[scan] == KYBD_Map[code][0]
+				MAIN_Key_Mask = (Tos2Iso[scan] == KYBD_Symbol[code][0]
 				                 ? 0 : ShiftMask);
 			}
 			code = KEYCODE(code);
@@ -591,7 +597,7 @@ KybdEvent (CARD16 scan, CARD8 meta)
 				               c_id, r_xy, e_xy, code);
 				MAIN_Key_Mask = save;
 			} else {
-				KYBD_Pending = code;
+				*KYBD_Pending = code;
 			}
 		}
 	
@@ -601,7 +607,7 @@ KybdEvent (CARD16 scan, CARD8 meta)
 		              | (meta &  K_CTRL             ? ControlMask : 0)
 		              | (meta &  K_ALT              ? Mod1Mask    : 0)
 		              | (meta &  K_ALTGR            ? Mod2Mask    : 0);
-		KYBD_Pending  = 0;
+		*KYBD_Pending = 0;
 	}
 	KYBD_PrvMeta = meta;
 	
@@ -613,18 +619,14 @@ KybdEvent (CARD16 scan, CARD8 meta)
 static void
 KYBD_GetMapping (CARD8 * map)
 {
-	static CARD8 keys[] = {
-		KEYCODE(KC_SHFT_R), KEYCODE(KC_SHFT_L), KEYCODE(KC_CTRL),
-		KEYCODE(KC_ALT),    KEYCODE(KC_LOCK),   KEYCODE(KC_ALTGR), 0 };
-	int   i, n = sizeof(keys) -1;
+	int   i, n = numberof(KYBD_Static) -1;
 	CARD8 mask = KYBD_PrvMeta;
 	
-	if ((keys[n] = KYBD_Pending)) mask |= 1 << n;
-	else                          n--;
 	memset (map, 0, 32);
+	if (!*KYBD_Pending) n--;
 	for (i = 0; i <= n && mask; i++) {
 		if (mask & 1) {
-			CARD8 k    = keys[i];
+			CARD8 k    = KYBD_Static[i][0];
 			map[k /8] |= 1 << (k & 0x07);
 		}
 		mask >>= 1;
@@ -688,8 +690,8 @@ RQ_GetModifierMapping (CLIENT * clnt, xGetModifierMappingReq * q)
 	
 	DEBUG (GetModifierMapping," ");
 	
-	r->numKeyPerModifier = sizeof(*KYBD_Mod);
-	memcpy ((r +1), KYBD_Mod, sizeof(KYBD_Mod));
+	r->numKeyPerModifier = sizeof(*KYBD_ModMap);
+	memcpy ((r +1), KYBD_ModMap, sizeof(KYBD_ModMap));
 	
 	ClntReply (GetModifierMapping, (8 *2), NULL);
 }
@@ -719,7 +721,7 @@ RQ_GetKeyboardMapping (CLIENT * clnt, xGetKeyboardMappingReq * q)
 	} else { //..................................................................
 	
 		ClntReplyPtr (GetKeyboardMapping, r);
-		KeySym * sym = KYBD_Map[q->firstKeyCode - KYBD_CodeMin];
+		KeySym * sym = KYBD_Symbol[q->firstKeyCode - KYBD_CodeMin];
 		int      num = q->count * 4;
 		size_t   len = num * sizeof(KeySym);
 		
@@ -755,7 +757,12 @@ RQ_SetModifierMapping (CLIENT * clnt, xSetModifierMappingReq * q)
 void
 RQ_ChangeKeyboardMapping (CLIENT * clnt, xChangeKeyboardMappingReq * q)
 {
-	PRINT (- X_ChangeKeyboardMapping," ");
+	// CARD8   keyCodes:
+	// KeyCode firstKeyCode:
+	// CARD8   keySymsPerKeyCode:
+	
+	PRINT (- X_ChangeKeyboardMapping," %i (%i*%i)",
+	       q->firstKeyCode, q->keyCodes, q->keySymsPerKeyCode);
 }
 
 
