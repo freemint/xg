@@ -422,117 +422,7 @@ EvntPointer (WINDOW ** stack, int anc, int top,
 }
 
 
-//==============================================================================
-// w   - Window
-// a   - ATOM
-// l   - CARD32 ('long')
-// s   - CARD16 ('short')
-// b/c - BOOL / CARD8 ('char')
-// p   - PXY coordinates (not pointer of!)
-// r   - GRECT*
-// d   - detail, CARD8
-// S   - global TIMESTAMP
-// M   - global SETofKEYBUTMASK
-// W   - Id from parameter WINDOW*
-// X   - RootWindow Id
-// T/F - xTrue / xFalse, constant CARD8 (mainly for 'same-screen')
-
-static const char * _EVNT_Form[LASTEvent] = {
-	NULL, NULL,
-	"SXWwppMTd","SXWwppMTd",              // KeyPress,    KeyRelease
-	"SXWwppMTd","SXWwppMTd",              // ButtonPress, ButtonRelease
-	"SwWwppMT", "SwWwppMccd","SwWwppMccd",// MotionNotify,EnterNotify,LeaveNotify
-	"Wcd",      "Wcd",                    // FocusIn,     FocusOut
-	NULL, //KeymapNotify
-	NULL, //Expose
-	NULL, //GraphicsExpose
-	"lsF",                                // NoExpose
-	"Wc",                                 // VisibilityNotify
-	"Wwrsb",    "Ww",                     // CreateNotify,  DestroyNotify
-	"Wwb",      "Wwb",       "Ww",        // UnmapNotify,   MapNotify, MapRequest
-	"Wwwpb",    "Wwwrsb",                 // ReparentNotify, ConfigureNotify
-	NULL, //ConfigureRequest
-	"Wwp",                                // GravityNotify
-	NULL, //ResizeRequest
-	"Wwlc",     "Wwlc",                   // CirculateNotify, CirculateRequest
-	"WaSb",     "Swa",                    // PropertyNotify,  SelectionClear
-	"lwwaaa",   "lwaaa",                  // SelectionRequest,SelectionNotify
-	NULL, //ColormapNotify
-	NULL, //ClientMessage
-	NULL, //MappingNotify
-};
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void
-FT_Evnt_send_MSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
-{
-	const char * frm = _EVNT_Form[evnt];
-	NETBUF     * buf = &clnt->oBuf;
-	xEvent     * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
-	char       * ptr = ((char*)evn) +4;
-	#define ARG(t)   { *(t*)ptr = va_arg (vap, t); ptr += sizeof(t); }
-	
-	evn->u.u.type = evnt;
-	evn->u.u.sequenceNumber = clnt->SeqNum;
-	
-	while (*frm) switch (*(frm++)) {
-		case 'W': if (wind) { *(Window*)ptr = wind->Id; ptr += 4; break; }
-		case 'w': ARG (Window); break;
-		case 'a': ARG (Atom);   break;
-		case 'l': ARG (CARD32); break;
-		case 's': ARG (CARD16); break;
-		case 'c': ARG (CARD8);  break;
-		case 'b': ARG (BOOL);   break;
-		case 'p': ARG (PXY);    break;
-		case 'r':
-			*(GRECT*)ptr = *va_arg (vap, GRECT*);
-			ptr += 8;
-			break;
-		case 'd': evn->u.u.detail   = va_arg (vap, CARD8);       break;
-		case 'X': *(Window*)ptr     = ROOT_WINDOW;     ptr += 4; break;
-		case 'S': *(Time*)ptr       = MAIN_TimeStamp;  ptr += 4; break;
-		case 'M': *(KeyButMask*)ptr = MAIN_KeyButMask; ptr += 2; break;
-		case 'T': *ptr              = xTrue;           ptr += 1; break;
-		case 'F': *ptr              = xFalse;          ptr += 1; break;
-	}
-	buf->Left     += sizeof(xEvent);
-	MAIN_FDSET_wr |= 1uL << clnt->Fd;
-}
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void
-FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
-{
-	const char * frm = _EVNT_Form[evnt];
-	NETBUF     * buf = &clnt->oBuf;
-	xEvent     * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
-	char       * ptr = ((char*)evn) +4;
-	#define ARG32(t) { *(t*)ptr = Swap32(va_arg (vap, t)); ptr += 4; }
-	#define ARG16(t) { *(t*)ptr = Swap16(va_arg (vap, t)); ptr += 2; }
-	
-	evn->u.u.type = evnt;
-	evn->u.u.sequenceNumber = Swap16(clnt->SeqNum);
-	
-	while (*frm) switch (*(frm++)) {
-		case 'W': if (wind) {*(Window*)ptr = Swap32(wind->Id); ptr += 4; break; }
-		case 'w': ARG32 (Window); break;
-		case 'a': ARG32 (Atom);   break;
-		case 'l': ARG32 (CARD32); break;
-		case 's': ARG16 (CARD16); break;
-		case 'c': ARG   (CARD8);  break;
-		case 'b': ARG   (BOOL);   break;
-		case 'p':
-			SwapPXY ((PXY*)ptr,  &va_arg (vap, PXY));           ptr += 4; break;
-		case 'r':
-			SwapRCT ((GRECT*)ptr, va_arg (vap, GRECT*));        ptr += 8; break;
-		case 'd': evn->u.u.detail   = va_arg (vap, CARD8);               break;
-		case 'X': *(Window*)ptr     = SWAP32(ROOT_WINDOW);     ptr += 4; break;
-		case 'S': *(Time*)ptr       = Swap32(MAIN_TimeStamp);  ptr += 4; break;
-		case 'M': *(KeyButMask*)ptr = Swap16(MAIN_KeyButMask); ptr += 2; break;
-		case 'T': *ptr              = xTrue;                   ptr += 1; break;
-		case 'F': *ptr              = xFalse;                  ptr += 1; break;
-	}
-	buf->Left     += sizeof(xEvent);
-	MAIN_FDSET_wr |= 1uL << clnt->Fd;
-}
+static const char * _EVNT_Form[];
 
 //------------------------------------------------------------------------------
 void
@@ -632,6 +522,121 @@ _Evnt_Client (CLIENT * clnt, CARD16 evnt, ...)
 
 
 //==============================================================================
+// w   - Window
+// a   - ATOM
+// l   - CARD32 ('long')
+// s   - CARD16 ('short')
+// b/c - BOOL / CARD8 ('char')
+// p   - PXY coordinates (not pointer of!)
+// r   - GRECT*
+// d   - detail, CARD8
+// S   - global TIMESTAMP
+// M   - global SETofKEYBUTMASK
+// W   - Id from parameter WINDOW*
+// X   - RootWindow Id
+// T/F - xTrue / xFalse, constant CARD8 (mainly for 'same-screen')
+// *   - unused long, jump over
+
+static const char * _EVNT_Form[LASTEvent] = {
+	NULL, NULL,
+	"SXWwppMTd","SXWwppMTd",              // KeyPress,    KeyRelease
+	"SXWwppMTd","SXWwppMTd",              // ButtonPress, ButtonRelease
+	"SwWwppMT", "SwWwppMccd","SwWwppMccd",// MotionNotify,EnterNotify,LeaveNotify
+	"Wcd",      "Wcd",                    // FocusIn,     FocusOut
+	NULL, //KeymapNotify
+	NULL, //Expose
+	NULL, //GraphicsExpose
+	"lsF",                                // NoExpose
+	"Wc",                                 // VisibilityNotify
+	"Wwrsb",    "Ww",                     // CreateNotify,  DestroyNotify
+	"Wwb",      "Wwb",       "Ww",        // UnmapNotify,   MapNotify, MapRequest
+	"Wwwpb",    "Wwwrsb",                 // ReparentNotify, ConfigureNotify
+	NULL, //ConfigureRequest
+	"Wwp",                                // GravityNotify
+	NULL, //ResizeRequest
+	"Ww*c",     "Ww*c",                   // CirculateNotify, CirculateRequest
+	"WaSb",     "Swa",                    // PropertyNotify,  SelectionClear
+	"lwwaaa",   "lwaaa",                  // SelectionRequest,SelectionNotify
+	NULL, //ColormapNotify
+	NULL, //ClientMessage
+	NULL, //MappingNotify
+};
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+void
+FT_Evnt_send_MSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
+{
+	const char * frm = _EVNT_Form[evnt];
+	NETBUF     * buf = &clnt->oBuf;
+	xEvent     * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
+	char       * ptr = ((char*)evn) +4;
+	#define ARG(t)   { *(t*)ptr = va_arg (vap, t); ptr += sizeof(t); }
+	
+	evn->u.u.type = evnt;
+	evn->u.u.sequenceNumber = clnt->SeqNum;
+	
+	while (*frm) switch (*(frm++)) {
+		case 'W': if (wind) { *(Window*)ptr = wind->Id; ptr += 4; break; }
+		case 'w': ARG (Window); break;
+		case 'a': ARG (Atom);   break;
+		case 'l': ARG (CARD32); break;
+		case 's': ARG (CARD16); break;
+		case 'c': ARG (CARD8);  break;
+		case 'b': ARG (BOOL);   break;
+		case 'p': ARG (PXY);    break;
+		case 'r':
+			*(GRECT*)ptr = *va_arg (vap, GRECT*);
+			ptr += 8;
+			break;
+		case 'd': evn->u.u.detail   = va_arg (vap, CARD8);       break;
+		case 'X': *(Window*)ptr     = ROOT_WINDOW;     ptr += 4; break;
+		case 'S': *(Time*)ptr       = MAIN_TimeStamp;  ptr += 4; break;
+		case 'M': *(KeyButMask*)ptr = MAIN_KeyButMask; ptr += 2; break;
+		case 'T': *ptr              = xTrue;           ptr += 1; break;
+		case 'F': *ptr              = xFalse;          ptr += 1; break;
+		case '*':                                      ptr += 4; break;
+	}
+	buf->Left     += sizeof(xEvent);
+	MAIN_FDSET_wr |= 1uL << clnt->Fd;
+}
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+void
+FT_Evnt_send_LSB (CLIENT * clnt, WINDOW * wind, CARD16 evnt, va_list vap)
+{
+	const char * frm = _EVNT_Form[evnt];
+	NETBUF     * buf = &clnt->oBuf;
+	xEvent     * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
+	char       * ptr = ((char*)evn) +4;
+	#define ARG32(t) { *(t*)ptr = Swap32(va_arg (vap, t)); ptr += 4; }
+	#define ARG16(t) { *(t*)ptr = Swap16(va_arg (vap, t)); ptr += 2; }
+	
+	evn->u.u.type = evnt;
+	evn->u.u.sequenceNumber = Swap16(clnt->SeqNum);
+	
+	while (*frm) switch (*(frm++)) {
+		case 'W': if (wind) {*(Window*)ptr = Swap32(wind->Id); ptr += 4; break; }
+		case 'w': ARG32 (Window); break;
+		case 'a': ARG32 (Atom);   break;
+		case 'l': ARG32 (CARD32); break;
+		case 's': ARG16 (CARD16); break;
+		case 'c': ARG   (CARD8);  break;
+		case 'b': ARG   (BOOL);   break;
+		case 'p':
+			SwapPXY ((PXY*)ptr,  &va_arg (vap, PXY));           ptr += 4; break;
+		case 'r':
+			SwapRCT ((GRECT*)ptr, va_arg (vap, GRECT*));        ptr += 8; break;
+		case 'd': evn->u.u.detail   = va_arg (vap, CARD8);               break;
+		case 'X': *(Window*)ptr     = SWAP32(ROOT_WINDOW);     ptr += 4; break;
+		case 'S': *(Time*)ptr       = Swap32(MAIN_TimeStamp);  ptr += 4; break;
+		case 'M': *(KeyButMask*)ptr = Swap16(MAIN_KeyButMask); ptr += 2; break;
+		case 'T': *ptr              = xTrue;                   ptr += 1; break;
+		case 'F': *ptr              = xFalse;                  ptr += 1; break;
+		case '*':                                              ptr += 4; break;
+	}
+	buf->Left     += sizeof(xEvent);
+	MAIN_FDSET_wr |= 1uL << clnt->Fd;
+}
+
+//==============================================================================
 //
 // Callback Functions
 
@@ -679,7 +684,7 @@ RQ_SendEvent (CLIENT * clnt, xSendEventReq * q)
 	
 		if (!q->eventMask) {
 			if ((_lst.Client = ClntFind (wind->Id))) {
-				mask = _lst.Mask = ~0uL;
+				mask = _lst.Mask = AllEventMask;
 				num  = 1;
 			}
 		} else do {
@@ -692,23 +697,55 @@ RQ_SendEvent (CLIENT * clnt, xSendEventReq * q)
 			}
 		} while ((wind = wind->Parent));
 		
-		while (num--) {
+		if (q->event.u.u.type == ClientMessage) while (num--) {
 			if (lst->Mask & mask) {
-				NETBUF * buf  = &lst->Client->oBuf;
-				xEvent * evn  = (xEvent*)(buf->Mem + buf->Left + buf->Done);
+				EvntClientMsg (lst->Client, q->event.u.clientMessage.window,
+				               q->event.u.clientMessage.u.b.type,
+				               q->event.u.u.detail,
+				               q->event.u.clientMessage.u.b.bytes);
+			}
+			lst++;
+		
+		} else while (num--) {
+			if (lst->Mask & mask) {
+				CLIENT * rcp = lst->Client;
+				NETBUF * buf = &rcp->oBuf;
+				xEvent * evn = (xEvent*)(buf->Mem + buf->Left + buf->Done);
 				
-				evn->u.u.type   = q->event.u.u.type | 0x80;
-				evn->u.u.detail = q->event.u.u.detail;
-				if (lst->Client->DoSwap) {
-					evn->u.u.sequenceNumber     = Swap16(lst->Client->SeqNum);
-					evn->u.clientMessage.window = Swap32(wind->Id);
+				evn->u.u.type           = q->event.u.u.type | 0x80;
+				evn->u.u.detail         = q->event.u.u.detail;
+				evn->u.u.sequenceNumber = (rcp->DoSwap ? Swap16(rcp->SeqNum)
+				                                       : rcp->SeqNum        );
+				if (rcp->DoSwap == clnt->DoSwap) {
+					memcpy (&evn->u.clientMessage.window,
+					        &q->event.u.clientMessage.window, 28);
 				} else {
-					evn->u.u.sequenceNumber     = lst->Client->SeqNum;
-					evn->u.clientMessage.window = wind->Id;
+					const char * frm = _EVNT_Form[q->event.u.u.type];
+					char       * dst = ((char*)evn) +4;
+					char       * src = ((char*)&q->event) +4;
+					while (*frm) switch (*(frm++)) {
+						case 'c': case 'b': case 'd': case 'T': case 'F':
+							*(dst++) = *(src++);
+							break;
+						case 's': case 'M':
+							*(short*)dst = Swap16 (*(short*)src);
+							dst += 2; src += 2;
+							break;
+						case 'X': case 'W': case 'w': case 'a': case 'l': case 'S':
+							*(long*)dst = Swap32 (*(long*)src);
+						case '*':
+							dst += 4; src += 4;
+							break;
+						case 'p':
+							SwapPXY ((PXY*)dst, (PXY*)src);
+							dst += 4; src += 4;
+							break;
+						case 'r':
+							SwapRCT ((GRECT*)dst, (GRECT*)src);
+							dst += 8; src += 8;
+							break;
+					}
 				}
-				memcpy (evn->u.clientMessage.u.b.bytes,
-				        q->event.u.clientMessage.u.b.bytes, 20);
-				
 				buf->Left     += sizeof(xEvent);
 				MAIN_FDSET_wr |= 1uL << lst->Client->Fd;
 			}
@@ -716,9 +753,3 @@ RQ_SendEvent (CLIENT * clnt, xSendEventReq * q)
 		}
 	}
 }
-
-
-
-
-
-
