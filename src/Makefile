@@ -62,11 +62,13 @@ clean: ; rm -f *.% *.[bB][aA][kK] ../include/*.%
 #_______________________________________________________________________________
 DPND = $(SRC:.c=.d)
 depend: __udpnd Makefile $(DPND)
+	@echo
 
 __udpnd: ; rm -f $(DEPEND)
 
 $(DPND):
-	$(CC) -pipe $(CCFLAGS: $(WARN)=) -M $(@:%.d=%.c) -D_$(@:.d=)_ \
-	| sed "s,^\(.*\)\.o:,$(OBJDIR)/\1.o:," >> $(DEPEND)
+	@echo -n " <$(@:%.d=%)> "
+	@$(CC) -pipe $(CCFLAGS: $(WARN)=) -M $(@:%.d=%.c) -D_$(@:.d=)_ \
+	 | sed "s,^\(.*\)\.o:,$(OBJDIR)/\1.o:," >> $(DEPEND)
 
 -include $(OBJDIR)/depends
