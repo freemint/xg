@@ -1,3 +1,16 @@
+2001-01-28: 0.04
+   - added changes by R.Mannigel:
+     - wind_set_proc() to set window title icons.
+     - shel_write (SWM_BROADCAST, ...) to notify other applications about color
+       palette changed.
+     - recive COLORS_CHANGEDbroadcast message.
+   - implemented SetClosedownMode() to avoid removing of client resources which
+     want to retain after disconnecting.  This allowes Motif applications like
+     netscape to install their nifty refference windows.
+   - improved cleanup after client abort to avoid memory leaks.
+   - added forgotten byte-swapping for pixmap line coordinates.
+   - typo fixed which caused wrong BadMatch replies for some CreateCursor()
+     request.
 2001-01-22: 0.03.3
    - several code cleanups.
    - implemented pointer grab cursors and corrected handling of parent-relative
