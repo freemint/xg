@@ -34,6 +34,8 @@ typedef struct s_GRECT {
 #endif
 
 
+typedef struct s_BTNGRAB * p_BTNGRAB;
+
 typedef struct {
 	CARD32   Mask;
 	p_CLIENT Client;
@@ -82,6 +84,7 @@ typedef struct s_WINDOW {
 			} *      p;
 		}         List; // AllMasks must be < 0
 	}          u;
+	p_BTNGRAB  ButtonGrab;
 	p_WINDOW   Parent;
 	p_WINDOW   PrevSibl, NextSibl;
 	p_WINDOW   StackBot, StackTop;

@@ -13,31 +13,34 @@
 #include "Cursor.h"
 
 #include <stdio.h> // printf
+#include <stdlib.h>
 
 #include <X11/Xproto.h>
 
 
-CLIENT * _WIND_PgrabClient = NULL;
-WINDOW * _WIND_PgrabWindow = NULL;
-CURSOR * _WIND_PgrabCursor = NULL;
-CARD32   _WIND_PgrabEvents = 0ul;
-CARD32   _WIND_PgrabTime   = 0ul;
-BOOL     _WIND_PgrabOwnrEv = xFalse;
-BOOL     _WIND_PgrabActive;
+CLIENT * _WIND_PgrabClient  = NULL;
+WINDOW * _WIND_PgrabWindow  = NULL;
+CURSOR * _WIND_PgrabCursor  = NULL;
+CARD32   _WIND_PgrabEvents  = 0ul;
+CARD32   _WIND_PgrabTime    = 0ul;
+BOOL     _WIND_PgrabOwnrEv  = xFalse;
+BOOL     _WIND_PgrabPassive = xFalse;
+
 
 //------------------------------------------------------------------------------
 static void
-_Wind_PgrabSet (CLIENT * clnt, WINDOW * wind,
-                p_CURSOR crsr, CARD32 mask, BOOL ownr, CARD32 time)
+_Wind_PgrabSet (CLIENT * clnt, WINDOW * wind, p_CURSOR crsr,
+                CARD32 mask, BOOL ownr, CARD32 time, BOOL passive)
 {
 	if (!_WIND_PgrabClient) {
 		WindMctrl (xTrue);
 	}
-	_WIND_PgrabClient = clnt;
-	_WIND_PgrabWindow = wind;
-	_WIND_PgrabEvents = mask;
-	_WIND_PgrabOwnrEv = ownr;
-	_WIND_PgrabTime   = time;
+	_WIND_PgrabClient  = clnt;
+	_WIND_PgrabWindow  = wind;
+	_WIND_PgrabEvents  = mask;
+	_WIND_PgrabOwnrEv  = ownr;
+	_WIND_PgrabTime    = time;
+	_WIND_PgrabPassive = passive;
 	if (_WIND_PgrabCursor) {
 		CrsrFree (_WIND_PgrabCursor, NULL);
 	}
@@ -53,8 +56,27 @@ _Wind_PgrabSet (CLIENT * clnt, WINDOW * wind,
 		int top  = _Wind_PathStack (stack, &anc, _WIND_PointerRoot, wind);
 		PXY r_xy = WindPointerPos (wind);
 		PXY e_xy = WindPointerPos (_WIND_PointerRoot);
-		EvntPoiner (stack, anc, top, e_xy, r_xy, wind->Id, NotifyGrab);
+		EvntPointer (stack, anc, top, e_xy, r_xy, wind->Id, NotifyGrab);
 	}
+}
+
+//------------------------------------------------------------------------------
+BOOL
+_Wind_PgrabMatch (WINDOW * wind, CARD8 but, CARD16 mod)
+{
+	BTNGRAB * grab = wind->ButtonGrab;
+	
+	while (grab) {
+		if (   (!grab->Button    || grab->Button    == but)
+		    && (!grab->Modifiers || grab->Modifiers == mod)) {
+			_Wind_PgrabSet (grab->Client, wind, CrsrShare (grab->Cursor),
+			                grab->EventMask, grab->OwnrEvents, MAIN_TimeStamp,
+			                xTrue);
+			return xTrue;
+		}
+		grab = grab->Next;
+	}
+	return xFalse;
 }
 
 //------------------------------------------------------------------------------
@@ -89,12 +111,12 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 	// Grabs actively the control of the pointer.
 	//
 	// BOOL   ownerEvents:
-	// Window grabWindow:
 	// CARD16 eventMask:
-	// BYTE   pointerMode, keyboardMode:
-	// Window confineTo:
+	// Window grabWindow:
+	// Window confineTo:   (ignored)
 	// Cursor cursor:
 	// Time   time:
+	// BYTE   pointerMode, keyboardMode:
 	//
 	// Reply:
 	// BYTE status:
@@ -134,8 +156,8 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 		ClntReply (GrabPointer,, NULL);
 		
 		if (r->status == GrabSuccess) {
-			_Wind_PgrabSet (clnt, wind, crsr, q->eventMask, q->ownerEvents, time);
-			_WIND_PgrabActive = xTrue;
+			_Wind_PgrabSet (clnt, wind, crsr,
+			                q->eventMask, q->ownerEvents, time, xFalse);
 		
 		} else if (crsr) {
 			CrsrFree (crsr, NULL);
@@ -163,7 +185,7 @@ RQ_ChangeActivePointerGrab (CLIENT * clnt, xChangeActivePointerGrabReq * q)
 	
 	} else { //..................................................................
 	
-		if (_WIND_PgrabActive  &&  clnt == _WIND_PgrabClient
+		if (clnt == _WIND_PgrabClient
 		    &&  time >= _WIND_PgrabTime  &&  time <= MAIN_TimeStamp) {
 			
 			PRINT (ChangeActivePointerGrab," C:%lX T:%lX evnt=%04X",
@@ -214,23 +236,120 @@ RQ_UngrabPointer (CLIENT * clnt, xUngrabPointerReq * q)
 }
 
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+static BTNGRAB *
+find_grab (BTNGRAB * grab, CARD8 but, CARD16 mod)
+{
+	while (grab) {
+		if (   (!but || !grab->Button    || but == grab->Button)
+		    && (!mod || !grab->Modifiers || mod == grab->Modifiers)) break;
+		grab = grab->Next;
+	}
+	return grab;
+}
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void
 RQ_GrabButton (CLIENT * clnt, xGrabButtonReq * q)
 {
-	PRINT (- X_GrabButton," W:%lX(W:%lX) evnt=0x%04X/%i mode=%i/%i"
-	                      " crsr=0x%lX but=%i/%04X",
-	       q->grabWindow, q->confineTo, q->eventMask, q->ownerEvents,
-	       q->pointerMode, q->keyboardMode, q->cursor, q->button, q->modifiers);
+	// Establishes a passive pointer grab
+	//
+	// CARD8  button:
+	// CARD16 modifiers:
+	// BOOL   ownerEvents:
+	// CARD16 eventMask:
+	// Window grabWindow:
+	// Window confineTo:   (ignored)
+	// Cursor cursor:
+	// BYTE   pointerMode, keyboardMode:
+	//...........................................................................
+	
+	WINDOW  * wind = WindFind (q->grabWindow);
+	CURSOR  * crsr = NULL;
+	BTNGRAB * grab = NULL, * reuse;
+	
+	if (!wind) {
+		Bad(Window, q->grabWindow, GrabButton,);
+	
+	} else if (q->cursor && !(crsr = CrsrGet(q->cursor))) {
+		Bad(Cursor, q->cursor, GrabButton,);
+	
+	} else if ((reuse = find_grab (wind->ButtonGrab, q->button, q->modifiers))
+	           &&  reuse->Client != clnt) {
+		Bad(Access,, GrabButton,);
+	
+	} else if (!reuse && !(grab = malloc (sizeof(BTNGRAB)))) {
+		Bad(Alloc,, GrabButton,);
+	
+	} else { //..................................................................
+		PRINT (GrabButton," W:%lX(W:%lX,C:%lX) evnt=0x%04X/%i mode=%i/%i"
+		                  " but=%i/%04X",
+		       q->grabWindow, q->confineTo, q->cursor, q->eventMask,
+		       q->ownerEvents, q->pointerMode, q->keyboardMode, q->button,
+		       q->modifiers);
+		
+		if (reuse) {
+			if (reuse->Cursor  &&  reuse->Cursor != crsr) {
+				CrsrFree (reuse->Cursor, NULL);
+			}
+			grab = reuse;
+		} else {
+			grab->Next       = wind->ButtonGrab;
+			wind->ButtonGrab = grab;
+			grab->Client     = clnt;
+			clnt->EventReffs++;
+		}
+		grab->PntrAsync  = q->pointerMode;
+		grab->KybdAsync  = q->keyboardMode;
+		grab->OwnrEvents = q->ownerEvents;
+		grab->Button     = q->button;
+		grab->Modifiers  = q->modifiers;
+		grab->EventMask  = q->eventMask;
+		grab->Cursor     = crsr;
+		crsr             = NULL;
+	}
+	if (crsr) {
+		CrsrFree (crsr, NULL);
+	}
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_UngrabButton (CLIENT * clnt, xUngrabButtonReq * q)
 {
-	PRINT (- X_UngrabButton," W:%lX but=%i/%04X",
-	       q->grabWindow, q->button, q->modifiers);
+	// Releases passive grab
+	//
+	// CARD8  button:
+	// CARD16 modifiers:
+	// Window grabWindow:
+	//...........................................................................
+	
+	WINDOW  * wind = WindFind (q->grabWindow);
+	
+	if (!wind) {
+		Bad(Window, q->grabWindow, GrabButton,);
+	
+	} else { //..................................................................
+		BTNGRAB ** pGrab = &wind->ButtonGrab;
+		
+		PRINT (UngrabButton," W:%lX but=%i/%04X",
+		       q->grabWindow, q->button, q->modifiers);
+		
+		while (*pGrab) {
+			if ((*pGrab)->Client == clnt
+			    && (!q->button    || q->button    == (*pGrab)->Button)
+			    && (!q->modifiers || q->modifiers == (*pGrab)->Modifiers)) {
+				BTNGRAB * grab = *pGrab;
+				*pGrab         = grab->Next;
+				if (grab->Cursor) CrsrFree (grab->Cursor, NULL);
+				grab->Client->EventReffs++;
+				free (grab);
+				if (q->button && q->modifiers) break;
+			}
+			pGrab = &(*pGrab)->Next;
+		}
+	}
 }
+
 
 //------------------------------------------------------------------------------
 void
