@@ -725,7 +725,7 @@ RQ_GetKeyboardMapping (CLIENT * clnt, xGetKeyboardMappingReq * q)
 		int      num = q->count * 4;
 		size_t   len = num * sizeof(KeySym);
 		
-		PRINT (GetKeyboardMapping," %i (%i)", q->firstKeyCode, q->count);
+		DEBUG (GetKeyboardMapping," %i (%i)", q->firstKeyCode, q->count);
 		
 		r->keySymsPerKeyCode = 4;
 		if (clnt->DoSwap) {
@@ -772,7 +772,7 @@ RQ_ChangeKeyboardMapping (CLIENT * clnt, xChangeKeyboardMappingReq * q)
 		KeySym * dst = KYBD_Symbol[q->firstKeyCode - KYBD_CodeMin];
 		int      n   = q->keyCodes;
 		
-		PRINT (ChangeKeyboardMapping," %i (%i*%i)",
+		DEBUG (ChangeKeyboardMapping," %i (%i*%i)",
 		       q->firstKeyCode, q->keyCodes, q->keySymsPerKeyCode);
 		
 		if (clnt->DoSwap) while (n--) {
