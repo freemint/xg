@@ -17,6 +17,10 @@
 # include <gem.h>
 # undef GRECT
 
+#if !defined(__GEMLIB__) || (__GEMLIB_MAJOR__ == 0 && __GEMLIB_MINOR__ < 40)
+#error You need a more recent GEMLib (at least 0.40.0)!
+#endif
+
 
 void vs_clip_r   (int handle, const GRECT * rect);
 void vs_clip_p   (int handle, const PXY   * clip);
