@@ -20,7 +20,7 @@
 
 void  KybdInit (void);
 
-short KybdEvent (CARD16 scan, CARD16 meta);
+short KybdEvent (CARD16 scan, CARD8 meta);
 
 extern const CARD8  KYBD_CodeMin;
 extern CONST CARD8  KYBD_CodeMax;

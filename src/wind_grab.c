@@ -81,7 +81,7 @@ _Wind_PgrabClr (CLIENT * clnt)
 
 //------------------------------------------------------------------------------
 BOOL
-_Wind_PgrabMatch (WINDOW * wind, CARD8 but, CARD16 mod)
+_Wind_PgrabMatch (WINDOW * wind, CARD8 but, CARD8 mod)
 {
 	BTNGRAB * grab = wind->ButtonGrab;
 	

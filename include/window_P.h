@@ -45,7 +45,7 @@ extern BOOL     _WIND_PgrabPassive;
 void _Wind_PgrabSet (p_CLIENT clnt, p_WINDOW wind, p_CURSOR crsr,
                      CARD32 mask, BOOL ownr, CARD32 time, BOOL passive);
 BOOL _Wind_PgrabClr (p_CLIENT clnt);
-BOOL _Wind_PgrabMatch  (p_WINDOW wind, CARD8 but, CARD16 mod);
+BOOL _Wind_PgrabMatch  (p_WINDOW wind, CARD8 but, CARD8 mod);
 void _Wind_PgrabRemove (p_BTNGRAB * pGrab);
 
 // utility functions
