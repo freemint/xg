@@ -95,10 +95,12 @@ extern WINDOW WIND_Root;
 void WindInit    (BOOL initNreset);
 void WindCleanup (p_CLIENT clnt);
 
-void   WindDelete   (p_WINDOW , p_CLIENT);
-CARD16 WindClipLock (p_WINDOW , CARD16 border, const GRECT * clip,
-                                short n_clip, p_PXY orig, GRECT ** pBuf);
-void   WindClipOff  (void);
+void   WindDelete    (p_WINDOW , p_CLIENT);
+CARD16 WindClipLock  (p_WINDOW , CARD16 border, const GRECT * clip,
+                                 short n_clip, p_PXY orig, p_GRECT * pBuf);
+CARD16 WindClipLockP (p_WINDOW , CARD16 border, const GRECT * clip,
+                                 short n_clip, p_PXY orig, p_PRECT * pBuf);
+void   WindClipOff   (void);
 void   WindPutMono     (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
 void   WindPutColor    (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
 void   WindDrawSection (p_WINDOW , const GRECT * sect);

@@ -209,45 +209,46 @@ BOOL
 GrphIntersect (p_GRECT dst, const struct s_GRECT * src)
 {
 #if 1
-	register BOOL res = 1;
+	register BOOL res __asm("d0");
 	__asm__ volatile ("
-		movem.l	(%1), d0/d1; | a.x:a.y/a.w:a.h
-		movem.l	(%2), d2/d3; | b.x:b.y/b.w:b.h
-		add.w		d0, d1; | a.h += a.y
-		add.w		d2, d3; | b.h += b.y
-			cmp.w		d0, d2;
+		moveq.l	#1, d0;
+		movem.l	(%1), d1/d2; | a.x:a.y/a.w:a.h
+		movem.l	(%2), d3/d4; | b.x:b.y/b.w:b.h
+		add.w		d1, d2; | a.h += a.y
+		add.w		d3, d4; | b.h += b.y
+			cmp.w		d1, d3;
 			ble.b		1f;   | ? b.y <= a.y
-			move.w	d2, d0; | a.y = b.y
-		1:	cmp.w		d1, d3;
+			move.w	d3, d1; | a.y = b.y
+		1:	cmp.w		d2, d4;
 			bge.b		2f;   | ? b.h >= a.h
-			move.w	d3, d1; | a.h = b.h
-		2:	sub.w		d0, d1; | a.h -= a.y
+			move.w	d4, d2; | a.h = b.h
+		2:	sub.w		d1, d2; | a.h -= a.y
 			bhi.b		3f;   | ? a.h > a.y
-			clr.b		%0;
+			moveq.l	#0, d0;
 		3:
-		swap		d0; | a.y:a.x
-		swap		d1; | a.h:a.w
-		add.w		d0, d1; | a.w += a.x
-		swap		d2; | b.y:b.x
-		swap		d3; | b.h:b.w
-		add.w		d2, d3; | b.w += b.x
-			cmp.w		d0, d2;
+		swap		d1; | a.y:a.x
+		swap		d2; | a.h:a.w
+		add.w		d1, d2; | a.w += a.x
+		swap		d3; | b.y:b.x
+		swap		d4; | b.h:b.w
+		add.w		d3, d4; | b.w += b.x
+			cmp.w		d1, d3;
 			ble.b		5f;   | ? b.x <= a.x
-			move.w	d2, d0; | a.x = b.x
-		5:	cmp.w		d1, d3;
+			move.w	d3, d1; | a.x = b.x
+		5:	cmp.w		d2, d4;
 			bge.b		6f;   | ? b.w >= a.w
-			move.w	d3, d1; | a.w = b.w
-		6:	sub.w		d0, d1; | a.w -= a.x
+			move.w	d4, d2; | a.w = b.w
+		6:	sub.w		d1, d2; | a.w -= a.x
 			bhi.b		7f;   | ? a.w > a.x
-			clr.b		%0;
+			moveq.l	#0, d0;
 		7:
-		swap		d0;
 		swap		d1;
-		movem.l	d0/d1, (%1); | a.x:a.y/a.w:a.h
+		swap		d2;
+		movem.l	d1/d2, (%1); | a.x:a.y/a.w:a.h
 		"
 		: "=d"(res)           // output
 		: "a"(dst),"a"(src)   // input
-		: "d0","d1","d2","d3" // clobbered
+		: "d1","d2","d3","d4" // clobbered
 	);
 	return res;
 # else
@@ -266,44 +267,43 @@ GrphIntersect (p_GRECT dst, const struct s_GRECT * src)
 
 //==============================================================================
 BOOL
-GrphIntersectP (p_PXY dst, const struct s_PXY * src)
+GrphIntersectP (p_PRECT dst, const struct s_PRECT * src)
 {
 # if 1
-	register BOOL res = 1;
+	register BOOL res __asm("d0");
 	__asm__ volatile ("
-		movem.l	(%1), d0/d1; | a.x0:a.y0/a.x1:a.y1
-		movem.l	(%2), d2/d3; | b.x0:b.y0/b.x1:b.y1
-			cmp.w		d0, d2;
+		moveq.l	#0, d0;
+		movem.l	(%1), d1/d2; | a.x0:a.y0/a.x1:a.y1
+		movem.l	(%2), d3/d4; | b.x0:b.y0/b.x1:b.y1
+			cmp.w		d1, d3;
 			ble.b		1f;   | ? b.y0 <= a.y0
-			move.w	d2, d0; | a.y0 = b.y0
-		1:	cmp.w		d1, d3;
+			move.w	d3, d1; | a.y0 = b.y0
+		1:	cmp.w		d2, d4;
 			bge.b		2f;   | ? b.y1 >= a.y1
-			move.w	d3, d1; | a.y1 = b.y1
-		2:	cmp.w		d0, d1;
-			bge.b		3f;   | ? a.y1 >= a.y0
-			clr.b		%0;
-		3:
-		swap		d0; | a.y0:a.x0
-		swap		d1; | a.y1:a.x1
-		swap		d2; | b.y0:b.x0
-		swap		d3; | b.y1:b.x1
-			cmp.w		d0, d2;
+			move.w	d4, d2; | a.y1 = b.y1
+		2:	cmp.w		d1, d2;
+			blt.b		9f;   | ? a.y1 >= a.y0
+		swap		d1; | a.y0:a.x0
+		swap		d2; | a.y1:a.x1
+		swap		d3; | b.y0:b.x0
+		swap		d4; | b.y1:b.x1
+			cmp.w		d1, d3;
 			ble.b		5f;   | ? b.x0 <= a.x0
-			move.w	d2, d0; | a.x0 = b.x0
-		5:	cmp.w		d1, d3;
+			move.w	d3, d1; | a.x0 = b.x0
+		5:	cmp.w		d2, d4;
 			bge.b		6f;   | ? b.x1 >= a.x1
-			move.w	d3, d1; | a.x1 = b.x1
-		6:	cmp.w		d0, d1;
-			bge.b		7f;   | ? a.x1 >= a.x0
-			clr.b		%0;
-		7:
-		swap		d0;
+			move.w	d4, d2; | a.x1 = b.x1
+		6:	cmp.w		d1, d2;
+			blt.b		9f;   | ? a.x1 >= a.x0
 		swap		d1;
-		movem.l	d0/d1, (%1); | a.x:a.y/a.w:a.h
+		swap		d2;
+		movem.l	d1/d2, (%1); | a.x:a.y/a.w:a.h
+		moveq.l	#1, d0;
+		9:
 		"
 		: "=d"(res)           // output
 		: "a"(dst),"a"(src)   // input
-		: "d0","d1","d2","d3" // clobbered
+		: "d1","d2","d3","d4" // clobbered
 	);
 	return res;
 # else
