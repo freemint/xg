@@ -1,3 +1,8 @@
+2001-09-13: 0.13.2
+   - closed a memory leakage in GetImage request.
+   - added a workaround for xoring monochrome bitmaps to a bitmap of
+     >= 16bit color depth, to go round a bug in NVDI.
+   - corrected return pixel values of 8bit packed pixel bitmaps.
 2001-09-08: 0.13.1
    - implemented GetImage request.  now xmag (screen magnifier) and
      the 'AutoGrab Window' function of xv are working.
