@@ -1,5 +1,8 @@
+2001-03-30: 0.07
+   - compiled with new gcc 2.95.3 and mintlib 0.56.1.
+   - completed function for event data swapping and SendEvent().
 2001-03-27: 0.06.6
-   - fixed SentEvent() request, cut&paste between clients is working now.
+   - fixed SendEvent() request, cut&paste between clients is working now.
    - corrected coordinates for KeyPress/Release and ButtonPress/Release events.
    - bugfix in font handling which could cause crashes by stack damaging.
    - several parts of the code cleaned up.
