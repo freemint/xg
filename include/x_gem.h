@@ -12,13 +12,10 @@
 # define __X_GEM_H__
 
 #include "types.h"
+#include <gem.h>
 
-# define GRECT   GRECT_lib
-# include <gem.h>
-# undef GRECT
-
-#if !defined(__GEMLIB__) || (__GEMLIB_MAJOR__ == 0 && __GEMLIB_MINOR__ < 41)
-# error You need a more recent GEMLib (at least 0.41.0)!
+#if !defined(__GEMLIB__) || (__GEMLIB_MAJOR__ == 0 && __GEMLIB_MINOR__ < 42)
+# error You need a more recent GEMLib (at least 0.42.0)!
 #endif
 
 
@@ -26,39 +23,7 @@
 #define K_ALTGR   0x80
 
 
-void vs_clip_r   (int handle, const GRECT * rect);
-void vs_clip_p   (int handle, const PXY   * clip);
-void vs_clip_off (int handle);
-
-void vqt_extent_n (int , const short * str, int count, short * ext);
-
-void v_gtext_arr  (int , const PXY * p, int count, const short * arr);
-
-
-typedef struct {
-	short evi_flags;
-	short evi_bclicks, evi_bmask, evi_bstate;
-	short evi_m1leave;
-	GRECT evi_m1;
-	short evi_m2leave;
-	GRECT evi_m2;
-	short evi_tlow, evi_thigh;
-} EVMULTI_IN;
-
-typedef struct {
-	short evo_events;
-	PXY   evo_mouse;
-	short evo_mbutton;
-	short evo_kmeta;
-	short evo_kreturn;
-	short evo_mclicks;
-} EVMULTI_OUT;
-
 #define ApplId(void) (aes_params.intout[2])
-
-short evnt_multi_s (const EVMULTI_IN * ev_i, short * msg, EVMULTI_OUT * ev_o);
-
-void  graf_mkstate_p (PXY * mxy, short * btn, short * meta);
 
 #define wind_get_curr(h,r)        wind_get_grect (h, WF_CURRXYWH,      r)
 #define wind_get_first(h,r)       wind_get_grect (h, WF_FIRSTXYWH,     r)
