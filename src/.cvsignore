@@ -1,4 +1,4 @@
 .cvsignore
 *.%
 *.bak
-X.app
+*.app

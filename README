@@ -1,0 +1,77 @@
+Fonts
+=====
+
+In X, fonts are named following the XLFD ('X Logical Font Description').  These
+font names are in fact a set of descriptive fields with '-' as delimiters.  The
+format is as following:
+   -fndry-fmly-wght-slnt-sWd-adStyl-pxlSz-ptSz-resx-resy-spc-avgWd-rgstry-enc
+
+with the field meaning:
+
+fndry:  Foundry is the name of the organization that supplied or last modified
+   the font, e.g. Adobe, Bitstream.
+fmly:   FamilyName of the font, e.g. Courier, Gothic, Helvetica
+wght:   WeightName, e.g. Bold, Medim, Black
+slnt:   Slant, a code-string with tha encoding: "R"=Roman, "I"=Italic, aso.
+sWd:    SetWidth, e.g. Normal, Condensed, Narrow
+adStyl: AddStyle, e.g. Sans, Serif,
+pxlSz:  PixelSize of the body of the font, similar to the character cell in VDI
+ptSz:   PointSize in decipoint, that is 1/10th point
+resx,resy:   horizontal/vertical resolution for which the font was designed
+spc:    Spacing, code-string to indicate the escapement, that is "P" for
+        proportional and "M" or "C" for monospaced
+avgWd:  AverageWidth of all characters in 1/20th pixels
+rgstry,enc:   CharsetRegistry/Encoding, e.g. ISO8859-1
+
+All of these fields my contain wildcards (a '*').  For example, often clients
+requests a font named '-*-*-*-*-*-*-*-120-*-*-*-*-ISO8859-1' which means some
+font of 12 point height and that charset encoding is needed, no matter of which
+family or style and so on.  The server will than take the first font of where
+this both criteria matches.
+
+Handling of GEM-Fonts
+---------------------
+
+At startup, the server parses all fonts provided by the VDI and translates the
+available informations to XLFD strings.  These are stored in the hash file
+/var/lib/Xapp/fonts.db to accelerate further startups.
+
+Font-Aliasing
+-------------
+
+If there exists a file /usr/X11/lib/X11/fonts.alias it will be read at server
+startup and later be used to substitute font names from client requests.  The
+format of these file is simply
+   <requested font><space/tab><font to use instead>
+in each line.  To edit this file, have a look at /var/lib/Xapp/fonts.db to see
+which fonts are provided.
+
+There are two often requested pseudo-fonts which should allways be aliased:
+
+fixed: A monospaced font that fits best the system capabilities, e.g. the font
+       used the AES, or some other monospaced font of your choice.
+
+variable: Some proportional font which should be of the same height as the font
+          used for fixed.
+
+To use the fonts from the NVDI package, it could looks like
+
+fixed   -Bitstream-Courier10Pitch-Medium-I-Normal-Serif-16-90-0-0-C-70-ISO8859-1
+variable -Bitstream-Life-Medium-R-Normal-Serif-16-90-0-0-P-68-ISO8859-1
+
+The font to be substituted can also be a pattern, like
+
+-adobe-times-*-*-*-*-*-*-*-*-*-*-iso8859-1 \
+                                          -*-times*-medium-*-*-*-*-*-*-*-*-*-*-*
+-*-Helvetica-Medium-R-Normal--*-120-*-*-*-*-*-*	\
+                                       -*-gothic*-medium-r-*-*-*-120-*-*-*-*-*-*
+
+Please pay attention that the '\' isn't allowed in the font.alias file; it's
+only used here for better radability!
+
+There are other oftern used fot names of the form '9x15', '6x13' and so on,
+which means monospaced fonts of <width> * <height> pixel size.  If an request of
+such a font name appeares and the server can't find it in its XLFD list nor in
+the alias list, it takes a scalable font which can scaled best to that geometry
+and creates a generic XLFD entry.
+
