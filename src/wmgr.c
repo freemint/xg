@@ -35,7 +35,7 @@
 extern const short _app;
 
 BOOL    WMGR_Active = xFalse;;
-CARD16  WMGR_Cursor = 0;
+CARD16  WMGR_Cursor = 0x0000;
 #define WMGR_DECOR    5
 short   WMGR_Decor  = WMGR_DECOR;
 #define A_WIDGETS     (NAME|MOVER|CLOSER|SMALLER)
@@ -63,7 +63,7 @@ static struct { CURSOR L, LD, D, RD, R, X; } _WMGR_Cursor = {
 	{ NULL,0, XC_bottom_side,         1uL, {0,0},0, G_WHITE, G_RED },
 	{ NULL,0, XC_bottom_right_corner, 1uL, {0,0},0, G_WHITE, G_RED },
 	{ NULL,0, XC_right_side,          1uL, {0,0},0, G_WHITE, G_RED },
-	{ NULL,0, XC_X_cursor,            1uL, {0,0},0, G_WHITE, G_RED }
+	{ NULL,0, XC_fleur,               1uL, {0,0},0, G_WHITE, G_RED }
 };
 
 static void FT_Wmgr_reply (p_CLIENT , CARD32 size, const char * form);
@@ -398,6 +398,7 @@ WmgrClntRemove (CLIENT * client)
 		_WMGR_Menu[n].ob_flags            |= OF_HIDETREE;
 		if (n == MENU_CLNT_FRST) {
 			_WMGR_Menu[MENU_CLNT].ob_state |= OS_DISABLED;
+			menu_bar (_WMGR_Menu, 1);
 		} else {
 			_WMGR_Menu[MENU_CLNT_FACE].ob_height = _WMGR_Menu[n].ob_y;
 		}
@@ -693,21 +694,34 @@ WmgrWindIcon (WINDOW * wind)
 void
 WmgrCursor (WINDOW * wind, p_PXY pos)
 {
-	CARD16 type = 0x000;
+	PROPERTIES * pool = (wind ? wind->Properties : NULL);
+	CARD16       type = 0x0000;
 	
-	if (pos->y >= 0) {
-		if      (pos->x <  0)            type =  0x100;
-		else if (pos->x >= wind->Rect.w) type =  0x001;
-		if      (pos->y >= wind->Rect.h) type |= 0x010;
+	if (!wind ||   (MAIN_KeyButMask & K_ALT)
+	          || (!(MAIN_KeyButMask & K_CTRL) && pool && pool->Min.valid
+	              && (pool->Min.valid == pool->Max.valid))) {
+		type = 0x1111;
+	
+	} else { // (wind || pos)
+		if (!pos) {
+			pos  = alloca (sizeof(*pos));
+			*pos = WindPointerPos (wind);
+		}
+		if (pos->y >= 0) {
+			if      (pos->x <  0)            type =  0x100;
+			else if (pos->x >= wind->Rect.w) type =  0x001;
+			if      (pos->y >= wind->Rect.h) type |= 0x010;
+		}
 	}
 	if (type != WMGR_Cursor) {
 		switch (type) {
-			case 0x100: CrsrSelect (&_WMGR_Cursor.L);  break;
-			case 0x110: CrsrSelect (&_WMGR_Cursor.LD); break;
-			case 0x010: CrsrSelect (&_WMGR_Cursor.D);  break;
-			case 0x011: CrsrSelect (&_WMGR_Cursor.RD); break;
-			case 0x001: CrsrSelect (&_WMGR_Cursor.R);  break;
-			default:    CrsrSelect (NULL);
+			case 0x0100: CrsrSelect (&_WMGR_Cursor.L);  break;
+			case 0x0110: CrsrSelect (&_WMGR_Cursor.LD); break;
+			case 0x0010: CrsrSelect (&_WMGR_Cursor.D);  break;
+			case 0x0011: CrsrSelect (&_WMGR_Cursor.RD); break;
+			case 0x0001: CrsrSelect (&_WMGR_Cursor.R);  break;
+			case 0x1111: CrsrSelect (&_WMGR_Cursor.X);  break;
+			default:     CrsrSelect (NULL);
 		}
 		WMGR_Cursor = type;
 	}
@@ -718,7 +732,7 @@ void
 WmgrCursorOff (CURSOR * new_crsr)
 {
 	CrsrSelect (new_crsr);
-	WMGR_Cursor = 0;
+	WMGR_Cursor = 0x0000;
 }
 
 
@@ -1040,11 +1054,12 @@ WmgrMessage (short * msg)
 
 //==============================================================================
 BOOL
-WmgrButton (void)
+WmgrButton (WINDOW * wind)
 {
-	WINDOW * wind = (WMGR_Cursor ? _Wmgr_WindByPointer() : NULL);
+	BOOL move = (wind != NULL);
+	BOOL size = xFalse;
 	
-	if (!wind) {
+	if (!wind && !(wind = (WMGR_Cursor ? _Wmgr_WindByPointer() : NULL))) {
 		return xFalse;
 	
 	} else {
@@ -1054,40 +1069,28 @@ WmgrButton (void)
 		   0, {0,0, 0,0}, 20,0 };
 		EVMULTI_OUT  ev_o;
 		short        ev, dummy[8];
-		PXY          pc[5],   pw[5];
-		CARD16       cursor = WMGR_Cursor;
-		int          ch, cv,  wh, wv,  mx, my;
+		CARD16       cursor;
+		PXY          pc[5],              pw[5];
+		int          c_l, c_r, c_u, c_d, w_l, w_r, w_u, w_d;
+		int          mx, my;
 		int          ml = 0, mu = 0, mr = WIND_Root.Rect.w, md = WIND_Root.Rect.h;
-		PROPERTIES * pool = wind->Properties;
+		int          magnet = 0x1111;
+		GRECT        magn;
 		
-		if (pool) {
-			if (pool->Base.valid) {
-				ml = pool->Base.Size.x;
-				mu = pool->Base.Size.y;
-				if (pool->Inc.valid) {
-					ml += pool->Inc.Step.x;
-					mu += pool->Inc.Step.y;
-				}
-			} else if (pool->Min.valid) {
-				ml = pool->Min.Size.x;
-				mu = pool->Min.Size.y;
+		
+		if (move) {
+			if (!WMGR_Cursor) {
+				WmgrCursor (NULL, NULL);
 			}
-			if (!(MAIN_KeyButMask & K_CTRL)) {
-				if (pool->Max.valid) {
-					mr = pool->Max.Size.x;
-					md = pool->Max.Size.y;
-				}
-				if (ml >= mr  &&  mu >= md) {
-					ev_i.evi_flags &= ~MU_M1;
-					cursor         =  0x000;
-					CrsrSelect (&_WMGR_Cursor.X);
-				} else {
-					if (ml > mr) ml = mr;
-					if (mu > md) mu = md;
-				}
-			}
+		} else { // (!move)
+			move = (WMGR_Cursor == 0x1111);
+			size = !move && (MAIN_KeyButMask & K_CTRL);
 		}
+		cursor = WMGR_Cursor;
+		
 		wind_get_curr (wind->Handle, (GRECT_lib*)pc);
+printf ("W:%X #%i [%i,%i/%i,%i]\n",
+wind->Id, wind->Handle, pc[0].x,pc[0].y,pc[1].x,pc[1].y);
 		pc[2].x = pc[1].x += (pc[3].x = pc[4].x = pc[0].x) -1;
 		pc[2].y = pc[3].y =   pc[0].y + pc[1].y            -1;
 		pc[4].y =            (pc[1].y = pc[0].y)           +1;
@@ -1095,37 +1098,49 @@ WmgrButton (void)
 		pw[4].y = (pw[0].y = pw[1].y = wind->Rect.y + WIND_Root.Rect.y) +1;
 		pw[0].x =  pw[3].x = pw[4].x = pw[1].x + wind->Rect.w -1;
 		pw[2].y =  pw[3].y =           pw[1].y + wind->Rect.h -1;
+		c_l = pc[0].x - MAIN_PointerPos->x;
+		c_u = pc[1].y - MAIN_PointerPos->y;
+		c_r = pc[2].x - MAIN_PointerPos->x;
+		c_d = pc[3].y - MAIN_PointerPos->y;
+		w_l = pw[1].x - MAIN_PointerPos->x;
+		w_u = pw[0].y - MAIN_PointerPos->y;
+		w_r = pw[3].x - MAIN_PointerPos->x;
+		w_d = pw[2].y - MAIN_PointerPos->y;
 		
-		if (MAIN_KeyButMask & 0x01) {
-			if (cursor == 0x100) {
-				cursor = 0x110;
-				CrsrSelect (&_WMGR_Cursor.LD);
-			} else if (cursor == 0x001) {
-				cursor = 0x011;
-				CrsrSelect (&_WMGR_Cursor.RD);
+		if (!move) {
+			int min_x = 0, min_y = 0;
+			PROPERTIES * pool;
+			if (!size && (pool = wind->Properties)) {
+				if (pool->Base.valid) {
+					min_x = pool->Base.Size.x;
+					min_y = pool->Base.Size.y;
+					if (pool->Inc.valid) {
+						min_x *= pool->Inc.Step.x;
+						min_y *= pool->Inc.Step.y;
+					}
+				} else if (pool->Min.valid) {
+					min_x = pool->Min.Size.x;
+					min_y = pool->Min.Size.y;
+				}
+				if (pool->Max.valid) {
+					if      (cursor & 0x0001) mr = pw[1].x + pool->Max.Size.x - w_r;
+					else if (cursor & 0x0100) ml = pw[3].x - pool->Max.Size.x - w_l;
+					if      (cursor & 0x0010) md = pw[0].y + pool->Max.Size.y - w_d;
+				}
 			}
-		}
-		if (cursor & 0x100) {
-			int _l = ml;
-			ch = pc[0].x - MAIN_PointerPos->x;
-			wh = pw[1].x - MAIN_PointerPos->x;
-			ml = pw[0].x - mr - wh;
-			mr = pw[0].x - _l - wh;
-		} else if (cursor & 0x001) {
-			ch = pc[1].x - MAIN_PointerPos->x;
-			wh = pw[0].x - MAIN_PointerPos->x;
-			ml = pw[1].x + ml - wh;
-			mr = pw[1].x + mr - wh;
-		} else {
-			ch = wh = 0;
-		}
-		if (cursor & 0x010) {
-			cv = pc[2].y - MAIN_PointerPos->y;
-			wv = pw[3].y - MAIN_PointerPos->y;
-			mu = pw[0].y + mu - wv;
-			md = pw[0].y + md - wv;
-		} else {
-			cv = wv = 0;
+			if      (cursor & 0x0001) ml = pw[1].x + min_x - w_r;
+			else if (cursor & 0x0100) mr = pw[3].x - min_x - w_l;
+			if      (cursor & 0x0010) mu = pw[0].y + min_y - w_d;
+		
+		} else { // (move == xTrue)
+			mu     = WIND_Root.Rect.y                    - c_u -1;
+			magn.x = WIND_Root.Rect.x                    - c_l;
+			magn.w = WIND_Root.Rect.x + WIND_Root.Rect.w - c_r - magn.x;
+			magn.y = -1;
+			magn.h = WIND_Root.Rect.y + WIND_Root.Rect.h - c_d - magn.y;
+			ev_i.evi_m2leave = MO_LEAVE;
+			ev_i.evi_m2      = magn;
+			ev_i.evi_flags  |= MU_M2;
 		}
 		
 		vswr_mode (GRPH_Vdi, MD_XOR);
@@ -1148,17 +1163,58 @@ WmgrButton (void)
 			if (ev & MU_TIMER) {
 				ev_i.evi_flags &= ~MU_TIMER;
 			}
-			if (ev & MU_M1) {
-				if (cursor & 0x100) {
-					pc[0].x = pc[3].x = pc[4].x = mx + ch;
-					pw[1].x = pw[2].x           = mx + wh;
-				} else if (cursor & 0x001) {
-					pc[1].x = pc[2].x           = mx + ch;
-					pw[0].x = pw[3].x = pw[4].x = mx + wh;
+			if (ev & MU_M2) {
+				if (ev_i.evi_m2leave == MO_ENTER) {
+					ev_i.evi_m2leave = MO_LEAVE;
+				} else {
+					if (mx < magn.x) {
+						ev_i.evi_m2.x = magn.x - WMGR_DECOR *2 +1;
+						ev_i.evi_m2.w = WMGR_DECOR *2;
+						magnet        = 0x1010;
+					} else if (mx >= magn.x + magn.w) {
+						ev_i.evi_m2.x = magn.x + magn.w;
+						ev_i.evi_m2.w = WMGR_DECOR *2;
+						magnet        = 0x1010;
+					} else {
+						ev_i.evi_m2.x = magn.x;
+						ev_i.evi_m2.w = magn.w;
+						magnet        = 0x1111;
+					}
+					if (my >= magn.y + magn.h) {
+						ev_i.evi_m2.y = magn.y + magn.h;
+						ev_i.evi_m2.h = WMGR_DECOR *2;
+						magnet       &= ~0x1010;
+					} else {
+						ev_i.evi_m2.y = magn.y;
+						ev_i.evi_m2.h = magn.h;
+					}
+					if (magnet != 0x1111) {
+						PXY m = { mx, my };
+						if (!PXYinRect (&m, &ev_i.evi_m2)) {
+							ev_i.evi_m2leave = MO_ENTER;
+							ev_i.evi_m2      = magn;
+							magnet           = 0x1111;
+						}
+					}
 				}
-				if (cursor & 0x010) {
-					pc[2].y = pc[3].y = my + cv;
-					pw[2].y = pw[3].y = my + wv;
+			}
+			if (ev & MU_M1) {
+				cursor = WMGR_Cursor & magnet;
+				if (cursor & 0x1000) {
+					pc[4].y = (pc[0].y = pc[1].y = my + c_u) +1;
+					pw[4].y = (pw[0].y = pw[1].y = my + w_u) +1;
+				}
+				if (cursor & 0x0010) {
+					pc[2].y = pc[3].y           = my + c_d;
+					pw[2].y = pw[3].y           = my + w_d;
+				}
+				if (cursor & 0x0100) {
+					pc[0].x = pc[3].x = pc[4].x = mx + c_l;
+					pw[1].x = pw[2].x           = mx + w_l;
+				}
+				if (cursor & 0x0001) {
+					pc[1].x = pc[2].x           = mx + c_r;
+					pw[0].x = pw[3].x = pw[4].x = mx + w_r;
 				}
 				*(PXY*)&ev_i.evi_m1 = ev_o.evo_mouse;
 			}
@@ -1167,8 +1223,18 @@ WmgrButton (void)
 		vsl_type (GRPH_Vdi, SOLID);
 		
 		if (ev_i.evi_flags & MU_TIMER) {
-			WindCirculate (wind, PlaceOnTop);
+			WindCirculate (wind, (wind_get_top() != wind->Handle ? PlaceOnTop
+			                                                     : PlaceOnBottom));
 		
+		} else if (move) {
+			if (pw[1].x != wind->Rect.x + WIND_Root.Rect.x ||
+			    pw[1].y != wind->Rect.y + WIND_Root.Rect.y) {
+				short msg[8] = {
+					WM_MOVED, 0, 0, wind->Handle,
+					pc[0].x, pc[0].y, pc[2].x - pc[0].x +1, pc[2].y - pc[0].y +1 };
+				WmgrMessage (msg);
+			}
+			
 		} else {
 			pw[2].x  = pw[1].x - WIND_Root.Rect.x - wind->Rect.x;
 			pw[2].y  = 0;
@@ -1181,6 +1247,19 @@ WmgrButton (void)
 		}
 	}
 	return xTrue;
+}
+
+//==============================================================================
+void
+WmgrKeybd (short chng_meta)
+{
+	if (chng_meta & MAIN_KeyButMask & K_ALT) {
+		WmgrCursor (NULL, NULL);
+	
+	} else {
+		WINDOW * wind = _Wmgr_WindByPointer();
+		if (wind) WmgrCursor (wind, NULL);
+	}
 }
 
 

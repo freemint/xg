@@ -41,7 +41,8 @@ void WmgrSetFocus (short focus);
 
 BOOL WmgrMenu    (short title, short entry, short meta);
 BOOL WmgrMessage (short * msg);
-BOOL WmgrButton  (void);
+BOOL WmgrButton  (p_WINDOW);
+void WmgrKeybd   (short chng_meta);
 
 
 extern CONST CARD16 WMGR_OpenCounter;
