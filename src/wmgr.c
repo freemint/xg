@@ -13,6 +13,7 @@
 #include "tools.h"
 #include "wmgr.h"
 #include "window.h"
+#include "pixmap.h"
 #include "event.h"
 #include "Cursor.h"
 #include "grph.h"
@@ -80,6 +81,8 @@ static CLIENT _WMGR_Client = {
 //------------------------------------------------------------------------------
 // Declarations from 'Xutil.h'
 //
+#ifndef _XUTIL_H_
+
 typedef struct {
 	long flags;       // marks which fields in this structure are defined
 	long _x,_y,_w,_h; // obsolete
@@ -105,6 +108,8 @@ typedef struct {
 #define PAspect     (1L << 7) // program specified min and max aspect ratios
 #define PBaseSize   (1L << 8) // program specified base for incrementing
 #define PWinGravity (1L << 9) // program specified window gravity
+
+#endif _XUTIL_H_
 
 
 //==============================================================================
@@ -756,21 +761,74 @@ _Wmgr_WindByPointer (void)
 }
 
 //------------------------------------------------------------------------------
+typedef struct {
+	long flags;   // marks which fields in this structure are defined
+	long input;   // does this application rely on the window manager to
+	              // get keyboard input?
+	int    initial_state;  // see below
+	Pixmap icon_pixmap;    // pixmap to be used as icon
+	Window icon_window;    // window to be used as icon
+	int    icon_x, icon_y; // initial position of icon
+	Pixmap icon_mask;      // icon mask bitmap
+	XID    window_group;   // id of related window group
+	/* this structure may be extended in the future */
+} WmHints;
+
+/* definition for flags of XWMHints */
+
+#define InputHint 		(1L << 0)
+#define StateHint 		(1L << 1)
+#define IconPixmapHint		(1L << 2)
+#define IconWindowHint		(1L << 3)
+#define IconPositionHint 	(1L << 4)
+#define IconMaskHint		(1L << 5)
+#define WindowGroupHint		(1L << 6)
+#define AllHints (InputHint|StateHint|IconPixmapHint|IconWindowHint| \
+IconPositionHint|IconMaskHint|WindowGroupHint)
+#define XUrgencyHint		(1L << 8)
+
+/* definitions for initial window state */
+#define WithdrawnState 0	/* for windows that are not mapped */
+#define NormalState 1	/* most applications want to start this way */
+#define IconicState 3	/* application wants to start as an icon */
+
 static void
 _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 {
-	GRECT work, sect;
-	MFDB  screen = { NULL };
-	short pxy[8] = { 0, 0, _WMGR_Icon.fd_w -1, _WMGR_Icon.fd_h -1 };
-	short col[2] = { G_BLACK, G_WHITE };
-	PXY   rec[2];
+	GRECT  work, sect;
+	MFDB   screen = { NULL };
+	MFDB * icon   = &_WMGR_Icon;
+	MFDB * mask   = NULL;
+	short  pxy[8] = { 0, 0, };
+	short  col[3] = { G_BLACK, G_WHITE, 0 };
+	PXY    rec[2];
+	typeof(vrt_cpyfm) * cpyfm = vrt_cpyfm;
+	int                 mode  = MD_TRANS;
 	
+	WmHints * hints = PropValue (wind,
+	                             XA_WM_HINTS, XA_WM_HINTS, sizeof(WmHints));
+	if (hints && hints->icon_pixmap) {
+		PIXMAP * pmap = PmapFind (hints->icon_pixmap);
+		if (pmap) {
+			icon = PmapMFDB (pmap);
+			if (icon->fd_nplanes != 1) {
+				cpyfm = (typeof(vrt_cpyfm)*)vro_cpyfm;
+				mode  = S_OR_D;
+			}
+			if (hints->icon_mask
+			    && (pmap = PmapFind (hints->icon_mask)) && pmap->Depth == 1) {
+				mask = PmapMFDB (pmap);
+			}
+		}
+	}
 	WindUpdate (xTrue);
 	wind_get_work (wind->Handle, &work);
-	pxy[4] = work.x + ((work.w - _WMGR_Icon.fd_w) /2);
-	pxy[5] = work.y + ((work.h - _WMGR_Icon.fd_h) /2);
-	pxy[6] = pxy[4] + _WMGR_Icon.fd_w -1;
-	pxy[7] = pxy[5] + _WMGR_Icon.fd_h -1;
+	pxy[2] = icon->fd_w -1;
+	pxy[3] = icon->fd_h -1;
+	pxy[4] = work.x + ((work.w - icon->fd_w) /2);
+	pxy[5] = work.y + ((work.h - icon->fd_h) /2);
+	pxy[6] = pxy[4] + icon->fd_w -1;
+	pxy[7] = pxy[5] + icon->fd_h -1;
 	rec[1].x = (rec[0].x = work.x) + work.w -1;
 	rec[1].y = (rec[0].y = work.y) + work.h -1;
 	
@@ -782,7 +840,8 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 		if (GrphIntersect (&sect, &work)) {
 			vs_clip_r (GRPH_Vdi, &sect);
 			v_bar     (GRPH_Vdi, (short*)rec);
-			vrt_cpyfm (GRPH_Vdi, MD_TRANS, pxy, &_WMGR_Icon, &screen, col);
+			if (mask) vrt_cpyfm (GRPH_Vdi, MD_TRANS, pxy, mask, &screen, col +1);
+			(*cpyfm) (GRPH_Vdi, mode, pxy, icon, &screen, col);
 		}
 		wind_get_next (wind->Handle, &sect);
 	}
