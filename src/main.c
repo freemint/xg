@@ -38,8 +38,8 @@ CARD32 MAIN_TimeStamp  = 0;
 CARD16 MAIN_KeyButMask = 0;
 PXY  * MAIN_PointerPos = &ev_o.evo_mouse;
 
-static BOOL _MAIN_Mctrl = xFalse;
-short       _MAIN_Wupdt = 0;
+short _MAIN_Mctrl = 0;
+short _MAIN_Wupdt = 0;
 
 
 //==============================================================================
@@ -130,24 +130,17 @@ main (int argc, char * argv[])
 				
 				if (event & MU_BUTTON) {
 					if (ev_o.evo_mbutton) {
-						if (!_MAIN_Mctrl) {
-							wind_update (BEG_MCTRL);
-							_MAIN_Mctrl = xTrue;
-						}
+						WindMctrl (xTrue);
 						ev_i.evi_bclicks = 0x0101;
 					} else {
-						if (_MAIN_Mctrl) {
-							wind_update (END_MCTRL);
-							_MAIN_Mctrl = xFalse;
-						}
+						WindMctrl (xFalse);
 						ev_i.evi_bclicks = 0x0102;
 					}
 					if (WindButton (prev_mask, ev_o.evo_mclicks) && _MAIN_Mctrl) {
 						graf_mkstate_p (&ev_o.evo_mouse,
 						                &ev_o.evo_mbutton, &ev_o.evo_kmeta);
 						if (!ev_o.evo_mbutton) {
-							wind_update (END_MCTRL);
-							_MAIN_Mctrl = xFalse;
+							WindMctrl (xFalse);
 						}
 						MAIN_KeyButMask = ev_o.evo_kmeta | PntrMap(ev_o.evo_mbutton);
 						ev_i.evi_bclicks = 0x0102;
@@ -168,8 +161,9 @@ main (int argc, char * argv[])
 					printf ("\nLast client left, server reset ...\n");
 					if (_MAIN_Mctrl) {
 						puts("*BOING*");
-						wind_update (END_MCTRL);
-						_MAIN_Mctrl = xFalse;
+						while (_MAIN_Mctrl > 0) {
+							WindMctrl (xFalse);
+						}
 					}
 					while (_MAIN_Wupdt > 0) {
 						WindUpdate (xFalse);
@@ -186,12 +180,11 @@ main (int argc, char * argv[])
 static void
 shutdown (void)
 {
-	if (_MAIN_Mctrl) {
-		wind_update (END_MCTRL);
-		_MAIN_Mctrl = xFalse;
-	}
 	while (_MAIN_Wupdt > 0) {
 		WindUpdate (xFalse);
+	}
+	while (_MAIN_Mctrl > 0) {
+		WindMctrl (xFalse);
 	}
 	WmgrExit();
 	appl_exit();

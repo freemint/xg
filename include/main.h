@@ -70,6 +70,13 @@ static inline void WindUpdate (onNoff) {
 	else if (_MAIN_Wupdt) { wind_update (0); _MAIN_Wupdt--; }
 }
 
+static inline void WindMctrl (onNoff) {
+	extern int   wind_update (int);
+	extern short _MAIN_Mctrl;
+	if      (onNoff)      { wind_update (3); _MAIN_Mctrl++; }
+	else if (_MAIN_Mctrl) { wind_update (2); _MAIN_Mctrl--; }
+}
+
 
 # undef CONST
 #endif __MAIN_H__
