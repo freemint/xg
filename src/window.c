@@ -95,6 +95,35 @@ WindInit (BOOL initNreset)
 
 
 //==============================================================================
+void
+WindCleanup (CLIENT * clnt)
+{
+	WINDOW * wind = &WIND_Root;
+	BOOL     b    = xTrue;
+	do {
+		if (b) {
+			if (wind->u.List.AllMasks) {
+				EvntClr (wind, clnt);
+				if (!clnt->EventReffs) break;
+			}
+			if (wind->StackBot) {
+				wind = wind->StackBot;
+				continue;
+			}
+		}
+		if (wind->NextSibl) {
+			wind = wind->NextSibl;
+			b    = xTrue;
+			continue;
+		} else {
+			wind = wind->Parent;
+			b    = xFalse;
+		}
+	} while (wind);
+}
+
+
+//==============================================================================
 BOOL
 WindButton (CARD16 prev_mask, int count)
 {

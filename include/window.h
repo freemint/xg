@@ -92,7 +92,8 @@ typedef struct s_WINDOW {
 extern WINDOW WIND_Root;
 
 
-void WindInit (BOOL initNreset);
+void WindInit    (BOOL initNreset);
+void WindCleanup (p_CLIENT clnt);
 
 void   WindDelete   (p_WINDOW , p_CLIENT);
 CARD16 WindClipLock (p_WINDOW , CARD16 border, const GRECT * clip,
