@@ -2,7 +2,7 @@
 //
 // gcontext.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-06-05 - Initial Version.
@@ -29,58 +29,7 @@ GcntDelete (p_GC gc, p_CLIENT clnt)
 	if (gc->Stipple)  PmapFree (gc->Stipple, NULL);
 	if (gc->ClipMask) PmapFree (gc->ClipMask, NULL);
 	if (gc->ClipRect) free     (gc->ClipRect);
-	if (gc->Vdi > 0)  v_clsvwk (gc->Vdi);
 	XrscDelete (clnt->Fontables, gc);
-}
-
-//==============================================================================
-#include <setjmp.h>
-
-void
-GcntActivate (GC * gc)
-{
-	#define F_GND gc->Foreground
-	#define B_GND gc->Background
-	short c = YELLOW, m = MD_TRANS;
-	switch (gc->Function) {
-		case GXclear:        c = RED;   m = MD_TRANS; break; //  0
-		case GXand:          c = GREEN; m = MD_TRANS; break; //  src AND  dst
-		case GXandReverse:   c = GREEN; m = MD_TRANS; break; //  src AND !dst
-		case GXcopy:         c = F_GND; m = MD_TRANS; break; //  src
-		case GXandInverted:  c = GREEN; m = MD_TRANS; break; // !src AND  dst
-		case GXnoop:         c = RED;   m = MD_TRANS; break; //           dst
-		case GXxor:          c = F_GND; m = MD_XOR;   break; //  src XOR  dst
-		case GXor:           c = BLUE;  m = MD_TRANS; break; //  src OR   dst
-		case GXnor:          c = GREEN; m = MD_TRANS; break; // !src AND !dst
-		case GXequiv:        c = BLUE;  m = MD_TRANS; break; // !src XOR  dst
-		case GXinvert:       c = RED;   m = MD_TRANS; break; //          !dst
-		case GXorReverse:    c = BLUE;  m = MD_TRANS; break; //  src OR  !dst
-	//	case GXcopyInverted: c = F_GND; m = MD_ERASE; break; // !src
-		case GXcopyInverted: c = RED; m = MD_REPLACE; break; // !src
-		case GXorInverted:   c = BLUE;  m = MD_TRANS; break; // !src OR   dst
-		case GXnand:         c = BLUE;  m = MD_TRANS; break; // !src OR  !dst
-		case GXset:          c = RED;   m = MD_TRANS; break; //  1
-	}
-	if (!gc->Vdi) {
-		int work_in[16] = { 1, SOLID,c, MRKR_DOT,c, 1,c, FIS_SOLID,0,c, 2 };
-		int hdl = GRPH_Handle;
-		int work_out[57];
-		v_opnvwk (work_in, &hdl, work_out);
-		if (hdl <= 0) {
-			extern CLIENT * CLNT_Requestor;
-			extern jmp_buf  CLNT_Error;
-			CARD8 t = ((xReq*)(CLNT_Requestor->iBuf.Mem))->reqType & 0x7F;
-			printf ("\33pError\33q Can't initialize VDI for G:%X (%s)!\n",
-			        gc->Id, RequestTable[t].Name);
-			longjmp (CLNT_Error, 4);
-		}
-		vswr_mode     (hdl, m);
-		vsf_perimeter (hdl, 0);
-		gc->Vdi = hdl;
-		
-		printf ("vwk -> #%i (%i*%i) \n",
-		        gc->Vdi, work_out[10], work_out[5]);
-	}
 }
 
 
@@ -385,9 +334,8 @@ RQ_CreateGC (CLIENT * clnt, xCreateGCReq * q)
 		gc->ClipMask    = NULL;
 		gc->TileStip.x  = gc->TileStip.y = 0;
 		gc->Clip.x      = gc->Clip.y     = 0;
-		gc->Vdi         = 0;
-		gc->ClipNum     = 0;
 		gc->ClipRect    = NULL;
+		gc->ClipNum     = 0;
 		
 		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_CreateGC);
 		
@@ -432,13 +380,6 @@ RQ_ChangeGC (CLIENT * clnt, xChangeGCReq * q)
 		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_ChangeGC);
 		
 		DEBUG (,);
-		
-		if (gc->Vdi && (q->mask & GCForeground)) {
-			vsf_color (gc->Vdi, gc->Foreground);
-			vsl_color (gc->Vdi, gc->Foreground);
-			vsm_color (gc->Vdi, gc->Foreground);
-			vst_color (gc->Vdi, gc->Foreground);
-		}
 	}
 }
 
@@ -515,13 +456,6 @@ RQ_CopyGC (CLIENT * clnt, xCopyGCReq * q)
 		if (q->mask & GCTileStipYOrigin)   dst->TileStip.y  = src->TileStip.y;
 		if (q->mask & GCClipXOrigin)       dst->Clip.x      = src->Clip.x;
 		if (q->mask & GCClipYOrigin)       dst->Clip.y      = src->Clip.y;
-		
-		if (dst->Vdi && (q->mask & GCForeground)) {
-			vsf_color (dst->Vdi, dst->Foreground);
-			vsl_color (dst->Vdi, dst->Foreground);
-			vsm_color (dst->Vdi, dst->Foreground);
-			vst_color (dst->Vdi, dst->Foreground);
-		}
 	}
 }
 
@@ -566,7 +500,8 @@ RQ_SetClipRectangles (CLIENT * clnt, xSetClipRectanglesReq * q)
 	
 	} else { //..................................................................
 		
-		DEBUG (SetClipRectangles," G:%lX %i,%i", q->gc, q->xOrigin, q->yOrigin);
+		DEBUG (SetClipRectangles," G:%lX (%i,%i) %li",
+		       q->gc, q->xOrigin, q->yOrigin, num);
 		
 		if (gc->ClipMask) {
 			PmapFree (gc->ClipMask, NULL);

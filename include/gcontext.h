@@ -2,7 +2,7 @@
 //
 // gcontext.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-06-05 - Initial Version.
@@ -47,16 +47,13 @@ typedef struct s_GC {
 	CARD32   PlaneMask, Foreground, Background;
 	p_PIXMAP Tile, Stipple, ClipMask;
 	PXY      TileStip,      Clip;
-	short    Vdi;
 	
-	short   ClipNum;
 	p_GRECT ClipRect;
+	short   ClipNum;
 } GC;
 
 
 void GcntDelete (p_GC , p_CLIENT);
-
-void GcntActivate (GC * gc);
 
 static inline p_GC GcntFind (CARD32 id) {
 	p_GC gc = FablFind(id).Gc;

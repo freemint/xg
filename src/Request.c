@@ -2,25 +2,18 @@
 //
 // request.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-09-09 - Initial Version.
 //==============================================================================
 //
 #include "clnt_P.h"
-#include "window.h"
-#include "gcontext.h"
 #include "x_mint.h"
 
 #include <stdio.h> // printf
 
 #include <X11/Xproto.h>
-
-
-typedef void (*RQSTCB_W) (p_CLIENT, p_xReq, p_WINDOW);
-typedef void (*RQSTCB_D) (p_CLIENT, p_xReq, p_DRAWABLE);
-typedef void (*RQSTCB_DG)(p_CLIENT, p_xReq, p_DRAWABLE, p_GC);
 
 
 //------------------------------------------------------------------------------
