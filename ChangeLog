@@ -1,3 +1,8 @@
+2001-05-08: 0.08.1
+   - implemented icon hints to allow clients to set bitmaps for iconified
+     windows.
+   - few code cleanups.
+
 2001-05-06: 0.08
    - implemented mapping for milan pc-keyboards.
    - fixed a bug in parsing of fonts.db file.
