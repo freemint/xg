@@ -56,6 +56,29 @@ ATOM * ATOM_Table[MAX_ATOM +2] = {
 };
 CARD32 ATOM_Count = LAST_PREDEF_ATOM;
 
+static short _ATOM_Order[] = {
+	WM_DELETE_WINDOW, WM_PROTOCOLS,        XA_ARC,           XA_ATOM,
+	XA_BITMAP,        XA_CAP_HEIGHT,       XA_CARDINAL,      XA_COLORMAP,
+	XA_COPYRIGHT,     XA_CURSOR,           XA_CUT_BUFFER0,   XA_CUT_BUFFER1,
+	XA_CUT_BUFFER2,   XA_CUT_BUFFER3,      XA_CUT_BUFFER4,   XA_CUT_BUFFER5,
+	XA_CUT_BUFFER6,   XA_CUT_BUFFER7,      XA_DRAWABLE,      XA_END_SPACE,
+	XA_FAMILY_NAME,   XA_FONT,             XA_FONT_NAME,     XA_FULL_NAME,
+	XA_INTEGER,       XA_ITALIC_ANGLE,     XA_MAX_SPACE,     XA_MIN_SPACE,
+	XA_NORM_SPACE,    XA_NOTICE,           XA_PIXMAP,        XA_POINT,
+	XA_POINT_SIZE,    XA_PRIMARY,          XA_QUAD_WIDTH,    XA_RECTANGLE,
+	XA_RESOLUTION,    XA_RESOURCE_MANAGER, XA_RGB_BEST_MAP,  XA_RGB_BLUE_MAP,
+	XA_RGB_COLOR_MAP, XA_RGB_DEFAULT_MAP,  XA_RGB_GRAY_MAP,  XA_RGB_GREEN_MAP,
+	XA_RGB_RED_MAP,   XA_SECONDARY,        XA_STRIKEOUT_ASCENT,
+	XA_STRIKEOUT_DESCENT,                  XA_STRING,        XA_SUBSCRIPT_X,
+	XA_SUBSCRIPT_Y,   XA_SUPERSCRIPT_X,    XA_SUPERSCRIPT_Y,
+	XA_UNDERLINE_POSITION,                 XA_UNDERLINE_THICKNESS,
+	XA_VISUALID,      XA_WEIGHT,           XA_WINDOW,        XA_WM_CLASS,
+	XA_WM_CLIENT_MACHINE,                  XA_WM_COMMAND,    XA_WM_HINTS,
+	XA_WM_ICON_NAME,  XA_WM_ICON_SIZE,     XA_WM_NAME,       XA_WM_NORMAL_HINTS,
+	XA_WM_SIZE_HINTS, XA_WM_TRANSIENT_FOR, XA_WM_ZOOM_HINTS, XA_X_HEIGHT
+};
+static ATOM * _ATOM_Sort[MAX_ATOM -1];
+
 
 //==============================================================================
 void
@@ -66,6 +89,9 @@ AtomInit (BOOL initNreset)
 	// first call from Server initialization, fill in the name length for each
 	// predefined atom
 	if (initNreset) {
+		if ((sizeof(_ATOM_Order) /2) != (LAST_PREDEF_ATOM -1)) {
+			// error "FATAL"
+		}
 		for (i = 1; i <= LAST_PREDEF_ATOM; ++i) {
 			ATOM_Table[i]->Id     = i;
 			ATOM_Table[i]->Length = strlen (ATOM_Table[i]->Name);
@@ -87,29 +113,47 @@ AtomInit (BOOL initNreset)
 	memset (ATOM_Table + LAST_PREDEF_ATOM +1, 0,
 	         (MAX_ATOM - LAST_PREDEF_ATOM) * sizeof(ATOM*));
 	ATOM_Count = LAST_PREDEF_ATOM;
+	for (i = 0; i < LAST_PREDEF_ATOM; ++i) {
+		_ATOM_Sort[i] = ATOM_Table[_ATOM_Order[i]];
+	}
 }
 
 
-//------------------------------------------------------------------------------
+//==============================================================================
 Atom
 AtomGet (const char * name, size_t len, BOOL onlyIfExists)
 {
-	int n = 1;
+	short  beg = 0;
+	short  end = ATOM_Count -1;
+	short  num = 0, dir = 0;
+	ATOM * atom;
 	
-	do if (ATOM_Table[n]->Length == len  &&
-		    !strncmp (ATOM_Table[n]->Name, name, len)) {
-		return ATOM_Table[n]->Id;
-	} while (++n <= ATOM_Count);
+	while (end >= beg) {
+		num = (end + beg) /2;
+		dir = strncmp (name, _ATOM_Sort[num]->Name, len);
+		if (!dir) dir = len  - _ATOM_Sort[num]->Length;
+		if      (dir > 0) beg  = num +1;
+		else if (dir < 0) end  = num -1;
+		else              return _ATOM_Sort[num]->Id;
+	}
+	if (dir > 0) num++;
 	
 	if (onlyIfExists  ||  ATOM_Count >= MAX_ATOM
-	    || !(ATOM_Table[n] = malloc (sizeof(ATOM) + len))) return None;
+	    || !(atom = malloc (sizeof(ATOM) + len))) return None;
 	
-	((char*)memcpy (ATOM_Table[n]->Name,name, len))[len] = '\0';
-	ATOM_Table[n]->Length    = len;
-	ATOM_Table[n]->SelOwner  = NULL;
-	ATOM_Table[n]->SelWind   = NULL;
-	ATOM_Table[n]->SelTime   = 0uL;
-	return ATOM_Table[n]->Id = ATOM_Count = n;
+	((char*)memcpy (atom->Name, name, len))[len] = '\0';
+	atom->Id       = ++ATOM_Count;
+	atom->Length   = len;
+	atom->SelOwner = NULL;
+	atom->SelWind  = NULL;
+	atom->SelTime  = 0uL;
+	
+	if (num < ATOM_Count) {
+		memmove (&_ATOM_Sort[num+1], &_ATOM_Sort[num], (ATOM_Count - num) *4);
+	}
+	_ATOM_Sort[num] = ATOM_Table[ATOM_Count] = atom;
+	
+	return ATOM_Count;
 }
 
 
