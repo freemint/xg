@@ -316,7 +316,7 @@ RQ_OpenFont (CLIENT * clnt, xOpenFontReq * q)
 						i++;
 					}
 					vst_width  (GRPH_Vdi, face->Width, dmy,dmy, dmy,dmy);
-					_Font_Bounds (face, xTrue);
+					_Font_Bounds (face, xTrue, NULL,NULL);
 					face->Next = *prot;
 					*prot      = face;
 				}

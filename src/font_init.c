@@ -47,6 +47,14 @@ typedef struct {
 	unsigned short fh_orupm;
 } VQT_FHDR;
 
+typedef struct s_FONT_DB {
+	struct s_FONT_DB * next;
+	short              id;
+	short              cnt;
+	FONTFACE         * list;
+	char               file[1];
+} FONT_DB;
+
 
 static const short _FONT_Proto[] = {
 	' ','!','"','#','$','%','&', 39, '(',')','*','+',',','-','.','/',
@@ -115,22 +123,6 @@ FONTALIAS * _FONT_Alias = NULL;
 
 
 //------------------------------------------------------------------------------
-static void
-_save_face (FILE * file, FONTFACE * face)
-{
-	fputs (face->Name, file);
-	fputs ("\n",       file);
-	fprintf (file, "   %i, %i,%i, %i   %i,%i   %i,%i"
-	         "   %i, %i,%i, %i,%i   %i, %i,%i, %i,%i\n",
-	         face->Points, face->Width, face->Height, face->HalfLine,
-	         face->MinChr, face->MaxChr, face->Ascent, face->Descent,
-	         face->MinWidth, face->MinAsc, face->MinDesc,
-	         face->MinLftBr, face->MinRgtBr,
-	         face->MaxWidth, face->MaxAsc, face->MaxDesc,
-	         face->MaxLftBr, face->MaxRgtBr);
-}
-
-//------------------------------------------------------------------------------
 FONTFACE *
 _Font_Create (const char * name, size_t len, unsigned type, BOOL sym, BOOL mono)
 {
@@ -149,7 +141,7 @@ _Font_Create (const char * name, size_t len, unsigned type, BOOL sym, BOOL mono)
 
 //------------------------------------------------------------------------------
 void
-_Font_Bounds (FONTFACE * face, BOOL mono)
+_Font_Bounds (FONTFACE * face, BOOL mono, short * o_hdl, MFDB * mfdb)
 {
 	short dist[5], width, minADE, maxADE, dmy[3];
 	
@@ -182,30 +174,50 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 	
 	if ((!face->Type || face->Type >= 2) &&
 	    (face->HalfLine >= face->Ascent || face->MaxDesc > face->Ascent /2)) {
-		short hgt      = face->Ascent + face->Descent;
-		short size     = hgt * GRPH_Depth;
-		long  buf[size < 29 ? 29 : size];
-		MFDB  mfdb     = { buf, 32, hgt, 2, 0, 1, 0,0,0 };
-		short hdl      = GRPH_Handle;
-		short w_in[20] = { 1, 0,0, 0,0, 1,G_BLACK, 0,0,0, 2,
-		                   31,hgt -1, GRPH_muWidth, GRPH_muHeight, 0,0,0,0,0 };
+		short hgt = face->Ascent + face->Descent;
+		short hdl = (o_hdl ? *o_hdl : 0);
+		if (hdl <= 0) {
+			if (!o_hdl) {
+				mfdb          = alloca (sizeof(MFDB));
+				mfdb->fd_h    = hgt;
+				mfdb->fd_addr = alloca (sizeof(long) * mfdb->fd_h * GRPH_Depth);
+			} else if (!mfdb->fd_addr) {
+				mfdb->fd_h    = 256;
+				mfdb->fd_addr = malloc (sizeof(long) * mfdb->fd_h * GRPH_Depth);
+			}
+			mfdb->fd_w       = 32;
+			mfdb->fd_wdwidth = (mfdb->fd_w +15) /16;
+			mfdb->fd_stand   = 0;
+			mfdb->fd_nplanes = 1;
+			mfdb->fd_r1 = mfdb->fd_r2 = mfdb->fd_r3 = 0;
+			if (mfdb->fd_addr) {
+				short w_in[20] = { 1, 0,0, 0,0, 1,G_BLACK, 0,0,0, 2,
+				                   mfdb->fd_w -1, mfdb->fd_h -1,
+				                   GRPH_muWidth, GRPH_muHeight, 0,0,0,0,0 };
+				short w_out[57];
+				hdl = GRPH_Handle;
+				v_opnbm (w_in, mfdb, &hdl, w_out);
+				if (hdl > 0) {
+					short pxy[4] = { 0, 0, mfdb->fd_w -1, mfdb->fd_h -1 };
+					vst_load_fonts(hdl, 0);
+					vs_clip       (hdl, 1, pxy);
+					vswr_mode     (hdl, MD_TRANS);
+					vst_alignment (hdl, 1, 5, dmy, dmy);
+				}
+			}
+		}
 		
-		v_opnbm (w_in, &mfdb, &hdl, (short*)buf);
 		if (hdl > 0) {
-			short pxy[4] = { 0, 0, 31, hgt -1 };
-			PXY   p      = { 14, 0 };
-			short i;
+			long * buf = mfdb->fd_addr;
+			PXY     p   = { 14, 0 };
+			short   i;
 			
-			vst_load_fonts(hdl, 0);
-			vs_clip       (hdl, 1, pxy);
-			vswr_mode     (hdl, MD_TRANS);
-			vst_font      (hdl, face->Index);
-			vst_alignment (hdl, 1, 5, pxy, pxy);
+			vst_font (hdl, face->Index);
 			if (!face->Type) {
-				vst_height (hdl, face->Height, pxy, pxy, pxy, pxy);
-				vst_width  (hdl, face->Width,  pxy, pxy, pxy, pxy);
+				vst_height (hdl, face->Height, dmy, dmy, dmy, dmy);
+				vst_width  (hdl, face->Width,  dmy, dmy, dmy, dmy);
 			} else {
-				vst_point  (hdl, face->Points, pxy, pxy, pxy, pxy);
+				vst_point  (hdl, face->Points, dmy, dmy, dmy, dmy);
 			}
 			for (i = 0; i < hgt; buf[i++] = 0);
 			
@@ -233,179 +245,209 @@ _Font_Bounds (FONTFACE * face, BOOL mono)
 				while (++i < hgt && !buf[i]);
 				face->MaxAsc = face->Ascent - i;
 			}
-			vst_unload_fonts(hdl, 0);
-			v_clsbm (hdl);
+			
+			if (o_hdl) {
+				*o_hdl = hdl;
+			} else {
+				vst_unload_fonts (hdl, 0);
+				v_clsbm          (hdl);
+			}
 		}
 	}
+}
+
+
+//------------------------------------------------------------------------------
+static void
+_read_alias (void)
+{
+	FONTALIAS ** subst = &_FONT_Subst;
+	FONTALIAS ** alias = &_FONT_Alias;
+	FILE       * file  = fopen (PATH_FontsAlias, "r");
+	char         buf[258];
+	
+	if (!file) return;
+	
+	while (fgets (buf, sizeof(buf), file)) {
+		FONTALIAS * elem;
+		size_t len_a, len_b;
+		char * a = buf, * b;
+		BOOL   is_subst;
+		
+		while (isspace(*a)) a++;
+		if (!*a  ||  *a == '!') continue;
+		
+		if (!(len_a = strcspn (a, " \t:\r\n"))) break;
+		b = a + len_a;
+		while (isspace(*(b))) b++;
+		if ((is_subst = (*b == ':'))) {
+			while (isspace(*++b));
+		}
+		if (!(len_b = strcspn (b, " \t\r\n"))) break;
+		
+		if ((elem = malloc (sizeof(FONTALIAS) + len_a + len_b))) {
+			char * p = elem->Pattern = elem->Name + len_a +1;
+			while (len_b--) *(p++) = tolower (*(b++)); *p = '\0';
+			p = elem->Name;
+			while (len_a--) *(p++) = tolower (*(a++)); *p = '\0';
+			if (is_subst) {
+				*subst = elem;
+				subst  = &elem->Next;
+			} else {
+				*alias = elem;
+				alias  = &elem->Next;
+			}
+			elem->Next = NULL;
+		} else {
+			break;
+		}
+	}
+	fclose (file);
+}
+
+//------------------------------------------------------------------------------
+static FONT_DB * 
+_read_fontdb (FILE * f_db)
+{
+	FONT_DB  * font_db = NULL;
+	FONTFACE * face = NULL, ** fptr = NULL;
+	char       buf[258];
+	int  major = -1, minor = -1, tiny = 0;
+	
+	if (!fgets (buf, sizeof(buf), f_db)
+	    || sscanf (buf, "# fonts.db; %d.%d.%d ", &major, &minor, &tiny) < 2
+	    || minor < 6 || (minor == 6  &&  tiny < 3)) {
+		fclose (f_db);
+		return NULL;
+	}
+	
+	while (fgets (buf, sizeof(buf), f_db)) {
+		unsigned type, isMono, isSymbol;
+		int      id, pre;
+		char     c;
+		int      len = strlen (buf);
+		if (!len || buf[0] == '#') continue;
+		if (buf[len-1] == '\n') buf[--len] = '\0';
+		
+		if (sscanf (buf, "%i: %u,%u,%u%c%n",
+		            &id, &type, &isSymbol, &isMono, &c,&pre) == 5  &&  c == ' ') {
+			FONT_DB * db;
+			len -= pre;
+			if (face) {
+				printf ("A\n");
+				break;
+			} else if (!(db = malloc (sizeof(FONT_DB) + len))) {
+				printf ("a\n");
+				break;
+			}
+			db->next = font_db;
+			db->id   = id;
+			db->cnt  = 0;
+			db->list = NULL;
+			if (len > 0) memcpy (db->file, buf + pre, len +1);
+			else         db->file[0] = '\0';
+			fptr    = &db->list;
+			font_db = db;
+		
+		} else if (!font_db) {
+			printf ("B\n");
+			break;
+		
+		} else if (buf[0] == '-') {
+			if (face) {
+				printf ("C\n");
+				break;
+			} else if (!(face = _Font_Create (buf, len, type, isSymbol, isMono))) {
+				printf ("c\n");
+				break;
+			}
+		
+		} else if (!face) {
+			printf ("D\n");
+			break;
+		
+		} else if (sscanf (buf, "%i, %hi,%hi, %hi  %hi,%hi %hi,%hi"
+		                   "%hi, %hi,%hi, %hi,%hi %hi, %hi,%hi, %hi,%hi",
+				             &pre, &face->Width, &face->Height, &face->HalfLine,
+				             &face->MinChr, &face->MaxChr,
+				             &face->Ascent, &face->Descent,
+				             &face->MinWidth, &face->MinAsc, &face->MinDesc,
+				             &face->MinLftBr, &face->MinRgtBr,
+				             &face->MaxWidth, &face->MaxAsc, &face->MaxDesc,
+				             &face->MaxLftBr, &face->MaxRgtBr) == 18) {
+			face->CharSet = NULL;
+			face->Index   = font_db->id;
+			face->Effects = 0;
+			face->Points  = pre;
+			*fptr = face;
+			fptr  = &face->Next;
+			face  = NULL;
+			font_db->cnt++;
+		
+		} else {
+			if (face) free (face);
+			face = NULL;
+			printf ("d\n");
+			break;
+		}
+	}	
+	fclose (f_db);
+	
+	return font_db;
+}
+
+//------------------------------------------------------------------------------
+static void
+_save_face (FILE * file, FONTFACE * face)
+{
+	fputs (face->Name, file);
+	fputs ("\n",       file);
+	fprintf (file, "   %i, %i,%i, %i   %i,%i   %i,%i"
+	         "   %i, %i,%i, %i,%i   %i, %i,%i, %i,%i\n",
+	         face->Points, face->Width, face->Height, face->HalfLine,
+	         face->MinChr, face->MaxChr, face->Ascent, face->Descent,
+	         face->MinWidth, face->MinAsc, face->MinDesc,
+	         face->MinLftBr, face->MinRgtBr,
+	         face->MaxWidth, face->MaxAsc, face->MaxDesc,
+	         face->MaxLftBr, face->MaxRgtBr);
+	fflush  (file);
 }
 
 //==============================================================================
 void
 FontInit (short count)
 {
-	struct FONT_DB {
-		struct FONT_DB * next;
-		short            id;
-		short            cnt;
-		FONTFACE       * list;
-		char             file[1];
-	} * font_db = NULL;
+	FONT_DB * font_db = NULL;
 	
 	FONTFACE ** list = &_FONT_List;
-	FILE      * f_db;
-	char        buf[258];
+	FILE      * f_db = NULL;
 	int         i, j;
 	
-	while (*list) list = &(*list)->Next;
+	short o_hdl = 0;
+	MFDB  mfdb  = { NULL };
 	
-	/*--- read font.alias --*/
-	
-	if ((f_db = fopen (PATH_FontsAlias, "r"))) {
-		FONTALIAS ** subst = &_FONT_Subst;
-		FONTALIAS ** alias = &_FONT_Alias;
-		while (fgets (buf, sizeof(buf), f_db)) {
-			FONTALIAS * elem;
-			size_t len_a, len_b;
-			char * a = buf, * b;
-			BOOL   is_subst;
-			
-			while (isspace(*a)) a++;
-			if (!*a  ||  *a == '!') continue;
-			
-			if (!(len_a = strcspn (a, " \t:\r\n"))) break;
-			b = a + len_a;
-			while (isspace(*(b))) b++;
-			if ((is_subst = (*b == ':'))) {
-				while (isspace(*++b));
-			}
-			if (!(len_b = strcspn (b, " \t\r\n"))) break;
-			
-			if ((elem = malloc (sizeof(FONTALIAS) + len_a + len_b))) {
-				char * p = elem->Pattern = elem->Name + len_a +1;
-				while (len_b--) *(p++) = tolower (*(b++)); *p = '\0';
-				p = elem->Name;
-				while (len_a--) *(p++) = tolower (*(a++)); *p = '\0';
-				if (is_subst) {
-					*subst = elem;
-					subst  = &elem->Next;
-				} else {
-					*alias = elem;
-					alias  = &elem->Next;
-				}
-				elem->Next = NULL;
-			} else {
-				break;
-			}
-		}
-		fclose (f_db);
-		f_db = NULL;
-	}
-	
-	/*--- read fonts.db ---*/
+	_read_alias();
 	
 	if (   (access (PATH_LibDir, R_OK|W_OK|X_OK) &&
 	        mkdir  (PATH_LibDir, S_IRWXU|S_IRWXG|S_IRWXO))
 	    || (!access (PATH_FontsDb, F_OK) &&
 	        (   access (PATH_FontsDb, W_OK)
 	         || !(f_db = fopen (PATH_FontsDb, "r"))))) {
-		printf ("  \33pERROR\33q: Can't acess /var/lib/.\n");
+		printf ("  \33pERROR\33q: Can't acess %s\n", PATH_LibDir);
 		return;
-		
-	} else {
-		int major = -1, minor = -1, tiny = 0;
-		if (!fgets (buf, sizeof(buf), f_db)
-		    || sscanf (buf, "# fonts.db; %d.%d.%d ", &major, &minor, &tiny) < 2
-		    || minor < 6 || (minor == 6  &&  tiny < 3)) {
-			fclose (f_db);
-			f_db = NULL;
-		}
 	}
-	if (f_db) {
-		FONTFACE * face = NULL, ** fptr = NULL;
-		unsigned   type, isMono, isSymbol;
-		char       c;
-		while (fgets (buf, sizeof(buf), f_db)) {
-			int len = strlen (buf);
-			if (buf[len-1] == '\n') buf[--len] = '\0';
-			if (buf[0] == '#') continue;
-			
-			if (sscanf (buf, "%i: %u,%u,%u%c%n",
-			            &i, &type, &isSymbol, &isMono, &c,&j) == 5  &&  c == ' ') {
-				struct FONT_DB * db;
-				if (face) {
-					printf ("A\n");
-					break;
-				} else if (!(db = malloc (sizeof(struct FONT_DB) + len - j))) {
-					printf ("a\n");
-					break;
-				}
-				db->next = font_db;
-				db->id   = i;
-				db->cnt  = 0;
-				db->list = NULL;
-				if ((len -= j -1) > 1) {
-					memcpy (db->file, buf + j, len);
-				} else {
-					db->file[0] = '\0';
-				}
-				fptr    = &db->list;
-				font_db = db;
-			
-			} else if (!font_db) {
-				printf ("B\n");
-				break;
-			
-			} else if (buf[0] == '-') {
-				if (face) {
-					printf ("C\n");
-					break;
-				} else if (!(face = _Font_Create (buf, len,
-				                                  type, isSymbol, isMono))) {
-					printf ("c\n");
-					break;
-				}
-			
-			} else if (!face) {
-				printf ("D\n");
-				break;
-			
-			} else if (sscanf (buf, "%i, %hi,%hi, %hi  %hi,%hi %hi,%hi"
-			                   "%hi, %hi,%hi, %hi,%hi %hi, %hi,%hi, %hi,%hi",
-					             &i, &face->Width, &face->Height, &face->HalfLine,
-					             &face->MinChr, &face->MaxChr,
-					             &face->Ascent, &face->Descent,
-					             &face->MinWidth, &face->MinAsc, &face->MinDesc,
-					             &face->MinLftBr, &face->MinRgtBr,
-					             &face->MaxWidth, &face->MaxAsc, &face->MaxDesc,
-					             &face->MaxLftBr, &face->MaxRgtBr) == 18) {
-				face->CharSet = NULL;
-				face->Index   = font_db->id;
-				face->Effects = 0;
-				face->Points  = i;
-				*fptr = face;
-				fptr  = &face->Next;
-				face  = NULL;
-				font_db->cnt++;
-			
-			} else {
-				if (face) free (face);
-				face = NULL;
-				printf ("d\n");
-				break;
-			}
-		}
-		
-		fclose (f_db);
-	}
+	font_db = _read_fontdb (f_db);
 	
 	/*--- scan VDI fonts ---*/
+	
+	while (*list) list = &(*list)->Next;
 	
 	if ((f_db = fopen (PATH_FontsDb, "w"))) {
 		fprintf (f_db, "# fonts.db; %s\n", GLBL_Version);
 	}
 	printf ("  loaded %i font%s\n", count, (count == 1 ? "" : "s"));
 	for (i = 1; i <= count; i++) {
-		struct FONT_DB * db = font_db;
+		FONT_DB     * db = font_db;
 		char          _tmp[1000];
 		VQT_FHDR    * fhdr = (VQT_FHDR*)_tmp;
 		XFNT_INFO     info;
@@ -660,11 +702,18 @@ FontInit (short count)
 					WmgrIntro (xFalse);
 					graf_mouse (BUSYBEE, NULL);
 				}
-				_Font_Bounds (face, (spcg[0] != 'P'));
+				_Font_Bounds (face, (spcg[0] != 'P'), &o_hdl, &mfdb);
 				if (f_db) _save_face (f_db, face);
 				list = &face->Next;
 			}
 		}
+	}
+	if (mfdb.fd_addr) {
+		if (o_hdl) {
+			vst_unload_fonts (o_hdl, 0);
+			v_clsbm          (o_hdl);
+		}
+		free (mfdb.fd_addr);
 	}
 	if (f_db) {
 		fputs ("# end of db\n", f_db);
@@ -672,7 +721,7 @@ FontInit (short count)
 	}
 	
 	while (font_db) {
-		struct FONT_DB * db = font_db;
+		FONT_DB * db = font_db;
 		while (db->list) {
 			FONTFACE * face = db->list;
 			db->list = face->Next;

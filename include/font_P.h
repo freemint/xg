@@ -68,7 +68,10 @@ extern FONTALIAS * _FONT_Alias;
 
 FONTFACE * _Font_Create (const char * name, size_t len,
                          unsigned type, BOOL sym, BOOL mono);
-void       _Font_Bounds (FONTFACE * face, BOOL mono);
+void       _Font_Bounds (FONTFACE * face, BOOL mono, short * offscreen, MFDB *);
+						// in case of offscreen is not NULL it is used along with
+						// the MFDB* as the offscreen bitmap.
+						// else if offscreen is NULL both will be ignored also.
 
 
 #endif __FONT_P_H__
