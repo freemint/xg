@@ -1023,7 +1023,7 @@ RQ_ConfigureWindow (CLIENT * clnt, xConfigureWindowReq * q)
 			
 		} else {
 			_Wind_Resize (wind, &d);
-			if (d.x || d.y || d.w || d.h) {
+			if (WindVisible (wind) && (d.x || d.y || d.w || d.h)) {
 				GRECT clip;
 				WindGeometry (wind, &clip, wind->BorderWidth);
 				if (d.x < 0) d.x    = -d.x;
@@ -1106,17 +1106,17 @@ RQ_GetWindowAttributes (CLIENT * clnt, xGetWindowAttributesReq * q)
 	} else {
 		ClntReplyPtr (GetWindowAttributes, r);
 		
-		PRINT (GetWindowAttributes," W:%lX", q->id);
+		DEBUG (GetWindowAttributes," W:%lX", q->id);
 		
 		if (wind) {
-			r->backingStore     = NotUseful;
+			r->backingStore     = wind->BackingStore;
 			r->visualID         = DFLT_VISUAL;
 			r->class            = wind->ClassInOut;
-			r->bitGravity       = ForgetGravity;
-			r->winGravity       = NorthWestGravity;
+			r->bitGravity       = wind->BitGravity;
+			r->winGravity       = wind->WinGravity;
 			r->backingBitPlanes = 0x1uL;
 			r->backingPixel     = 0;
-			r->saveUnder        = xFalse;
+			r->saveUnder        = wind->SaveUnder;
 			r->mapInstalled     = xTrue;
 			r->mapState         = (WindVisible (wind) ? IsViewable : IsUnmapped);
 			r->override         = wind->Override;
