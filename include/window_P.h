@@ -33,7 +33,6 @@ typedef struct s_BTNGRAB {
 
 
 extern WINDOW * _WIND_PointerRoot;
-extern CARD16   _WIND_OpenCounter;
 extern CARD32   _WIND_SaveUnder;
 
 extern CLIENT * _WIND_PgrabClient;

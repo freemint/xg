@@ -28,21 +28,28 @@ void WmgrClntRemove (p_CLIENT client);
 
 void WmgrCalcBorder (p_GRECT curr, p_WINDOW wind);
 BOOL WmgrWindHandle (p_WINDOW wind);
-void WmgrWindMap    (p_WINDOW wind, p_GRECT );
+BOOL WmgrWindMap    (p_WINDOW wind, p_GRECT );
+BOOL WmgrWindUnmap  (p_WINDOW wind, BOOL no_check);
 void WmgrWindName   (p_WINDOW wind, const char * name, BOOL windNicon);
 void WmgrWidget     (p_WINDOW wind, p_PXY rel_pos);
 void WmgrWidgetOff  (p_CURSOR new_crsr);
 
 void WmgrSetDesktop (BOOL onNoff);
 
+void WmgrSetFocus (short focus);
+
 BOOL WmgrMenu    (short title, short entry, short meta);
 BOOL WmgrMessage (short * msg);
 BOOL WmgrButton  (void);
 
 
+extern CONST CARD16 WMGR_OpenCounter;
 extern CONST BOOL   WMGR_Active;
 extern CONST CARD16 WMGR_Cursor;
 extern CONST short  WMGR_Decor;
+
+extern CONST short  WMGR_Focus;
+extern CONST short  WMGR_FocusHolder;
 
 
 # undef CONST
