@@ -1,6 +1,7 @@
 .cvsignore
 *.%
 *.tgz
+*.TXT
 Makefile
 dist
 doc
