@@ -151,16 +151,12 @@ WindButton (CARD16 prev_mask, int count)
 	                   None);
 	
 	if (_WIND_PgrabWindow) {
-		CARD32 c_id = None, w_id = 0;
+		CARD32 w_id = 0;
 		if (_WIND_OpenCounter && wind) {
 			WindOrigin (wind, &w_xy);
 			w_xy.x = MAIN_PointerPos->x - w_xy.x;
 			w_xy.y = MAIN_PointerPos->y - w_xy.y;
 			w_id   = wind->Id;
-			do if (_WIND_PgrabWindow == wind) {
-				c_id = w_id;
-				break;
-			} while ((wind = wind->Parent));
 
 		} else {
 			int hdl = wind_find (MAIN_PointerPos->x, MAIN_PointerPos->y);
@@ -170,9 +166,6 @@ WindButton (CARD16 prev_mask, int count)
 				w_xy.x = MAIN_PointerPos->x - curr.x;
 				w_xy.y = MAIN_PointerPos->y - curr.y;
 				w_id   = hdl | ROOT_WINDOW;
-				if (_WIND_PgrabWindow == &WIND_Root) {
-					c_id = w_id;
-				}
 			}
 		}
 		if (w_id) {
@@ -196,7 +189,13 @@ WindButton (CARD16 prev_mask, int count)
 				wnd_p = _WIND_PgrabWindow;
 			}
 			if (wnd_r) {
-				WindOrigin (_WIND_PgrabWindow, &e_xy);
+				CARD32   c_id = None;
+				WINDOW * w    = wind;
+				do if (w->Parent == wnd_r) {
+					c_id = w->Id;
+					break;
+				} while ((w = w->Parent));
+				WindOrigin (wnd_r, &e_xy);
 				e_xy.x = MAIN_PointerPos->x - e_xy.x;
 				e_xy.y = MAIN_PointerPos->y - e_xy.y;
 				_evnt_c (_WIND_PgrabClient, ButtonRelease,
@@ -204,8 +203,14 @@ WindButton (CARD16 prev_mask, int count)
 				         *(CARD32*)&w_xy, *(CARD32*)&e_xy, butt_r);
 			}
 			if (wnd_p) {
+				CARD32   c_id = None;
+				WINDOW * w    = wind;
+				do if (w->Parent == wnd_p) {
+					c_id = w->Id;
+					break;
+				} while ((w = w->Parent));
 				if (wnd_p != wnd_r) {
-					WindOrigin (_WIND_PgrabWindow, &e_xy);
+					WindOrigin (wnd_p, &e_xy);
 					e_xy.x = MAIN_PointerPos->x - e_xy.x;
 					e_xy.y = MAIN_PointerPos->y - e_xy.y;
 				}
