@@ -581,7 +581,7 @@ WindPutColor (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 
 //------------------------------------------------------------------------------
 static void
-_put_mono (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
+_put_mono (p_WINDOW wind, p_GC gc, PXY offs, p_MFDB src,
            PRECT * sect, CARD16 nSct, PRECT * clip, CARD16 nClp)
 {
 	short mode      = (gc->Function == GXor ? MD_TRANS : MD_REPLACE);
@@ -594,14 +594,13 @@ _put_mono (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
 		CARD16  n = nSct;
 		do {
 			pxy[1] = *clip;
-			if (GrphIntersectP (&pxy[1], s)) {
-				pxy[0].lu.x = rct->x      + pxy[1].lu.x - s->lu.x;
-				pxy[0].rd.x = pxy[0].lu.x + pxy[1].rd.x - pxy[1].lu.x;
-				pxy[0].lu.y = rct->y      + pxy[1].lu.y - s->lu.y;
-				pxy[0].rd.y = pxy[0].lu.y + pxy[1].rd.y - pxy[1].lu.y;
+			if (GrphIntersectP (&pxy[1], s++)) {
+				pxy[0].lu.x = offs.x + pxy[1].lu.x;
+				pxy[0].rd.x = offs.x + pxy[1].rd.x;
+				pxy[0].lu.y = offs.y + pxy[1].lu.y;
+				pxy[0].rd.y = offs.y + pxy[1].rd.y;
 				vrt_cpyfm (GRPH_Vdi, mode, (short*)pxy, src, &dst, colors);
 			}
-			s++;
 		} while (--n);
 		clip++;
 	}
@@ -609,7 +608,7 @@ _put_mono (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
 
 //------------------------------------------------------------------------------
 static void
-_put_color (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
+_put_color (p_WINDOW wind, p_GC gc, PXY offs, p_MFDB src,
                PRECT * sect, CARD16 nSct, PRECT * clip, CARD16 nClp)
 {
 	short mode = gc->Function;
@@ -621,14 +620,13 @@ _put_color (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
 		CARD16  n = nSct;
 		do {
 			pxy[1] = *clip;
-			if (GrphIntersectP (&pxy[1], s)) {
-				pxy[0].lu.x = rct->x      + pxy[1].lu.x - s->lu.x;
-				pxy[0].rd.x = pxy[0].lu.x + pxy[1].rd.x - pxy[1].lu.x;
-				pxy[0].lu.y = rct->y      + pxy[1].lu.y - s->lu.y;
-				pxy[0].rd.y = pxy[0].lu.y + pxy[1].rd.y - pxy[1].lu.y;
+			if (GrphIntersectP (&pxy[1], s++)) {
+				pxy[0].lu.x = offs.x + pxy[1].lu.x;
+				pxy[0].rd.x = offs.x + pxy[1].rd.x;
+				pxy[0].lu.y = offs.y + pxy[1].lu.y;
+				pxy[0].rd.y = offs.y + pxy[1].rd.y;
 				vro_cpyfm (GRPH_Vdi, mode, (short*)pxy, src, &dst);
 			}
-			s++;
 		} while (--n);
 		clip++;
 	}
@@ -641,6 +639,7 @@ WindPutImg (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
 {
 	PRECT * clip;
 	CARD16  nClp;
+	PXY     offs = { rct[0].x - rct[1].x - orig.x, rct[0].y - rct[1].y - orig.y };
 	
 	if (gc->ClipNum > 0) {
 		CARD16  n = gc->ClipNum;
@@ -663,8 +662,8 @@ WindPutImg (p_WINDOW wind, p_GC gc, p_GRECT rct, p_MFDB src,
 		clip->rd.y = (clip->lu.y = rct[1].y + orig.y) + rct[1].h -1;
 	}
 	v_hide_c (GRPH_Vdi);
-	if (wind->Depth == 1) _put_mono  (wind, gc, rct, src, sect,nSct, clip,nClp);
-	else                  _put_color (wind, gc, rct, src, sect,nSct, clip,nClp);
+	if (wind->Depth == 1) _put_mono  (wind, gc, offs, src, sect,nSct, clip,nClp);
+	else                  _put_color (wind, gc, offs, src, sect,nSct, clip,nClp);
 	v_show_c (GRPH_Vdi, 1);
 }
 
