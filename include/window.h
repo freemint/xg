@@ -84,14 +84,13 @@ void WindCleanup (p_CLIENT clnt);
 
 void   WindDelete    (p_WINDOW , p_CLIENT);
 CARD16 WindClipLock  (p_WINDOW , CARD16 border, const GRECT * clip,
-                                 short n_clip, p_PXY orig, p_GRECT * pBuf);
-CARD16 WindClipLockP (p_WINDOW , CARD16 border, const GRECT * clip,
-                                 short n_clip, p_PXY orig, p_PRECT * pBuf);
+                                 short n_clip, p_PXY orig, p_PRECT * pBuf,
+                                 BOOL clip_chlds);
 void   WindClipOff   (void);
 void   WindPutMono   (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
 void   WindPutColor  (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
 void   WindPutImg    (p_WINDOW , p_GC , p_GRECT , p_MFDB src,
-                                 PXY orig, p_PRECT sect, CARD16 nSct);
+                                PXY orig, p_PRECT sect, CARD16 nSct);
 CARD16 WindScroll    (p_WINDOW , p_GC , p_GRECT , PXY diff,
                              PXY orig, PRECT * sect, CARD16 nSct, GRECT * exps);
 void   WindDrawSection (p_WINDOW , const GRECT * sect);

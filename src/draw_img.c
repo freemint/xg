@@ -341,7 +341,9 @@ return;
 				WINDOW * wind = dst_d.Window;
 				PXY      orig;
 				GrphCombine (&rect[0], &rect[1]);
-				if ((nSct = WindClipLockP (wind, 0, rect,1, &orig, &sect))) {
+				nSct = WindClipLock (wind, 0,
+				                     rect,1, &orig,&sect, IncludeInferiors);
+				if (nSct) {
 					exps = (gc->GraphExpos ? (GRECT*)(sect + nSct +1) : NULL);
 					nExp = WindScroll (wind, gc, rect, diff,
 							              orig, sect, nSct, exps);
@@ -400,7 +402,9 @@ return;
 				WINDOW * wind = dst_d.Window;
 				PXY      orig;
 				
-				if (!(nSct = WindClipLockP (wind, 0, &work,1, &orig, &sect))) {
+				nSct = WindClipLock (wind, 0,
+				                     &work,1, &orig,&sect, gc->SubwindMode);
+				if (!nSct) {
 					//
 					// if no visible region of the whole source rectangle exists no
 					// more action is taken

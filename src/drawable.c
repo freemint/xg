@@ -197,8 +197,9 @@ RQ_FillPoly (CLIENT * clnt, xFillPolyReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				v_hide_c (hdl);
@@ -262,8 +263,9 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 		CARD32  color;
 		
 		if (draw.p->isWind) {
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				v_hide_c (hdl);
 			}
@@ -330,8 +332,9 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 		CARD32  color;
 		
 		if (draw.p->isWind) {
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				v_hide_c (hdl);
 			}
@@ -397,8 +400,9 @@ RQ_PolyLine (CLIENT * clnt, xPolyLineReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				v_hide_c (hdl);
@@ -463,8 +467,9 @@ RQ_PolyPoint (CLIENT * clnt, xPolyPointReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, q->coordMode);
 				v_hide_c (hdl);
@@ -539,8 +544,9 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				clnt->Fnct->shift_r2p (&orig, rec, len);
 				v_hide_c (hdl);
@@ -623,8 +629,9 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 		CARD32  color;
 		
 		if (draw.p->isWind) {
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				v_hide_c (hdl);
 			}
@@ -702,8 +709,9 @@ RQ_PolySegment (CLIENT * clnt, xPolySegmentReq * q)
 		
 		if (draw.p->isWind) {
 			PXY orig;
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				clnt->Fnct->shift_pnt (&orig, pxy, len, CoordModeOrigin);
 				v_hide_c (hdl);
@@ -755,8 +763,9 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 	CARD16  nClp;
 	
 	if (draw.p->isWind) {
-		nClp = WindClipLockP (draw.Window, 0,
-		                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+		nClp = WindClipLock (draw.Window, 0,
+		                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                  gc->SubwindMode);
 		if (nClp) {
 			short dmy;
 			orig.x += pos->x;
@@ -870,8 +879,9 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 		CARD16  nClp;
 		
 		if (draw.p->isWind) {
-			nClp = WindClipLockP (draw.Window, 0,
-			                      gc->ClipRect, gc->ClipNum, &orig, &sect);
+			nClp = WindClipLock (draw.Window, 0,
+			                     gc->ClipRect, gc->ClipNum, &orig, &sect,
+			                     gc->SubwindMode);
 			if (nClp) {
 				short dmy;
 				orig.x += pos->x;
