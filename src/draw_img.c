@@ -19,8 +19,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <X11/X.h>
-
 
 //==============================================================================
 //
@@ -287,9 +285,13 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 //		            (dst_d.p->isWind ? 'W' : 'P'), dst_d.p->Id,
 //		            src_d.p->Depth, dst_d.p->Depth);
 	
-	} else if ((short)q->width <= 0  ||  (short)q->height <= 0) {
+	} else if ((short)q->width < 0  ||  (short)q->height < 0) {
 		Bad(Value, (short)((short)q->width <= 0 ? q->width : q->height),
-		           CopyArea," width = %i height = %i",
+		           CopyArea,"(%c:%X,%c:%X) [%i,%i] -> [%i,%i] \n"
+		           "           width = %i height = %i",
+		           (src_d.p->isWind ? 'W' : 'P'), src_d.p->Id,
+		           (dst_d.p->isWind ? 'W' : 'P'), dst_d.p->Id,
+		           q->srcX, q->srcY, q->dstX, q->dstY,
 		           (short)q->width, (short)q->height);
 	
 	} else {
@@ -299,18 +301,20 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 		short   nExp   = -1;
 		PRECT * sect   = NULL;
 		short   nSct   = 0;
-		short   action;
+		short   action = 0xFF;
 		
-		if (gc->ClipNum < 0 || !(action = clip_dst (rect, dst_d, &q->srcX))) {
+		if (gc->ClipNum < 0 || !q->width || !q->height ||
+		    !(action = clip_dst (rect, dst_d, &q->srcX))) {
 			//
 			// the area doesn't intersects the destination drawable or the
 			// drawable isn't viewable
 			//
-			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i) %c",
+			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)"
+			                    " %c <%02X>",
 			       q->gc, (src_d.p->isWind ? 'W' : 'P'), q->srcDrawable,
 			       q->srcX, q->srcY, q->width, q->height,
 			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
-			       q->dstX, q->dstY, (gc->GraphExpos ? '*' : '-'));
+			       q->dstX, q->dstY, (gc->GraphExpos ? '*' : '-'), action);
 			if (gc->GraphExpos) {
 				EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
 			}
@@ -385,8 +389,8 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 			}
 			if (action & CPdstW) {
 				//
-				// for _all_ cases of copy to a window, there might be necessary to
-				// generate events and/or fill background for visible regions of
+				// for _all_ cases of copy to a window, there might it be necessary
+				// to generate events and/or fill background for visible regions of
 				// source which can't be copied from source
 				//
 				WINDOW * wind = dst_d.Window;
@@ -466,14 +470,14 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 		
 		if (debug) {
 			PRINT (CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)\n"
-				             "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]  %c",
+				             "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]  %c <%02X>",
 			       q->gc, (src_d.p->isWind ? 'W' : 'P'), q->srcDrawable,
 			       q->srcX, q->srcY, q->width, q->height,
 			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
 			       q->dstX, q->dstY,
 				    rect[0].x,rect[0].y,rect[0].w,rect[0].h,
 				    rect[1].x,rect[1].y,rect[1].w,rect[1].h,
-				    (gc->GraphExpos ? '*' : '-'));
+				    (gc->GraphExpos ? '*' : '-'), action);
 		}
 	}
 }
