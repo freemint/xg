@@ -1,5 +1,8 @@
+2001-02-12: 0.05
+   - made the background of the root window (desktop) changeable too.
+   - supplemented window functions to draw also background pixmaps.
 2001-02-10: 0.04.6
-   - completely rewritten window drawing to speedup a bit.
+   - completely rewritten window drawing functions to speedup a bit.
    - refined decoration of reparented top-windows.
 2001-02-06: 0.04.5
    - slightly speed improvements for draw and fill requests.
