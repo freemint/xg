@@ -66,7 +66,7 @@ SizeToClp (GRECT * dst, GRECT * clip, CARD16 n_clip, const short * src)
 	while (n_clip--) {
 		if (clip->x <= 0) {
 			 dst->x = 0;
-			 dst->w = (clip->w >= src[0] ? clip->w : src[0]) + clip->x;
+			 dst->w = (clip->w <= src[0] ? clip->w : src[0]) + clip->x;
 		} else {
 			dst->x = clip->x;
 			if (clip->w + clip->x > src[0]) dst->w = src[0] - clip->x;
@@ -74,7 +74,7 @@ SizeToClp (GRECT * dst, GRECT * clip, CARD16 n_clip, const short * src)
 		}
 		if (clip->y <= 0) {
 			 dst->y = 0;
-			 dst->h = (clip->h >= src[1] ? clip->h : src[1]) + clip->y;
+			 dst->h = (clip->h <= src[1] ? clip->h : src[1]) + clip->y;
 		} else {
 			dst->y = clip->y;
 			if (clip->h + clip->y > src[1]) dst->h = src[1] - clip->y;
