@@ -57,11 +57,53 @@ static const short _FONT_Proto[] = {
 };
 
 
+static const short _FONT_TosLatin[256] = {
+#	define ___ '\0'
+#	define UDF '\0' // UNDEFINED
+#	define NBS ' '  // NO-BREAK-SPACE
+	0  ,___,___,___,___,___,___,___, ___,___,___,___,___,___,___,___,
+	___,___,___,___,___,___,___,___, ___,___,___,___,___,___,___,___,
+	' ','!','"','#','$','%','&', 39, '(',')','*','+',',','-','.','/',
+	'0','1','2','3','4','5','6','7', '8','9',':',';','<','=','>','?',
+	'@','A','B','C','D','E','F','G', 'H','I','J','K','L','M','N','O',
+	'P','Q','R','S','T','U','V','W', 'X','Y','Z','[', 92,']','^','_',
+	'`','a','b','c','d','e','f','g', 'h','i','j','k','l','m','n','o',
+	'p','q','r','s','t','u','v','w', 'x','y','z','{','|','}','~','',
+	'‡','·','‚','„','‰','Â','Ê','Á', 'Ë','È','Í','Î','Ï','Ì','Ó','Ô',
+	'','©','Ú','Û','Ù','ı',UDF,'˜', '¥','µ','˙','˚','¸',UDF,'ü','ø',
+	NBS,'≠','õ','ú','ü','ù','|','›', 'π','Ω','¶','Æ','™',___,'æ','ˇ',
+	'¯','Ò','˝','˛','∫','Ê','º','˘', ___,___,'ß','Ø','¨','´',___,'®',
+	'∂',___,___,'∑','é','è','í','Ä', ___,'ê',___,___,___,___,___,___,
+	___,'•',___,___,___,'∏','ô',___, '≤',___,___,___,'ö',___,___,'û',
+	'Ö','†','É','∞','Ñ','Ü','ë','á', 'ä','Ç','à','â','ç','°','å','ã',
+	___,'§','ï','¢','ì','±','î','ˆ', '≥','ó','£','ñ','Å',___,___,'ò'
+};
+
+static const short _FONT_ExtLatin[256] = {
+	0  ,___,'',___,___,___,___,'¯', 'Ò',___,___,___,___,___,___,___,
+	___,___,___,___,___,___,___,___, ___,'|','Û','Ú','„',___,'ú','˘',
+	' ','!','"','#','$','%','&', 39, '(',')','*','+',',','-','.','/',
+	'0','1','2','3','4','5','6','7', '8','9',':',';','<','=','>','?',
+	'@','A','B','C','D','E','F','G', 'H','I','J','K','L','M','N','O',
+	'P','Q','R','S','T','U','V','W', 'X','Y','Z','[', 92,']','^','_',
+	'`','a','b','c','d','e','f','g', 'h','i','j','k','l','m','n','o',
+	'p','q','r','s','t','u','v','w', 'x','y','z','{','|','}','~','',
+	'‡','·','‚','„','‰','Â','Ê','Á', 'Ë','È','Í','Î','Ï','Ì','Ó','Ô',
+	'','©','Ú','Û','Ù','ı',UDF,'˜', '¥','µ','˙','˚','¸',UDF,'ü','ø',
+	NBS,'≠','õ','ú','◊','ù','Ÿ','›', 'π','Ω','¶','Æ','™','-','æ','ˇ',
+	'¯','Ò','˝','˛','∫','Ê','º','˘', '⁄','€','ß','Ø','¨','´','‹','®',
+	'∂','¬','√','∑','é','è','í','Ä', 'ƒ','ê','≈','∆','«','»','…',' ',
+	'À','•','Ã','Õ','Œ','∏','ô','ÿ', '≤','œ','–','—','ö','“','”','û',
+	'Ö','†','É','∞','Ñ','Ü','ë','á', 'ä','Ç','à','â','ç','°','å','ã',
+	'‘','§','ï','¢','ì','±','î','ˆ', '≥','ó','£','ñ','Å','’','÷','ò'
+};
+
+
 static struct {
 	FONTFACE Font;
 	char     Name[6];
 } _FONT_Cursor = {
-	{	NULL, 1, 0x00, 0, xTrue, xTrue, 10,
+	{	NULL, NULL, 1, 0x00, 0, xTrue, xTrue, 10,
 		16,16,  0,16, 16, 16,0, 0,0l,  0,16, 16, 16,0, 0,
 		0, 153, 16,0,  NULL,  6,{'c'} },
 	{	"ursor" }
@@ -156,6 +198,8 @@ FontInit (short count)
 	
 	while (*list) list = &(*list)->Next;
 	
+	/*--- read font.alias --*/
+	
 	if ((f_db = fopen ("/etc/X11/fonts.alias", "r"))) {
 		FONTALIAS ** subst = &_FONT_Subst;
 		FONTALIAS ** alias = &_FONT_Alias;
@@ -197,6 +241,8 @@ FontInit (short count)
 		f_db = NULL;
 	}
 	
+	/*--- read fonts.db ---*/
+	
 	if (   (access ("/var/lib/Xapp", R_OK|W_OK|X_OK) &&
 	        mkdir ("/var/lib/Xapp", S_IRWXU|S_IRWXG|S_IRWXO))
 	    || (!access ("/var/lib/Xapp/fonts.db", F_OK) &&
@@ -227,7 +273,11 @@ FontInit (short count)
 				db->id   = i;
 				db->cnt  = 0;
 				db->list = NULL;
-				memcpy (db->file, buf + j, len - j +1);
+				if ((len -= j -1) > 1) {
+					memcpy (db->file, buf + j, len);
+				} else {
+					db->file[0] = '\0';
+				}
 				fptr    = &db->list;
 				font_db = db;
 			
@@ -258,6 +308,7 @@ FontInit (short count)
 					             &face->MinLftBr, &face->MinRgtBr,
 					             &face->MaxWidth, &face->MaxAsc, &face->MaxDesc,
 					             &face->MaxLftBr, &face->MaxRgtBr) == 17) {
+				face->CharSet = NULL;
 				face->Index   = font_db->id;
 				face->Effects = 0;
 				face->Points  = i;
@@ -277,24 +328,28 @@ FontInit (short count)
 		fclose (f_db);
 	}
 	
+	/*--- scan VDI fonts ---*/
+	
 	f_db = fopen ("/var/lib/Xapp/fonts.db", "w");
 	
 	printf ("  loaded %i font%s\n", count, (count == 1 ? "" : "s"));
 	for (i = 1; i <= count; i++) {
 		struct FONT_DB * db = font_db;
-		char         _tmp[1000];
-		VQT_FHDR   * fhdr = (VQT_FHDR*)_tmp;
-		XFNT_INFO    info;
-		const char * fmly = info.family_name,
-		           * wght = info.style_name,
-		           * creg = "ISO8859",
-		           * cenc = "1",
-		           * fndr = NULL, * setw = NULL, * astl = NULL;
-		char         slnt[3] = "\0\0", resx[6] = "72", resy[6] = "72",
-		             spcg[2] = "\0";
-		BOOL         isMono, isSymbol;
-		char       * p;
-		short        type, dmy;
+		char          _tmp[1000];
+		VQT_FHDR    * fhdr = (VQT_FHDR*)_tmp;
+		XFNT_INFO     info;
+		const char  * fmly = info.family_name,
+		            * wght = info.style_name,
+		            * creg = "ISO8859",
+		            * cenc = "1",
+		            * fndr = NULL, * setw = NULL, * astl = NULL;
+		char          slnt[3] = "\0\0", spcg[2] = "\0";
+		unsigned      resx = 72, resy = 72;
+		BOOL          isMono, isSymbol;
+		const short * cset = NULL;
+		char        * code = NULL;
+		char        * p;
+		short         type, dmy;
 		
 		vqt_ext_name (GRPH_Vdi, i, info.font_name, &dmy, &type);
 		isMono   = (type & 0x01 ? 1 : 0);
@@ -305,10 +360,20 @@ FontInit (short count)
 		info.family_name[0] = '\0';
 		info.style_name[0]  = '\0';
 		info.pt_cnt         = 0;
-		vqt_xfntinfo (GRPH_Vdi, 0x010F, 0, i, (XFNT_INFO*)&info);
+		vqt_xfntinfo (GRPH_Vdi, 0x010F, 0, i, &info);
 		if (info.pt_cnt > 1  &&
 		    info.pt_sizes[info.pt_cnt -1] == info.pt_sizes[info.pt_cnt -2]) {
 			info.pt_cnt--;
+		}
+		
+		if (!isSymbol) {
+			if (info.format == 1  && (p = strchr (info.font_name, '›'))) {
+				*p   = '\0';
+				code = p +1;
+				cset = _FONT_ExtLatin;
+			} else {
+				cset = _FONT_TosLatin;
+			}
 		}
 		
 		while (db) {
@@ -337,6 +402,7 @@ FontInit (short count)
 			*list = db->list;
 			do {
 				if (f_db) _save_face (f_db, *list);
+				(*list)->CharSet = cset;
 			} while (*(list = &(*list)->Next));
 			db->list = NULL;
 			
@@ -346,11 +412,11 @@ FontInit (short count)
 		vst_font (GRPH_Vdi, info.id);
 		
 		if (info.format > 1) {
-			vqt_fontheader (GRPH_Vdi, _tmp, info.file_name1);
+			vqt_fontheader (GRPH_Vdi, (char*)fhdr, info.file_name1);
 			spcg[0] = (fhdr->fh_cflgs & 2 ? fhdr->fh_famcl == 3 ? 'C' : 'M' : 'P');
 			slnt[0] = (fhdr->fh_cflgs & 1 ? 'I' : 'R');
-			strcpy (resx, "0");
-			strcpy (resy, "0");
+			resx = 0;
+			resy = 0;
 		}
 		if (info.format == 2) { //___Speedo___
 			if (!strncasecmp (fmly, "Bits ", 5)) {
@@ -395,6 +461,36 @@ FontInit (short count)
 				case 12: setw = "Expanded";      break;
 			}
 			
+		} else if (code) {
+			switch (*code) {
+				case 'M': fndr = "Misc"; break;
+			}
+			if (*code) switch (*(++code)) {
+				case 'F': fmly = "Fixed"; break;
+			}
+			if (*code) switch (*(++code)) {
+				case 'M': wght = "Medium"; break;
+				case 'B': wght = "Bold"; break;
+			}
+			if (*code) {
+				slnt[0] = *(++code);
+			}
+			if (*code) switch (*(++code)) {
+				case 'C': setw = "Condensed";     break;
+				case 'c': setw = "SemiCondensed"; break;
+				case 'N': setw = "Normal";        break;
+				case 'e': setw = "SemiExpanded";  break;
+				case 'E': setw = "Expanded";      break;
+			}
+			if (*code) {
+				++code; // astl
+			}
+			if (*code) {
+				spcg[0] = *(++code);
+			}
+			resx = 75;
+			resy = 75;
+			
 		} else {
 			if (!*spcg) {
 				spcg[0] = (isMono ? 'C' : 'P');
@@ -434,10 +530,10 @@ FontInit (short count)
 		}
 		
 		sprintf (info.file_name1,
-		         "-%s-%s-%s-%s-%s-%s-%%u-%%u0-%s-%s-%s-%%u-%s-%s",
+		         "-%s-%s-%s-%s-%s-%s-%%u-%%u0-%u-%u-%s-%%u-%s-%s",
 		         (fndr ? fndr : ""), (fmly ? fmly : ""), (wght ? wght : ""),
 		         slnt, (setw ? setw : ""), (astl ? astl : ""),
-		          resx, resy, spcg, creg, cenc);
+		         resx, resy, spcg, creg, cenc);
 		for (j = 0; j < info.pt_cnt; ++j) {
 			int   len, avrg;
 			short wdth, pxsz;
@@ -456,6 +552,7 @@ FontInit (short count)
 			if ((*list = _Font_Create (fhdr->fh_fmver, len,
 			                           info.format, isSymbol, isMono))) {
 				FONTFACE * face = *list;
+				face->CharSet = cset;
 				face->Index   = info.id;
 				face->Effects = 0;
 				face->Points  = info.pt_sizes[j];
@@ -480,18 +577,3 @@ FontInit (short count)
 		free (db);
 	}
 }
-
-/*
-void font_check (void);
-void font_check (void)
-{
-	FONTFACE * face = _FONT_List;
-	while (face) {
-		if ((long)face & 1) {
-			puts("XXXXXXXXXX");
-			exit(1);
-		}
-		face = face->Next;
-	}
-}
-*/

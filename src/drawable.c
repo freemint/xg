@@ -750,7 +750,6 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
              BOOL is8N16, void * text, short len, PXY * pos)
 {
 	short   hdl = GRPH_Vdi;
-	short   arr[len];
 	PRECT * sect;
 	PXY     orig;
 	CARD16  nClp;
@@ -785,9 +784,14 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 		hdl  = PmapVdi (draw.Pixmap, gc, xTrue);
 	}
 	if (nClp) {
-		BOOL bg_draw = (gc->Background != G_WHITE);
-		if (is8N16) FontLatin1_C (arr, text, len);
-		else        FontLatin1_W (arr, text, len);
+		BOOL    bg_draw = (gc->Background != G_WHITE);
+		short * arr;
+		if (is8N16) {
+			arr = alloca (sizeof(short) * len);
+			arr = FontTrans_C (arr, text, len, gc->FontFace);
+		} else {
+			arr = FontTrans_W (arr, text, len, gc->FontFace);
+		}
 		if (!bg_draw) {
 			vswr_mode (hdl, MD_REPLACE);
 			vst_color (hdl, gc->Foreground);
@@ -860,7 +864,6 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 {
 	if (t->len) {
 		short   hdl = GRPH_Vdi;
-		short   arr[t->len];
 		PRECT * sect;
 		PXY     orig;
 		CARD16  nClp;
@@ -898,8 +901,14 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 			hdl  = PmapVdi (draw.Pixmap, gc, xTrue);
 		}
 		if (nClp) {
-			if (is8N16) FontLatin1_C (arr,  (char*)(t +1), t->len);
-			else        FontLatin1_W (arr, (short*)(t +1), t->len);
+			short * arr;
+			if (is8N16) {
+				arr = alloca (sizeof(short) * t->len);
+				arr = FontTrans_C (arr, (char*)(t +1), t->len, gc->FontFace);
+			} else {
+				arr = (short*)(t +1);
+				arr = FontTrans_W (arr, arr, t->len, gc->FontFace);
+			}
 			vswr_mode (hdl, MD_TRANS);
 			do {
 				vs_clip_p (hdl, (PXY*)(sect++));

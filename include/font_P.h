@@ -24,6 +24,7 @@
 
 typedef struct s_FONTFACE {
 	struct s_FONTFACE * Next;
+	const short       * CharSet;
 	short               Index   :16;
 	unsigned            Effects : 3;
 	unsigned            Type    : 3;

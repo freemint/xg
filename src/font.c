@@ -20,29 +20,6 @@
 #include <X11/X.h>
 
 
-static const short _FONT_Latin[256] = {
-#	define ___ ' '
-#	define UDF ' ' // UNDEFINED
-#	define NBS ' ' // NO-BREAK-SPACE
-	0  ,___,___,___,___,___,___,___, ___,___,___,___,___,___,___,___,
-	___,___,___,___,___,___,___,___, ___,___,___,___,___,___,___,___,
-	' ','!','"','#','$','%','&', 39, '(',')','*','+',',','-','.','/',
-	'0','1','2','3','4','5','6','7', '8','9',':',';','<','=','>','?',
-	'@','A','B','C','D','E','F','G', 'H','I','J','K','L','M','N','O',
-	'P','Q','R','S','T','U','V','W', 'X','Y','Z','[', 92,']','^','_',
-	'`','a','b','c','d','e','f','g', 'h','i','j','k','l','m','n','o',
-	'p','q','r','s','t','u','v','w', 'x','y','z','{','|','}','~',UDF,
-	'à','á','â','ã','ä','å','æ','ç', 'è','é','ê','ë','ì','í','î','ï',
-	'ð',UDF,'ò','ó','ô','õ',UDF,'÷', UDF,UDF,'ú','û','ü',UDF,UDF,'ÿ',
-	NBS,'­','›','œ','Ÿ','','|','Ý', '¹','½','¦','®','ª',___,'¾',___,
-	'ø','ñ','ý','þ','º','æ','¼','ù', ___,___,'§','¯','¬','«',___,'¨',
-	'¶',___,___,'·','Ž','','’','€', ___,'',___,___,___,___,___,___,
-	___,'¥',___,___,___,'¸','™',___, '²',___,___,___,'š',___,___,'ž',
-	'…',' ','ƒ','°','„','†','‘','‡', 'Š','‚','ˆ','‰','','¡','Œ','‹',
-	___,'¤','•','¢','“','±','”','ö', '³','—','£','–','',___,___,'˜'
-};
-
-
 //==============================================================================
 void
 FontDelete (p_FONT font, p_CLIENT clnt)
@@ -79,21 +56,41 @@ FontValues (p_FONTABLE fabl, CARD32 id)
 
 
 //==============================================================================
-void
-FontLatin1_C (short * arr, const char * str, int len)
+short *
+FontTrans_C (short * arr, const char * str, int len,
+             const struct s_FONTFACE * face)
 {
-	while (len--) {
-		*(arr++) = _FONT_Latin[(int)*(str++)];
+	const short * t = face->CharSet;
+	short       * a = arr;
+	if (!t) {
+		while (len-- > 0) {
+			*(arr++) = *(str++);
+		}
+	} else {
+		while (len-- > 0) {
+			*(arr++) = t[(int)*(str++)];
+		}
 	}
+	return a;
 }
 
 //==============================================================================
-void
-FontLatin1_W (short * arr, const short * str, int len)
+short *
+FontTrans_W (short * arr, const short * str, int len,
+             const struct s_FONTFACE * face)
 {
-	while (len--) {
-		*(arr++) = _FONT_Latin[*(str++) & 0xFF];
+	const short * t = face->CharSet;
+	short       * a;
+	if (!t) {
+		(const short*)a = str;
+	
+	} else {
+		a = arr;
+		while (len--) {
+			*(arr++) = t[*(str++) & 0xFF];
+		}
 	}
+	return a;
 }
 
 
@@ -405,7 +402,8 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 				vst_effects (GRPH_Vdi, face->Effects);
 				vst_point   (GRPH_Vdi, face->Points, &c, &c, &c, &c);
 				for (c = face->MinChr; c <= face->MaxChr; ++c) {
-					vqt_width (GRPH_Vdi, c, &w, &ld, &rd);
+					vqt_width (GRPH_Vdi, (face->CharSet ? face->CharSet[c] : c),
+					           &w, &ld, &rd);
 					p->leftSideBearing  = ld;
 					p->rightSideBearing = w - rd;
 					p->characterWidth   = w;
@@ -439,7 +437,7 @@ RQ_QueryTextExtents (CLIENT * clnt, xQueryTextExtentsReq * q)
 {
 	// BOOL oddLength: True if last char2b is unused
 	// Font fid:
-	CARD16 * text = (CARD16*)(q +1);
+	CARD8 * text = (CARD8*)(q +1);
 	//
 	// Reply:
 	// CARD8  drawDirection:
@@ -456,16 +454,14 @@ RQ_QueryTextExtents (CLIENT * clnt, xQueryTextExtentsReq * q)
 	} else { //..................................................................
 	
 		FONTFACE * face = fabl.p->FontFace;
-		size_t     size = ((q->length *4) - sizeof(xQueryTextExtentsReq)) /2
+		size_t     size = ((q->length *4) - sizeof(xQueryTextExtentsReq))
 		                - (q->oddLength ? 1 : 0);
-		char  str[size +1];
-		short ext[8], i;
+		short str[size];
+		short ext[8];
 		ClntReplyPtr (QueryTextExtents, r);
 		
-		PRINT (QueryTextExtents,"('%s') F:%lX", str, q->fid);
+		PRINT (QueryTextExtents,"('%*s') F:%lX", (int)size, text, q->fid);
 		
-		for (i = 0; i < size; ++i) str[i] = text[i];
-		str[size] = '\0';
 		vst_font    (GRPH_Vdi, fabl.p->FontIndex);
 		vst_effects (GRPH_Vdi, fabl.p->FontEffects);
 		if (fabl.p->FontWidth) {
@@ -474,7 +470,7 @@ RQ_QueryTextExtents (CLIENT * clnt, xQueryTextExtentsReq * q)
 		} else {
 			vst_point  (GRPH_Vdi, fabl.p->FontPoints, ext, ext, ext, ext);
 		}
-		vqt_extent (GRPH_Vdi, str, ext);
+		vqt_extent_n (GRPH_Vdi, FontTrans_C (str, text, size, face), size, ext);
 		r->drawDirection  = FontLeftToRight;
 		r->fontAscent     = face->Ascent;
 		r->fontDescent    = face->Descent;

@@ -35,8 +35,10 @@ static inline void FontCopy (p_FONTABLE dst, const p_FONTABLE src) {
 	*(d++) = *(s++); *(d) = *(s); dst.p->FontWidth = src.p->FontWidth;
 }
 
-void FontLatin1_C (short * arr, const char  * str, int len);
-void FontLatin1_W (short * arr, const short * str, int len);
+short * FontTrans_C (short * arr, const char  * str, int len,
+                     const struct s_FONTFACE * face);
+short * FontTrans_W (short * arr, const short * str, int len,
+                     const struct s_FONTFACE * face);
 
 
 #endif __FONT_H__
