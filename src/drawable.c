@@ -762,9 +762,9 @@ RQ_PolyRectangle (CLIENT * clnt, xPolyRectangleReq * q)
 				for (i = 0; i < len; ++i) {
 					PXY p[5];
 					p[0].x = p[3].x = p[4].x = rec[i].x + orig.x;
-					p[1].x = p[2].x = p[0].x + rec[i].w;
+					p[1].x = p[2].x = p[0].x + rec[i].w -1;
 					p[0].y = p[1].y          = rec[i].y + orig.y;
-					p[2].y = p[3].y = p[0].y + rec[i].h;
+					p[2].y = p[3].y = p[0].y + rec[i].h -1;
 					p[4].y          = p[0].y + d;
 					v_pline_p (hdl, 5, p);
 				}
