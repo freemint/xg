@@ -313,7 +313,7 @@ return;
 			// the area doesn't intersects the destination drawable or the
 			// drawable isn't viewable
 			//
-			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)"
+			DEBUG (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)"
 			                    " %c <%02X>",
 			       q->gc, (src_d.p->isWind ? 'W' : 'P'), q->srcDrawable,
 			       q->srcX, q->srcY, q->width, q->height,
