@@ -424,10 +424,13 @@ draw_wind (WINDOW * wind, PRECT * work,
 				sect++;
 			} while (--nClp);
 			exps -= nEvn;
+		
+		} else {
+			nEvn = -1; // return xTrue due to existing intersection
 		}
 		if (nEvn && exps) EvntExpose (wind, nEvn, exps);
 	}
-	return (nEvn > 0);
+	return (nEvn != 0);
 }
 
 //==============================================================================
