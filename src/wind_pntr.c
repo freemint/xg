@@ -204,7 +204,7 @@ WindPointerWatch (BOOL movedNreorg)
 					// the pointer is over the border of the main window
 					
 					WINDOW * w = stack[top];
-					short    b = w->GwmDecor;
+					short    b = (w->GwmDecor ? WMGR_Decor : 0);
 					if (b) widget = w;
 					else   b      = w->BorderWidth;
 					if      (r_p.x <  0)         { o.x -= b;         o.w = b; }
