@@ -1089,6 +1089,14 @@ RQ_ChangeWindowAttributes (CLIENT * clnt, xChangeWindowAttributesReq * q)
 		             X_ChangeWindowAttributes);
 		
 //		PRINT (,"+");
+		
+		if ((q->valueMask & CWOverrideRedirect)
+		    && WMGR_Active && !wind->isMapped  &&  wind->Handle > 0) {
+			if ((wind->Override == xFalse) != (wind->GwmDecor == xTrue)) {
+				short hdl = wind->Handle;
+				if (WmgrWindHandle (wind)) wind_delete (hdl);
+			}
+		}
 	}
 }
 
