@@ -103,6 +103,7 @@ main (int argc, char * argv[])
 			CARD32  t_start  = clock() * (1000 / CLOCKS_PER_SEC);
 			BOOL    run      = xTrue;
 			CARD8 * kb_shift = (CARD8*)Ssystem (S_OSHEADER, 0x0024, 0);
+			clock_t kb_tmout = 0x7FFFFFFF;
 			
 			WmgrActivate (xTrue); //(_app == 0);
 			
@@ -119,27 +120,64 @@ main (int argc, char * argv[])
 			
 			while (run) {
 				short  msg[8];
-				BOOL   reset     = xFalse;
-				short  event     = evnt_multi_s (&ev_i, msg, &ev_o);
-				CARD16 prev_mask = MAIN_KeyButMask;
-				CARD8  meta      = (*kb_shift &  K_RSHIFT ? Mod2Mask|ShiftMask : 0)
-				                 | (*kb_shift &  K_LSHIFT ? Mod3Mask|ShiftMask : 0)
-				                 | (*kb_shift &  K_LOCK   ? LockMask           : 0)
-				                 | (*kb_shift & (K_CTRL|K_ALT|K_ALTGR));
+				BOOL   reset = xFalse;
+				short  event = evnt_multi_s (&ev_i, msg, &ev_o);
+				CARD8  meta  = (*kb_shift & (K_RSHIFT|K_LSHIFT|K_LOCK|K_CTRL|K_ALT))
+				             | (*kb_shift & K_ALTGR ? 0x20 : 0);
 				short  chng;
-				MAIN_KeyButMask  = meta | PntrMap(ev_o.evo_mbutton);
-				MAIN_TimeStamp   = (clock() * (1000 / CLOCKS_PER_SEC) - t_start);
+				MAIN_TimeStamp = (clock() * (1000 / CLOCKS_PER_SEC) - t_start);
 				
 				if (event & MU_KEYBD) {
-					chng = KybdEvent (ev_o.evo_kreturn, prev_mask);
-				} else if (meta != (prev_mask & 0xFF)) {
-					chng = KybdEvent (0, prev_mask);
+					if (meta == (K_CTRL|K_ALT)  &&  ev_o.evo_kreturn == 0x0E08) {
+						if (_app) {
+							fputs ("\33p   X Server Shutdown forced   \33q\n", stderr);
+							exit (1);
+						} else {
+							printf ("\33p   X Server Reset forced   \33q\n");
+							reset = xTrue;
+						}
+					}
+					chng = KybdEvent (ev_o.evo_kreturn, meta);
+					if (KYBD_Pending)  kb_tmout = MAIN_TimeStamp + KYBD_Repeat;
+				} else if (meta != KYBD_PrvMeta || MAIN_TimeStamp > kb_tmout) {
+					chng = KybdEvent (0, meta);
+					 kb_tmout = 0x7FFFFFFF;
 				} else {
 					chng = 0;
 				}
 				if (WMGR_Cursor && (chng &= K_ALT|K_CTRL)) {
 					WmgrKeybd (chng);
 				}
+				
+				if (event & MU_BUTTON) {
+					CARD16 prev_mask          = MAIN_KeyButMask;
+					*(CARD8*)&MAIN_KeyButMask = PntrMap(ev_o.evo_mbutton) >>8;
+					if (ev_o.evo_mbutton) {
+						if (prev_mask) WindMctrl (xTrue);
+						ev_i.evi_bclicks = 0x0101;
+					} else {
+						WindMctrl (xFalse);
+						ev_i.evi_bclicks = 0x0102;
+					}
+					if (WindButton (prev_mask, ev_o.evo_mclicks) && _MAIN_Mctrl) {
+						graf_mkstate_p (&ev_o.evo_mouse,
+						                &ev_o.evo_mbutton, &ev_o.evo_kmeta);
+						if (!ev_o.evo_mbutton) {
+							WindMctrl (xFalse);
+						}
+						*(CARD8*)&MAIN_KeyButMask = PntrMap(ev_o.evo_mbutton) >>8;
+						meta = (*kb_shift & (K_RSHIFT|K_LSHIFT|K_LOCK|K_CTRL|K_ALT))
+				           | (*kb_shift & K_ALTGR ? 0x20 : 0);
+						if (meta != KYBD_PrvMeta
+						    && (chng = KybdEvent (0, meta) & (K_ALT|K_CTRL))
+						    && WMGR_Cursor) {
+								WmgrKeybd (chng);
+						}
+						ev_i.evi_bclicks = 0x0102;
+					}
+					ev_i.evi_bstate = ev_o.evo_mbutton;
+				}
+				*(PXY*)&ev_i.evi_m2 = ev_o.evo_mouse;
 				
 				if (event & MU_MESAG) {
 					if (msg[0] == MN_SELECTED) {
@@ -154,27 +192,6 @@ main (int argc, char * argv[])
 				
 				if      (event & MU_M1) WindPointerWatch (xTrue);
 				else if (event & MU_M2) WindPointerMove  (NULL);
-				
-				if (event & MU_BUTTON) {
-					if (ev_o.evo_mbutton) {
-						WindMctrl (xTrue);
-						ev_i.evi_bclicks = 0x0101;
-					} else {
-						WindMctrl (xFalse);
-						ev_i.evi_bclicks = 0x0102;
-					}
-					if (WindButton (prev_mask, ev_o.evo_mclicks) && _MAIN_Mctrl) {
-						graf_mkstate_p (&ev_o.evo_mouse,
-						                &ev_o.evo_mbutton, &ev_o.evo_kmeta);
-						if (!ev_o.evo_mbutton) {
-							WindMctrl (xFalse);
-						}
-						MAIN_KeyButMask = ev_o.evo_kmeta | PntrMap(ev_o.evo_mbutton);
-						ev_i.evi_bclicks = 0x0102;
-					}
-					ev_i.evi_bstate = ev_o.evo_mbutton;
-				}
-				*(PXY*)&ev_i.evi_m2 = ev_o.evo_mouse;
 				
 				{	long rd_set = MAIN_FDSET_rd, wr_set = MAIN_FDSET_wr;
 				if (reset || (Fselect (1, &rd_set, &wr_set, 0)

@@ -46,6 +46,8 @@ static CARD8   KYBD_Set[256];
 
 const CARD8 KYBD_CodeMin = KEYSYM_OFFS;
 CARD8       KYBD_CodeMax = KEYSYM_OFFS + numberof(KYBD_Map) -1;
+CARD8       KYBD_PrvMeta = 0;
+CARD8       KYBD_Pending = 0;
 CARD16      KYBD_Repeat;
 
 #define K_ENGLISH   AESLANG_ENGLISH
@@ -315,22 +317,17 @@ KybdInit (void)
 
 //==============================================================================
 short
-KybdEvent (CARD16 scan, CARD16 prev_meta)
+KybdEvent (CARD16 scan, CARD16 meta)
 {
-	static BYTE pndg = 0;
-	CARD8       chng = (MAIN_KeyButMask ^ prev_meta);
+	CARD8   chng = (KYBD_PrvMeta ^ meta);
+	KeyCode code = (CARD16)scan >> 8;
 	
 	if (scan) {
-		CARD8 c = scan & 0x00FF;
-		CARD8 s = (CARD16)scan >> 8;
-		if (s >= 120) {
-			s   -= 118;
-			scan = ((CARD16)s <<8) | c;
-		}
-		if (s  &&  KYBD_Map[s][0] == XK_VoidSymbol) {
-			printf ("*** unknown scan code %02X:%02X ***\n", s, c);
-		} else {
-			printf ("*** %02X:%02X ***\n", (CARD16)scan >> 8, c);
+		if     (!code)        code  = KYBD_Set[scan & 0xFF];
+		else if (code >= 120) code -= 118;
+		
+		if (KYBD_Map[code][0] == XK_VoidSymbol) {
+			printf ("*** unknown scan code %02X:%02X ***\n", code, scan & 0xFF);
 		}
 	}
 	
@@ -339,38 +336,54 @@ KybdEvent (CARD16 scan, CARD16 prev_meta)
 		PXY    r_xy = WindPointerPos (NULL);
 		PXY    e_xy = WindPointerPos (_WIND_PointerRoot);
 		
-		if (pndg) {
+		static CARD16 modi[2][6] = {
+			{ KC_SHFT_R, KC_SHFT_L, KC_CTRL,     KC_ALT,   KC_LOCK,  KC_ALTGR },
+			{ ShiftMask, ShiftMask, ControlMask, Mod1Mask, LockMask, Mod2Mask } };
+		CARD16 mask = (meta & (K_LSHIFT|K_RSHIFT) ? ShiftMask : 0);
+		int    i    = 0;
+		
+		if (KYBD_Pending) {
 			EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-			               _WIND_PointerRoot->Id, r_xy, e_xy, pndg);
-			pndg = 0;
+			               c_id, r_xy, e_xy, KYBD_Pending);
+			KYBD_Pending = 0;
 		}
-		if (chng >>= 1) {
-			BYTE code[] = { 0, KC_LOCK, KC_CTRL, KC_ALT,
-			                   KC_SHFT_R, KC_SHFT_L, 0, KC_ALTGR };
-			int  i      = 1;
-			do {
-				if (chng & 1) {
-					if (prev_meta & (1 << i)) {
-						EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-						               c_id, r_xy, e_xy, code[i] + KEYSYM_OFFS);
-					} else {
-						EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
-						               c_id, r_xy, e_xy, code[i] + KEYSYM_OFFS);
-					}
+		while (chng) {
+			if (chng & 1) {
+				if (meta & (1 << i)) {
+					MAIN_KeyButMask |= modi[1][i];
+					EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
+					               c_id, r_xy, e_xy, modi[0][i] + KEYSYM_OFFS);
+				} else {
+					MAIN_KeyButMask &= ~modi[1][i] | mask;
+					EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
+					               c_id, r_xy, e_xy, modi[0][i] + KEYSYM_OFFS);
 				}
-				i++;
-			} while ((chng >>= 1));
-			
+			}
+			chng >>=1;
+			i++;
 		}
-		if (scan) {
-			pndg = ((CARD16)scan >>8) + KEYSYM_OFFS;
+		if (code) {
+			code += KEYSYM_OFFS;
 			EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
-			               c_id, r_xy, e_xy, pndg);
+			               c_id, r_xy, e_xy, code);
+			if (scan < 0x0100) {
+				EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
+				               c_id, r_xy, e_xy, code);
+			} else {
+				KYBD_Pending = code;
+			}
 		}
 	
 	} else {
-		pndg = 0;
+		((CARD8*)&MAIN_KeyButMask)[1]
+		             = (meta & (K_LSHIFT|K_RSHIFT) ? ShiftMask   : 0)
+		             | (meta &  K_LOCK             ? LockMask    : 0)
+		             | (meta &  K_CTRL             ? ControlMask : 0)
+		             | (meta &  K_ALT              ? Mod1Mask    : 0)
+		             | (meta &  K_ALTGR            ? Mod2Mask    : 0);
+		KYBD_Pending = 0;
 	}
+	KYBD_PrvMeta = meta;
 	
 	return chng;
 }
@@ -382,7 +395,7 @@ KybdEvent (CARD16 scan, CARD16 prev_meta)
 
 #include "Request.h"
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_GetModifierMapping (CLIENT * clnt, xGetModifierMappingReq * q)
 {
@@ -402,23 +415,47 @@ RQ_GetModifierMapping (CLIENT * clnt, xGetModifierMappingReq * q)
 	ClntReply (GetModifierMapping, (8 *2), NULL);
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_GetKeyboardMapping (CLIENT * clnt, xGetKeyboardMappingReq * q)
 {
-	ClntReplyPtr (GetKeyboardMapping, r);
+	// Returns 'count' keysymbols starting from 'firstKeyCode'.
+	//
+	// KeyCode firstKeyCode:
+	// CARD8   count:
+	//
+	// Reply:
+	// CARD8 keySymsPerKeyCode:
+	//...........................................................................
 	
-	KeySym * k = KYBD_Map[q->firstKeyCode - KYBD_CodeMin];
-	int      n = q->count * 4, num = n;
-	KeySym * s = (KeySym*)(r +1);
+	if (q->firstKeyCode < KYBD_CodeMin) {
+		Bad(Value, q->firstKeyCode, GetKeyboardMapping,"(): \n"
+		    "          firstKeyCode %u < %u \n", q->firstKeyCode, KYBD_CodeMin);
 	
-	PRINT (GetKeyboardMapping," %i (%i)", q->firstKeyCode, q->count);
+	} else if (q->firstKeyCode + q->count -1 > KYBD_CodeMax) {
+		Bad(Value, q->count, GetKeyboardMapping,"(): \n"
+		    "          firstKeyCode + count -1 %u > %u \n",
+		           q->firstKeyCode + q->count -1, KYBD_CodeMax);
 	
-	r->keySymsPerKeyCode = 4;
-	if (clnt->DoSwap) while (n--) *(s++) = Swap32(*(k++));
-	else              while (n--) *(s++) =        *(k++);
+	} else { //..................................................................
 	
-	ClntReply (GetKeyboardMapping, (num * sizeof(KeySym)), NULL);
+		ClntReplyPtr (GetKeyboardMapping, r);
+		KeySym * sym = KYBD_Map[q->firstKeyCode - KYBD_CodeMin];
+		int      num = q->count * 4;
+		size_t   len = num * sizeof(KeySym);
+		
+		DEBUG (GetKeyboardMapping," %i (%i)", q->firstKeyCode, q->count);
+		
+		r->keySymsPerKeyCode = 4;
+		if (clnt->DoSwap) {
+			KeySym * s = (KeySym*)(r +1);
+			int      n = num;
+			while (n--) *(s++) = Swap32(*(sym++));
+		} else {
+			memcpy ((r +1), sym, len);
+		}
+		ClntReply (GetKeyboardMapping, len, NULL);
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -433,4 +470,11 @@ void
 RQ_ChangeKeyboardMapping (CLIENT * clnt, xChangeKeyboardMappingReq * q)
 {
 	PRINT (- X_ChangeKeyboardMapping," ");
+}
+
+//------------------------------------------------------------------------------
+void
+RQ_QueryKeymap (CLIENT * clnt, xQueryKeymapReq * q)
+{
+	PRINT (- X_QueryKeymap," ");
 }

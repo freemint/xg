@@ -58,8 +58,8 @@ struct s_CURSOR;     typedef struct s_CURSOR   * p_CURSOR;
 
 
 extern CONST CARD32 MAIN_TimeStamp;
-extern CONST CARD16 MAIN_KeyButMask;
 extern CONST p_PXY  MAIN_PointerPos;
+extern       CARD16 MAIN_KeyButMask;
 
 extern long MAIN_FDSET_wr, MAIN_FDSET_rd;
 
