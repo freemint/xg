@@ -1,7 +1,9 @@
+2001-07-04: 0.10
    - added new control:  holding down the ALT key and pressing the left mouse
      button somewhere inside a X window with allows to move this window, same as
-     handled by other X servers.  a short mouse click instead tops/bottoms the
-     window.
+     handled by other X servers.  Additional there is a "magnetic snap" at the
+     desktop borders while moving this way to make window positioning easier.
+     a short mouse click into a window instead tops/bottoms this.
    - changed window decoration to view if a window is normally resizeable or
      not.
    - improved window (un)topping, should now always react as expected.
@@ -9,7 +11,7 @@
    - activated the 'About' box (as wished by lp_ and other :-) ) to display the
      version number.
    - heavily reworked management of window properties to make the built-in
-     window manager's accesses to ICCC values easyer and speeds it up a bit.
+     window manager's accesses to ICCC values easier and speeds it up a bit.
    - adapted to gemlib 0.41.
 2001-06-23: 0.09.3
    - fixed ReparentWindow() handling for setting to root parent.
