@@ -63,6 +63,7 @@ void    EvntExpose (p_WINDOW, short len, const p_GRECT rect);
 #define EvntMotionNotify(   w,m, wid, cid, rxy, exy)\
                                            _evnt_w (w,m,MotionNotify, wid, cid,\
                                              *(CARD32*)&(rxy), *(CARD32*)&(exy))
+#define EvntNoExposure(     c,   drw, req)        _evnt_c (c,NoExpose, drw, req)
 #define EvntPropertyNotify( w,   atm, del)\
                          _evnt_w (w,PropertyChangeMask,PropertyNotify, atm, del)
 #define EvntReparentNotify( w,m, wid, pid, wxy, ovr)\

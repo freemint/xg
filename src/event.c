@@ -259,7 +259,7 @@ static const char * _EVNT_Form[LASTEvent] = {
 	NULL, //KeymapNotify
 	NULL, //Expose
 	NULL, //GraphicsExpose
-	NULL, //NoExpose
+	"lsF",                                // NoExpose
 	"Wc",                                 // VisibilityNotify
 	"Wwrsb",    "Ww",                     // CreateNotify,  DestroyNotify
 	"Wwb",      "Wwb",       "Ww",        // UnmapNotify,   MapNotify, MapRequest
