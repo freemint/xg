@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// pixmap.c
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #include "pixmap_P.h"
 #include "grph.h"
 #include "x_gem.h"
@@ -248,8 +258,13 @@ RQ_CreatePixmap (CLIENT * clnt, xCreatePixmapReq * q)
 	if (DrawFind(q->pid).p) {
 		Bad(IDChoice, q->pid, CreatePixmap,);
 		
-	} else if (!q->width || !q->height || !q->depth) {
-		Bad(Value, 0, CreatePixmap,);
+	} else if ((short)q->width <= 0  ||  (short)q->height <= 0) {
+		Bad(Value, (short)((short)q->width <= 0 ? q->width : q->height),
+		           CreatePixmap," width = %i height = %i",
+		           (short)q->width, (short)q->height);
+	
+	} else if (!q->depth) {
+		Bad(Value, 0, CreatePixmap," depth = %i", q->depth);
 	
 	// else check depth 
 	
