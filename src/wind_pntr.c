@@ -254,7 +254,7 @@ WindPointerWatch (BOOL movedNreorg)
 		MainSetWatch (&sect, MO_LEAVE);
 		MainSetMove  (watch);
 	} else {
-		MainClrWatch (0);
+		MainClrWatch ();
 		MainSetMove  (xFalse);
 	}
 	

@@ -66,7 +66,7 @@ extern long MAIN_FDSET_wr, MAIN_FDSET_rd;
 
 void    MainSetMove  (BOOL onNoff);
 void    MainSetWatch (const p_GRECT area, BOOL leaveNenter);
-#define MainClrWatch(void) MainSetWatch (NULL, 0)
+#define MainClrWatch() MainSetWatch (NULL, 0)
 
 
 BOOL WindButton       (CARD16 prev_mask, int count);
