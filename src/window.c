@@ -659,7 +659,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			WindPointerWatch (xFalse); // correct watch rectangle
 		} else {
 			_WIND_PointerRoot = NULL;
-			MainClrWatch(0);
+			MainClrWatch();
 			MainSetMove (xFalse);
 		}
 	}
@@ -941,12 +941,10 @@ RQ_MapWindow (CLIENT * clnt, xMapWindowReq * q)
 			}
 		} else {
 			GRECT curr;
-			if (WmgrWindMap (wind, &curr)) {
-				WindPointerWatch (xFalse);
-			} else {
-				MainSetWatch (&curr, MO_ENTER);
-			}
+			BOOL  watch = WmgrWindMap (wind, &curr);
 			WindMap (wind, xTrue);
+			if (watch) WindPointerWatch (xFalse);
+			else       MainSetWatch (&curr, MO_ENTER);
 		}
 	}
 }
@@ -1005,7 +1003,7 @@ RQ_UnmapWindow (CLIENT * clnt, xUnmapWindowReq * q)
 				WindPointerWatch (xFalse);
 			} else {
 				_WIND_PointerRoot = NULL;
-				MainClrWatch(0);
+				MainClrWatch();
 			}
 			if (wind->Id == _WIND_SaveUnder) {
 				WindSaveFlush (xTrue);
@@ -1309,7 +1307,7 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 					WindPointerWatch (xFalse);
 				} else {
 					_WIND_PointerRoot = NULL;
-					MainClrWatch(0);
+					MainClrWatch();
 				}
 				
 			} else if (WindVisible (wind->Parent)) {
