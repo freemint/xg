@@ -794,7 +794,7 @@ WmgrMessage (short * msg)
 	
 	BOOL     reset    = xFalse;
 	BOOL     inv_save = WIND_SaveDone;
-	WINDOW * wind;
+	WINDOW * wind     = NULL;
 	
 	if (wind) switch (msg[0]) {
 		
