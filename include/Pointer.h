@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// Pointer.c -- Handling of Mouse Pointer Behavior.
+// Pointer.h -- Handling of Mouse Pointer Behavior.
 //
 // Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
