@@ -1,3 +1,7 @@
+2001-02-18: 0.05.3
+   - implemented passive and automatic button grabs, so all aspects of button
+     grabs handling should be completed now.
+   - implemented Grab/UngrabButton() request.
 2001-02-15: 0.05.2
    - darned memory leakage: remove properties of deleted windows.
    - implemented ChangeActivePointerGrab() request.
