@@ -333,7 +333,7 @@ KybdInit (void)
 		const char * type = "<unknown>";
 		int   i;
 		int   n_usf, n_sft, n_alt = 0, n_asf = 0, n_agr = 0, n_xtr = 0, n_gap = 0;
-		BOOL  prnth;
+		BOOL  prnth  = xFalse;
 		short os_ver = Ssystem (S_OSHEADER, 0x0000, 0);
 		long  os_beg = Ssystem (S_OSHEADER, 0x0008, 0);
 		long  os_end = Ssystem (S_OSHEADER, 0x000C, 0);
@@ -523,13 +523,13 @@ KybdInit (void)
 
 //==============================================================================
 short
-KybdEvent (CARD16 scan, CARD16 meta)
+KybdEvent (CARD16 scan, CARD8 meta)
 {
 	CARD8   chng = (KYBD_PrvMeta ^ meta);
 	KeyCode code = (CARD16)scan >> 8;
 	
 	if (scan) {
-		if     (!code)        code  = KYBD_Set[scan & 0xFF];
+		if     (!code)        code  = KYBD_Set[scan];
 		else if (code >= 120) code -= 118;
 		
 		if (KYBD_Map[code][0] == XK_VoidSymbol) {
@@ -545,8 +545,8 @@ KybdEvent (CARD16 scan, CARD16 meta)
 		static CARD16 modi[2][6] = {
 			{ KC_SHFT_R, KC_SHFT_L, KC_CTRL,     KC_ALT,   KC_LOCK,  KC_ALTGR },
 			{ ShiftMask, ShiftMask, ControlMask, Mod1Mask, LockMask, Mod2Mask } };
-		CARD16 mask = (meta & (K_LSHIFT|K_RSHIFT) ? ShiftMask : 0);
-		int    i    = 0;
+		CARD8 mask = (meta & (K_LSHIFT|K_RSHIFT) ? ShiftMask : 0);
+		int   i    = 0;
 		
 		if (KYBD_Pending) {
 			EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
@@ -556,11 +556,11 @@ KybdEvent (CARD16 scan, CARD16 meta)
 		while (chng) {
 			if (chng & 1) {
 				if (meta & (1 << i)) {
-					MAIN_KeyButMask |= modi[1][i];
+					MAIN_Key_Mask |= modi[1][i];
 					EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
 					               c_id, r_xy, e_xy, KEYCODE(modi[0][i]));
 				} else {
-					MAIN_KeyButMask &= ~modi[1][i] | mask;
+					MAIN_Key_Mask &= ~modi[1][i] | mask;
 					EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
 					               c_id, r_xy, e_xy, KEYCODE(modi[0][i]));
 				}
@@ -569,25 +569,30 @@ KybdEvent (CARD16 scan, CARD16 meta)
 			i++;
 		}
 		if (code) {
+			CARD8 save = MAIN_Key_Mask;
+			if (scan < 0x0100) {
+				MAIN_Key_Mask = (Tos2Iso[scan] == KYBD_Map[code][0]
+				                 ? 0 : ShiftMask);
+			}
 			code = KEYCODE(code);
 			EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
 			               c_id, r_xy, e_xy, code);
 			if (scan < 0x0100) {
 				EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
 				               c_id, r_xy, e_xy, code);
+				MAIN_Key_Mask = save;
 			} else {
 				KYBD_Pending = code;
 			}
 		}
 	
 	} else {
-		((CARD8*)&MAIN_KeyButMask)[1]
-		             = (meta & (K_LSHIFT|K_RSHIFT) ? ShiftMask   : 0)
-		             | (meta &  K_LOCK             ? LockMask    : 0)
-		             | (meta &  K_CTRL             ? ControlMask : 0)
-		             | (meta &  K_ALT              ? Mod1Mask    : 0)
-		             | (meta &  K_ALTGR            ? Mod2Mask    : 0);
-		KYBD_Pending = 0;
+		MAIN_Key_Mask = (meta & (K_LSHIFT|K_RSHIFT) ? ShiftMask   : 0)
+		              | (meta &  K_LOCK             ? LockMask    : 0)
+		              | (meta &  K_CTRL             ? ControlMask : 0)
+		              | (meta &  K_ALT              ? Mod1Mask    : 0)
+		              | (meta &  K_ALTGR            ? Mod2Mask    : 0);
+		KYBD_Pending  = 0;
 	}
 	KYBD_PrvMeta = meta;
 	
