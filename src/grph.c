@@ -824,7 +824,14 @@ _r_get_P8 (MFDB * mfdb, PRECT * pxy, MFDB * ptr)
 		char * s = src;
 		int    i;
 		for (i = 0; i < mfdb->fd_w; i++) {
-			*(dst++) = *(s++);
+			char c = *(s++);
+			if (c < 16) {
+				static const char pix_idx[16] = {
+					0, 2, 3, 6, 4, 7, 5, 8, 9, 10, 11, 14, 12, 15, 13, 1
+				};
+				c = pix_idx[(int)c];
+			}
+			*(dst++) = c;
 		}
 		src += inc / sizeof(*src);
 		dst += (int)dst & 1;
