@@ -12,6 +12,9 @@
 # define __KEYBOARD_H__
 
 
+#define K_LOCK   0x10   // bitmask returned by Kbshift()
+
+
 #define KEY_SHIFT_L   0x2A
 #define KEY_SHIFT_R   0x36
 #define KEY_CTRL      0x1D

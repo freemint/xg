@@ -15,6 +15,7 @@
 #include "wmgr.h"
 #include "x_gem.h"
 #include "x_mint.h"
+#include <mint/ssystem.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,6 +25,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <X11/X.h>
 #include <X11/Xproto.h>
 
 extern const short  _app;
@@ -97,8 +99,9 @@ main (int argc, char * argv[])
 		menu_register (ApplId(0), (char*)"  X");
 		
 		if (SrvrInit (port) >= 0) {
-			CARD32 t_start  = clock() * (1000 / CLOCKS_PER_SEC);
-			BOOL   run      = xTrue;
+			CARD32  t_start  = clock() * (1000 / CLOCKS_PER_SEC);
+			BOOL    run      = xTrue;
+			CARD8 * kb_shift = (CARD8*)Ssystem (S_OSHEADER, 0x0024, 0);
 			
 			WmgrActivate (xTrue); //(_app == 0);
 			
@@ -129,9 +132,10 @@ main (int argc, char * argv[])
 				BOOL   reset     = xFalse;
 				short  event     = evnt_multi_s (&ev_i, msg, &ev_o);
 				CARD16 prev_mask = MAIN_KeyButMask;
-				CARD8  meta      = (ev_o.evo_kmeta & 2 ? (ev_o.evo_kmeta &~2)|0x11 :
-				                    ev_o.evo_kmeta & 1 ?  ev_o.evo_kmeta     |0x21 :
-				                    ev_o.evo_kmeta);
+				CARD8  meta      = (*kb_shift &  K_RSHIFT ? Mod2Mask|ShiftMask : 0)
+				                 | (*kb_shift &  K_LSHIFT ? Mod3Mask|ShiftMask : 0)
+				                 | (*kb_shift &  K_LOCK   ? LockMask           : 0)
+				                 | (*kb_shift & (K_CTRL|K_ALT));
 				MAIN_KeyButMask  = meta | PntrMap(ev_o.evo_mbutton);
 				MAIN_TimeStamp   = (clock() * (1000 / CLOCKS_PER_SEC) - t_start);
 				
@@ -171,11 +175,6 @@ main (int argc, char * argv[])
 				*(PXY*)&ev_i.evi_m2 = ev_o.evo_mouse;
 				
 				if (event & MU_KEYBD) {
-					if (ev_o.evo_kreturn == 0x0E08
-					    &&  MAIN_KeyButMask & (K_CTRL|K_ALT)) {
-						// Panic Key
-						exit (1);
-					}
 					KybdEvent (ev_o.evo_kreturn, prev_mask);
 				} else if (meta != (prev_mask & 0xFF)) {
 					KybdEvent (0, prev_mask);

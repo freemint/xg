@@ -36,7 +36,7 @@ KybdEvent (short scan, short prev_meta)
 	static BYTE pndg = 0;
 	
 	if (_WIND_PointerRoot) {
-		CARD8  chng = (MAIN_KeyButMask ^ prev_meta) >> 2;
+		CARD8  chng = (MAIN_KeyButMask ^ prev_meta) >> 1;
 		CARD32 c_id = _WIND_PointerRoot->Id;
 		PXY    r_xy = WindPointerPos (NULL);
 		PXY    e_xy = WindPointerPos (_WIND_PointerRoot);
@@ -47,8 +47,9 @@ KybdEvent (short scan, short prev_meta)
 			pndg = 0;
 		}
 		if (chng) {
-			BYTE code[] = { 0,0, KEY_CTRL, KEY_ALT, KEY_SHIFT_L, KEY_SHIFT_R };
-			int  i      = 2;
+			BYTE code[] = { 0, KEY_LOCK, KEY_CTRL, KEY_ALT,
+			                   KEY_SHIFT_R, KEY_SHIFT_L };
+			int  i      = 1;
 			do {
 				if (chng & 1) {
 					if (prev_meta & (1 << i)) {
@@ -109,12 +110,12 @@ RQ_GetModifierMapping (CLIENT * clnt, xGetModifierMappingReq * q)
 	DEBUG (GetModifierMapping," ");
 	
 	r->numKeyPerModifier = 2;
-	k[0] = (KEY_SHIFT_R << 8) | KEY_SHIFT_L;
-	k[1] = (KEY_LOCK    << 8) | 0;
-	k[2] = (KEY_CTRL    << 8) | 0;
-	k[3] = (KEY_ALT     << 8) | 0;
-	k[4] = (KEY_SHIFT_L << 8) | 0;
-	k[5] = (KEY_SHIFT_R << 8) | 0;
+	k[0] = ((KEY_SHIFT_R + KEYSYM_OFFS) << 8) | (KEY_SHIFT_L + KEYSYM_OFFS);
+	k[1] = ((KEY_LOCK    + KEYSYM_OFFS) << 8) | 0;
+	k[2] = ((KEY_CTRL    + KEYSYM_OFFS) << 8) | 0;
+	k[3] = ((KEY_ALT     + KEYSYM_OFFS) << 8) | 0;
+	k[4] = ((KEY_SHIFT_L + KEYSYM_OFFS) << 8) | 0;
+	k[5] = ((KEY_SHIFT_R + KEYSYM_OFFS) << 8) | 0;
 	k[6] = k[7]               = 0;
 	ClntReply (GetModifierMapping, (8 *2), NULL);
 }
