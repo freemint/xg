@@ -2,7 +2,7 @@
 //
 // window_P.h
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-09-27 - Initial Version.
@@ -29,7 +29,11 @@ extern CARD32   _WIND_PgrabEvents;
 extern BOOL     _WIND_PgrabOwnrEv;
 
 BOOL _Wind_PgrabClear (p_CLIENT clnt);
-void _Wind_Cursor     (p_WINDOW wind);
+
+// utility functions
 BOOL _Wind_IsInferior (p_WINDOW wind, p_WINDOW inferior);
+void _Wind_Cursor     (p_WINDOW wind);
+int  _Wind_PathStack  (WINDOW ** stack, int * anc, WINDOW * beg, WINDOW * end);
+
 
 #endif __WINDOW_P_H__

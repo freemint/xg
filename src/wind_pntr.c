@@ -2,7 +2,7 @@
 //
 // wind_pntr.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-09-28 - Initial Version.
@@ -414,11 +414,8 @@ RQ_QueryPointer (CLIENT * clnt, xQueryPointerReq * q)
 			r->rootY = MAIN_PointerPos->y - WIND_Root.Rect.y;
 		
 		} else {
-			PXY pxy;
-			WindOrigin (wind, &pxy);
-			r->root  = _WIND_PointerRoot->Id;
-			r->rootX = MAIN_PointerPos->x - pxy.x;
-			r->rootY = MAIN_PointerPos->y - pxy.y;
+			*(PXY*)&r->rootX = WindPointerPos (wind);
+			r->root          = _WIND_PointerRoot->Id;
 		}
 		
 		if (q->id == r->root) {
@@ -431,11 +428,7 @@ RQ_QueryPointer (CLIENT * clnt, xQueryPointerReq * q)
 			r->child = r->root;
 		
 		} else {
-			PXY pxy;
-			WindOrigin (wind, &pxy);
-			r->winX = MAIN_PointerPos->x - pxy.x;
-			r->winY = MAIN_PointerPos->y - pxy.y;
-			
+			*(PXY*)&r->winX = WindPointerPos (wind);
 			if ((wind = _WIND_PointerRoot)) {
 				while (wind != &WIND_Root) {
 					if (wind->Id == q->id) {

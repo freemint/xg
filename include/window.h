@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// window.h
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #ifndef ___WINDOW_H__
 # define ___WINDOW_H__
 
@@ -6,6 +16,14 @@
 
 #define ROOT_DEPTH   1
 
+
+#ifndef __PXY
+# define __PXY
+typedef struct s_PXY {
+	short x;
+	short y;
+} PXY;
+#endif
 
 #ifndef __GRECT
 # define __GRECT
@@ -77,9 +95,6 @@ extern WINDOW WIND_Root;
 void WindInit (BOOL initNreset);
 
 void   WindDelete   (p_WINDOW , p_CLIENT);
-BOOL   WindVisible  (p_WINDOW );
-short  WindOrigin   (p_WINDOW , p_PXY   dst);
-short  WindGeometry (p_WINDOW , p_GRECT dst, CARD16 border);
 CARD16 WindClipLock (p_WINDOW , CARD16 border, const GRECT * clip,
                                 short n_clip, p_PXY orig, GRECT ** pBuf);
 void   WindClipOff  (void);
@@ -90,6 +105,12 @@ BOOL   WindCirculate   (p_WINDOW , CARD8 place);
 void   WindResize      (p_WINDOW , p_GRECT diff);
 BOOL   WindMap         (p_WINDOW , BOOL visible);
 void   WindUnmap       (p_WINDOW , BOOL by_conf);
+
+// utility functions
+BOOL   WindVisible    (p_WINDOW );
+short  WindOrigin     (p_WINDOW , p_PXY   dst);
+short  WindGeometry   (p_WINDOW , p_GRECT dst, CARD16 border);
+PXY    WindPointerPos (p_WINDOW );
 
 static inline p_WINDOW WindFind (CARD32 id) {
 	p_WINDOW wind = DrawFind(id).Window;

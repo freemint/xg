@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// window.c
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #include "window_P.h"
 #include "x_gem.h"
 #include "wmgr.h"
@@ -84,81 +94,6 @@ WindInit (BOOL initNreset)
 }
 
 
-//------------------------------------------------------------------------------
-static inline short
-_origin (WINDOW * wind, PXY * dst)
-{
-	WINDOW * w;
-	while ((w = wind->Parent)) {
-		dst->x += w->Rect.x;
-		dst->y += w->Rect.y;
-		if (w == &WIND_Root) break;
-		else                 wind = w;
-	}
-	return wind->Handle;
-}
-
-//==============================================================================
-short
-WindOrigin (WINDOW * wind, PXY * dst)
-{
-	*dst = *(PXY*)&wind->Rect;
-	
-	return _origin (wind, dst);
-}
-
-//==============================================================================
-short
-WindGeometry (WINDOW * wind, GRECT * dst, CARD16 border)
-{
-	*dst = wind->Rect;
-	if (border) {
-		dst->x -= border;
-		dst->y -= border;
-		border <<= 2;
-		dst->w += border;
-		dst->h += border;
-	}
-	return _origin (wind, (PXY*)dst);
-}
-
-
-//==============================================================================
-BOOL
-WindVisible (WINDOW * wind)
-{
-	BOOL vis;
-	
-	while ((vis = wind->isMapped) && (wind = wind->Parent));
-	
-	return vis;
-}
-
-
-//------------------------------------------------------------------------------
-void
-_Wind_Cursor (WINDOW * wind)
-{
-	CURSOR * crsr = NULL;
-	
-	while (wind && !(crsr = wind->Cursor)) {
-		wind = wind->Parent;
-	}
-	CrsrSelect (crsr);
-}
-
-//------------------------------------------------------------------------------
-BOOL
-_Wind_IsInferior (WINDOW * wind, WINDOW * inferior)
-{
-	while (inferior) {
-		if (inferior == wind) return xTrue;
-		inferior = inferior->Parent;
-	}
-	return xFalse;
-}
-
-
 //==============================================================================
 BOOL
 WindButton (CARD16 prev_mask, int count)
@@ -177,10 +112,8 @@ WindButton (CARD16 prev_mask, int count)
 	if (_WIND_PgrabWindow) {
 		CARD32 w_id = 0;
 		if (_WIND_OpenCounter && wind) {
-			WindOrigin (wind, &w_xy);
-			w_xy.x = MAIN_PointerPos->x - w_xy.x;
-			w_xy.y = MAIN_PointerPos->y - w_xy.y;
-			w_id   = wind->Id;
+			w_xy = WindPointerPos (wind);
+			w_id = wind->Id;
 
 		} else {
 			int hdl = wind_find (MAIN_PointerPos->x, MAIN_PointerPos->y);
@@ -219,9 +152,7 @@ WindButton (CARD16 prev_mask, int count)
 					c_id = w->Id;
 					break;
 				} while ((w = w->Parent));
-				WindOrigin (wnd_r, &e_xy);
-				e_xy.x = MAIN_PointerPos->x - e_xy.x;
-				e_xy.y = MAIN_PointerPos->y - e_xy.y;
+				e_xy = WindPointerPos (wnd_r);
 				_evnt_c (_WIND_PgrabClient, ButtonRelease,
 				         w_id, wnd_r->Id, c_id,
 				         *(CARD32*)&w_xy, *(CARD32*)&e_xy, butt_r);
@@ -234,9 +165,7 @@ WindButton (CARD16 prev_mask, int count)
 					break;
 				} while ((w = w->Parent));
 				if (wnd_p != wnd_r) {
-					WindOrigin (wnd_p, &e_xy);
-					e_xy.x = MAIN_PointerPos->x - e_xy.x;
-					e_xy.y = MAIN_PointerPos->y - e_xy.y;
+					e_xy = WindPointerPos (wnd_p);
 				}
 				_evnt_c (_WIND_PgrabClient, ButtonPress,
 				         w_id, wnd_p->Id, c_id,
@@ -249,10 +178,7 @@ WindButton (CARD16 prev_mask, int count)
 		return WmgrButton();
 	}
 	
-	WindOrigin (wind, &w_xy);
-	w_xy.x = MAIN_PointerPos->x - w_xy.x;
-	w_xy.y = MAIN_PointerPos->y - w_xy.y;
-	
+	w_xy = WindPointerPos (wind);
 	do {
 		if (butt_r) {
 			EvntPropagate (wind, ButtonReleaseMask, ButtonRelease,
@@ -557,8 +483,8 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 		
 		if (wind == chck) {
 			WINDOW * stack[32], * w = wind;
-			int anc = 0;
-			PXY r_xy;
+			PXY r_xy = WindPointerPos (wind);
+			int anc  = 0;
 			while (w != bott) {
 				if (w->Handle > 0) {
 					if (w->isMapped || w->GwmIcon) {
@@ -574,10 +500,10 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 				w            = w->Parent;
 			}
 			stack[anc] = bott;
-			WindOrigin (wind, &r_xy);
-			r_xy.x = MAIN_PointerPos->x - r_xy.x;
-			r_xy.y = MAIN_PointerPos->y - r_xy.y;
 			EvntPoiner (stack, anc, anc, r_xy, r_xy, wind->Id, mode);
+			if (mode == NotifyUngrab) {
+				_Wind_PgrabClear (NULL);
+			}
 			_WIND_PointerRoot = bott;
 			enter             = xTrue;
 		
