@@ -1198,18 +1198,18 @@ RQ_GetWindowAttributes (CLIENT * clnt, xGetWindowAttributesReq * q)
 		
 		if (wind) {
 			r->backingStore     = wind->BackingStore;
-			r->visualID         = DFLT_VISUAL;
+			r->visualID         = (wind->Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
 			r->class            = wind->ClassInOut;
 			r->bitGravity       = wind->BitGravity;
 			r->winGravity       = wind->WinGravity;
-			r->backingBitPlanes = 0x1uL;
+			r->backingBitPlanes = (1uL << wind->Depth) -1;
 			r->backingPixel     = 0;
 			r->saveUnder        = wind->SaveUnder;
 			r->mapInstalled     = xTrue;
 			r->mapState         = (WindVisible (wind) ? IsViewable : IsUnmapped);
 			r->override         = wind->Override;
 			r->colormap         = None;
-			r->allEventMasks    = wind->u.List.AllMasks & 0x7FFFFFFF;
+			r->allEventMasks    = wind->u.List.AllMasks & AllEventMask;
 			r->yourEventMask      = NoEventMask;
 			r->doNotPropagateMask = ~wind->PropagateMask;
 			
@@ -1228,13 +1228,13 @@ RQ_GetWindowAttributes (CLIENT * clnt, xGetWindowAttributesReq * q)
 				}
 			}
 
-		} else { // Id is a AES-Window
+		} else { // Id names an AES-Window
 			r->backingStore     = NotUseful;
-			r->visualID         = DFLT_VISUAL;
+			r->visualID         = (GRPH_Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
 			r->class            = InputOutput;
 			r->bitGravity       = ForgetGravity;
 			r->winGravity       = NorthWestGravity;
-			r->backingBitPlanes = 0x1uL;
+			r->backingBitPlanes = (1uL << GRPH_Depth) -1;
 			r->backingPixel     = 0;
 			r->saveUnder        = xFalse;
 			r->mapInstalled     = xTrue;
@@ -1245,7 +1245,7 @@ RQ_GetWindowAttributes (CLIENT * clnt, xGetWindowAttributesReq * q)
 			                      VisibilityChangeMask|StructureNotifyMask|
 			                      ResizeRedirectMask;
 			r->yourEventMask      = NoEventMask;
-			r->doNotPropagateMask = NoEventMask;
+			r->doNotPropagateMask = (CARD16)AllEventMask;
 		}
 		
 		ClntReply (GetWindowAttributes,, "v.2ll4mss.");
@@ -1412,7 +1412,7 @@ RQ_QueryTree (CLIENT * clnt, xQueryTreeReq * q)
 
 //------------------------------------------------------------------------------
 void
-RQ_ChangeSaveSet (CLIENT * clnt, xChangeSaveSetReq * q)//, WINDOW * wind)
+RQ_ChangeSaveSet (CLIENT * clnt, xChangeSaveSetReq * q)
 {
 	PRINT (- X_ChangeSaveSet," W:%lX", q->window);
 }

@@ -159,7 +159,7 @@ RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
 	       draw.p->Depth, size);
 	
 	r->depth  = draw.p->Depth;
-	r->visual = DFLT_VISUAL;
+	r->visual = (draw.p->Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
 	
 	ClntReply (GetImage, size, NULL);
 }
@@ -279,11 +279,11 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 	} else if (!gc) {
 		Bad(GC, q->gc, CopyArea,);
 	
-//	} else if (src_d.p->Depth != dst_d.p->Depth) {
-//		Bad(Match,, CopyArea,"(%c:%X,%c:%X):\n           depth %u != %u.",
-//		            (src_d.p->isWind ? 'W' : 'P'), src_d.p->Id,
-//		            (dst_d.p->isWind ? 'W' : 'P'), dst_d.p->Id,
-//		            src_d.p->Depth, dst_d.p->Depth);
+	} else if (src_d.p->Depth != dst_d.p->Depth) {
+		Bad(Match,, CopyArea,"(%c:%X,%c:%X):\n           depth %u != %u.",
+		            (src_d.p->isWind ? 'W' : 'P'), src_d.p->Id,
+		            (dst_d.p->isWind ? 'W' : 'P'), dst_d.p->Id,
+		            src_d.p->Depth, dst_d.p->Depth);
 	
 	} else if ((short)q->width < 0  ||  (short)q->height < 0) {
 if (gc->GraphExpos) {
