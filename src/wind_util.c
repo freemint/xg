@@ -60,7 +60,7 @@ WindGeometry (WINDOW * wind, GRECT * dst, CARD16 border)
 	if (border) {
 		dst->x -= border;
 		dst->y -= border;
-		border <<= 2;
+		border <<= 1;
 		dst->w += border;
 		dst->h += border;
 	}
