@@ -27,7 +27,7 @@ $(OBJDIR)/%.o: %.c ; rm -f $(PRG) ; $(CC) $(CCFLAGS) -D_$(<:.c=)_ -c $< -o $@
 ALL: $(PRG)
 
 SRC = Atom.c Cursor.c Pointer.c Property.c Prop_ICCC.c Request.c \
-      clnt.c clnt_swap.c colormap.c config.c drawable.c draw_img.c \
+      clnt.c clnt_swap.c colormap.c drawable.c draw_img.c \
       event.c font.c font_init.c fontable.c gcontext.c grph.c keyboard.c \
       main.c pixmap.c pixm_mono.c selection.c server.c \
       window.c wind_draw.c wind_grab.c wind_pntr.c wind_save.c wind_util.c \
@@ -36,13 +36,13 @@ SRC = Atom.c Cursor.c Pointer.c Property.c Prop_ICCC.c Request.c \
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
 
-$(PRG): $(OBJDIR) $(OBJ) Makefile version.c ../include/version
+$(PRG): $(OBJDIR) $(OBJ) Makefile config.c ../include/version
 	@expr "0`cat -s $(OBJDIR)/build`" + 1 > $(OBJDIR)/build
-	@$(CC) $(CCFLAGS) -c version.c \
+	@$(CC) $(CCFLAGS) -c config.c \
 	       -DVERSION=\"`cat -s ../include/version`\" \
 	       -DBUILD=\"`cat -s $(OBJDIR)/build`\" \
-	       -o $(OBJDIR)/version.o
-	$(LD) $(LDFLAGS) -o $@ $(OBJ) $(OBJDIR)/version.o $(LIBS:%=-l%)
+	       -o $(OBJDIR)/config.o
+	$(LD) $(LDFLAGS) -o $@ $(OBJ) $(OBJDIR)/config.o $(LIBS:%=-l%)
 	stack -S 128k $@
 
 
