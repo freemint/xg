@@ -42,9 +42,13 @@ typedef size_t socklen_t;
 #define MOTIONB   0uL
 
 
-static long SRVR_RdSet  = 0L;
-static long SRVR_GrabFD = 0xFFFFFFFFL;
-static int  SRVR_Socket = -1;
+typedef struct s_CONNECTION ACCEPT;
+
+static CONN_RW     _Srvr_Accept;
+static p_CONNECTION SRVR_ConnTable[32];
+static int          SRVR_ConnNum = 0;
+static ACCEPT       SRVR_Conn    = { {}, -1, -1, 0, _Srvr_Accept };
+static long         SRVR_GrabFD  = 0xFFFFFFFFL;
 
 
 //==============================================================================
@@ -77,17 +81,18 @@ SrvrInit (int port)
 {
 	struct sockaddr_in server;
 	int                i;
-	int max_conn = 20;
+	int max_conn = 0;
 	
-	SRVR_Socket = socket (AF_INET, SOCK_STREAM, 0);   // get socket descriptor
-	if (SRVR_Socket < 0) {
+	SRVR_Conn.Port = port;
+	SRVR_Conn.Fd   = socket (AF_INET, SOCK_STREAM, 0);   // get socket descriptor
+	if (SRVR_Conn.Fd < 0) {
 		printf ("Can't open stream socket.\n");
 		return -1;
 	}
 	i = 1;
-	setsockopt(SRVR_Socket, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(i));
+	setsockopt(SRVR_Conn.Fd, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(i));
 	i = 1;
-	setsockopt(SRVR_Socket, SOL_SOCKET, SO_KEEPALIVE, &i, sizeof(i));
+	setsockopt(SRVR_Conn.Fd, SOL_SOCKET, SO_KEEPALIVE, &i, sizeof(i));
 	
 	// fill in server socket structure
 	memset (&server, 0, sizeof(server));
@@ -95,11 +100,14 @@ SrvrInit (int port)
 	server.sin_port        = htons (port);
 	server.sin_addr.s_addr = htons (INADDR_ANY);
 	
-	if (bind (SRVR_Socket, (struct sockaddr*)&server, sizeof(server)) < 0) {
+	if (bind (SRVR_Conn.Fd, (struct sockaddr*)&server, sizeof(server)) < 0) {
 		printf ("Can't bind stream socket.\n");
 		return -1;
 	}
-	if (listen (SRVR_Socket, max_conn) < 0) {
+	for (i = SRVR_Conn.Fd; i < 32; i++) {
+		if (i != SRVR_Conn.Fd  &&  Finstat(i) < 0) max_conn++;
+	}
+	if (listen (SRVR_Conn.Fd, max_conn) < 0) {
 		printf ("Can't listen to stream socket.\n");
 		return -1;
 	}
@@ -107,9 +115,10 @@ SrvrInit (int port)
 	/***** Now connection is up *****/
 	
 	printf ("  using port %i (fd %i) for maximum of %i connections,\n",
-	        port, SRVR_Socket, max_conn);
+	        port, SRVR_Conn.Fd, max_conn);
 	
-	MAIN_FDSET_rd = SRVR_RdSet = 1uL << SRVR_Socket;
+	memset (SRVR_ConnTable, 0, sizeof(SRVR_ConnTable));
+	MAIN_FDSET_rd = SrvrConnInsert ((p_CONNECTION)&SRVR_Conn);
 	
 	AtomInit (xTrue);
 	KybdInit ();
@@ -133,11 +142,11 @@ SrvrInit (int port)
 		printf("... ready\n\n");
 	
 	} else {
-		close (SRVR_Socket);
-		SRVR_Socket = -1;
+		close (SRVR_Conn.Fd);
+		SRVR_Conn.Fd = -1;
 	}
 	
-	return SRVR_Socket;
+	return SRVR_Conn.Fd;
 }
 
 //==============================================================================
@@ -156,53 +165,120 @@ SrvrReset()
 }
 
 
+//------------------------------------------------------------------------------
+static short excl_flag;
+static BOOL
+_Srvr_Accept (p_CONNECTION conn, BOOL rd, BOOL wr)
+{
+	struct hostent   * peer;
+	const char       * addr;
+	struct sockaddr_in sock_in;
+	socklen_t s_len = sizeof(sock_in);
+	BOOL      grab  = xFalse;
+	
+	int fd  = accept (SRVR_Conn.Fd, (struct sockaddr*)&sock_in, &s_len);
+	if (fd < 0) {
+		printf ("accept failed.\n");
+		return xFalse;
+	}
+	fcntl (fd, F_SETFL, O_NONBLOCK);
+	
+	addr = inet_ntoa(sock_in.sin_addr);
+	//peer = gethostbyaddr (addr, strlen(addr), AF_INET);
+	peer = gethostbyname (addr);
+	ClntCreate (fd, (peer ? peer->h_name : "<unknown>"),
+	            addr, sock_in.sin_port);
+	
+	if (excl_flag && !(~SRVR_GrabFD)) {
+		// if set, the new established connection performs automatically
+		// a server grab.  this is used to wait for xconsole to become
+		// ready to work if launched at server start.
+		
+		SRVR_GrabFD = (1uL << fd) | SRVR_Conn.FdSet;
+		grab        = xTrue;
+	}
+	
+	return grab;	
+}
+
 //==============================================================================
 BOOL
 SrvrSelect (short exclusive)
 {
 	long rd_set = MAIN_FDSET_rd & SRVR_GrabFD,
 	     wr_set = MAIN_FDSET_wr;
+	BOOL left   = xFalse;
 	
-	if (!Fselect (1, &rd_set, &wr_set, 0)) return xFalse;
-	
-	if (rd_set & SRVR_RdSet) {
-		struct hostent   * peer;
-		const char       * addr;
-		struct sockaddr_in sock_in;
-		socklen_t s_len    = sizeof(sock_in);
+	if (Fselect (1, &rd_set, &wr_set, 0)) {
+		int    n    = 0;
+		CARD32 mask = rd_set|wr_set;
+		excl_flag   = exclusive;
 		
-		int fd  = accept (SRVR_Socket, (struct sockaddr*)&sock_in, &s_len);
-		if (fd < 0) {
-			printf ("accept failed.\n");
-		
-		} else {
-			fcntl (fd, F_SETFL, O_NONBLOCK);
-			
-			addr = inet_ntoa(sock_in.sin_addr);
-			//peer = gethostbyaddr (addr, strlen(addr), AF_INET);
-			peer = gethostbyname (addr);
-			ClntCreate (fd, (peer ? peer->h_name : "<unknown>"),
-			            addr, sock_in.sin_port);
-			
-			if (exclusive && !(~SRVR_GrabFD)) {
-				// if set, the new established connection performs automatically
-				// a server grab.  this is used to wait for xconsole to become
-				// ready to work if launched at server start.
-				
-				SRVR_GrabFD = (1ul << fd) | SRVR_RdSet;
-				rd_set     &= SRVR_GrabFD;
+		while (1) {
+			if (!(mask & 7)) {
+				mask >>= 3;
+				n     += 3;
+				continue;
 			}
+			if (mask & 1) {
+				p_CONNECTION conn = SRVR_ConnTable[n];
+				CARD32       bit  = 1uL << n;
+				if (conn.p->ConnRW (conn, (rd_set &bit) != 0, (wr_set &bit) != 0)) {
+					if (n == SRVR_Conn.Fd) {
+						rd_set = 0;
+						mask   = (CARD32)wr_set >> n;
+					} else if (SRVR_ConnNum == 1) {
+						left = xTrue;
+					}
+				}
+			}
+			if (!(mask >>= 1)) break;
+			n++;
 		}
-		if (!(rd_set &= ~SRVR_RdSet) && !wr_set) return xFalse;
 	}
-	return (ClntSelect (rd_set, wr_set) == 0);
+	return left;
 }
+
+
 //==============================================================================
 void
 SrvrUngrab (CARD32 mask)
 {
 	SRVR_GrabFD |= mask;
 }
+
+
+//==============================================================================
+long
+SrvrConnInsert (p_CONNECTION conn)
+{
+	if (conn.p->FdSet || SRVR_ConnTable[conn.p->Fd].p) {
+		printf ("\33pError\33q SrvrConnInsert() \n");
+		return 0;
+	
+	} else {
+		conn.p->FdSet              = 1ul << conn.p->Fd;
+		SRVR_ConnTable[conn.p->Fd] = conn;
+		SRVR_ConnNum++;
+	}
+	return conn.p->FdSet;
+}
+
+//==============================================================================
+void
+SrvrConnRemove (p_CONNECTION conn)
+{
+	if (!conn.p->FdSet || !SRVR_ConnTable[conn.p->Fd].p) {
+		printf ("\33pError\33q SrvrConnRemove() \n");
+	
+	} else {
+		SrvrUngrab (conn.p->FdSet);
+		conn.p->FdSet                = 0;
+		SRVR_ConnTable[conn.p->Fd].p = NULL;
+		SRVR_ConnNum--;
+	}
+}
+
 
 
 //==============================================================================

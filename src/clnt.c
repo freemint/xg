@@ -31,13 +31,11 @@
 
 CARD32   _CLNT_RidBase    = RID_MASK +1;
 CARD32   _CLNT_RidCounter = 0;
-CLIENT * _CLNT_Base[FD_SETSIZE];
 CARD32   _CLNT_BaseNum    = 0;
 
 CLIENT         * CLNT_Requestor = NULL;
 jmp_buf          CLNT_Error;
 XRSCPOOL(CLIENT, CLNT_Pool, 4);
-
 
 
 static void FT_Clnt_reply_MSB (p_CLIENT , CARD32 size, const char * form);
@@ -149,12 +147,75 @@ _Clnt_EvalInit (CLIENT * clnt, xConnClientPrefix * q)
 }
 
 
+//------------------------------------------------------------------------------
+static size_t _CLNT_MaxObuf = 0;
+static BOOL
+_Clnt_ConnRW (p_CONNECTION conn, BOOL rd, BOOL wr)
+{
+	int left;
+	
+	CLNT_Requestor = conn.Client;
+	
+	if ((left = setjmp (CLNT_Error))) {
+		printf("aborted at #%i \n", left);
+		ClntDelete (CLNT_Requestor);
+	
+	} else {
+		if (rd) {
+			long n = Finstat (CLNT_Requestor->Fd);
+			if (n < 0) {
+				longjmp (CLNT_Error, 1);
+			} else {
+				NETBUF * buf = &CLNT_Requestor->iBuf;
+				if (n > buf->Left) n = buf->Left;
+				n = Fread (CLNT_Requestor->Fd, n, buf->Mem + buf->Done);
+				if (n > 0) {
+					buf->Done += n;
+					if (!(buf->Left -= n)) {
+						CLNT_Requestor->Eval (CLNT_Requestor, (xReq*)buf->Mem);
+					}
+				}
+			}
+		}
+		if (CLNT_Requestor->oBuf.Left + CLNT_Requestor->oBuf.Done
+		                                                        > _CLNT_MaxObuf) {
+			_CLNT_MaxObuf = CLNT_Requestor->oBuf.Left + CLNT_Requestor->oBuf.Done;
+			printf ("## oBuf 0x%X -> %lu \n", CLNT_Requestor->Id, _CLNT_MaxObuf);
+		}
+		if (wr) {
+			long n = Foutstat (CLNT_Requestor->Fd);
+			if (n < 0) {
+				longjmp (CLNT_Error, 1);
+			} else {
+				NETBUF * buf = &CLNT_Requestor->oBuf;
+				if (n > buf->Left) n = buf->Left;
+				n = Fwrite (CLNT_Requestor->Fd, n, buf->Mem + buf->Done);
+				if (n > 0) {
+					if (!(buf->Left -= n)) {
+						buf->Done     =  0;
+						MAIN_FDSET_wr &= ~(1uL << CLNT_Requestor->Fd);
+					} else {
+						buf->Done += n;
+						if (buf->Left + buf->Done > CNFG_MaxReqBytes) {
+							memcpy (buf->Mem, buf->Mem + buf->Done, buf->Done);
+							buf->Done = 0;
+						}
+					}
+				}
+			}
+		}
+	}
+	CLNT_Requestor = NULL;
+	
+	return (left != 0);
+}
+
+
 //==============================================================================
 void
 ClntInit (BOOL initNreset)
 {
 	if (initNreset) {
-		memset (_CLNT_Base, 0, sizeof(_CLNT_Base));
 		XrscPoolInit (CLNT_Pool);
 	
 	} else {
@@ -175,30 +236,31 @@ ClntCreate (int fd, const char * name, const char * addr, int port)
 {
 	CLIENT * clnt = XrscCreate(CLIENT, ++_CLNT_RidCounter, CLNT_Pool,);
 	
- 	printf ("[%s:%i] Request from %s\n", addr, port, name);
+ 	printf ("[%s:%i] Request from %s (at %i)\n", addr, port, name, fd);
 	
 	if (clnt) {
-		_CLNT_Base[fd] = clnt;
 		_CLNT_BaseNum++;
-		clnt->SeqNum = 0;
-		clnt->Name   = strdup (name);
-		clnt->Addr   = strdup (addr);
-		clnt->Port   = port;
 		clnt->Fd     = fd;
+		clnt->Port   = port;
+		clnt->FdSet  = 0;
+		clnt->ConnRW = _Clnt_ConnRW;
+		clnt->SeqNum    = 0;
+		clnt->DoSwap    = xFalse;
+		clnt->CloseDown = DestroyAll;
+		clnt->Name      = strdup (name);
+		clnt->Addr      = strdup (addr);
 		clnt->oBuf.Left  = 0;
 		clnt->oBuf.Done  = 0;
 		clnt->oBuf.Mem   = malloc (CNFG_MaxReqBytes *2);
 		clnt->iBuf.Mem   = clnt->oBuf.Mem + CNFG_MaxReqBytes;
 		clnt->Fnct       = NULL;
-		clnt->DoSwap     = xFalse;
-		clnt->CloseDown  = DestroyAll;
 		clnt->EventReffs = 0;
 		XrscPoolInit (clnt->Drawables);
 		XrscPoolInit (clnt->Fontables);
 		XrscPoolInit (clnt->Cursors);
 		
 		if (clnt->Name && clnt->Addr && clnt->iBuf.Mem) {
-			MAIN_FDSET_rd  |= 1L << fd;
+			MAIN_FDSET_rd  |= SrvrConnInsert ((p_CONNECTION)clnt);
 			clnt->Eval      = (RQSTCB)_Clnt_EvalInit;
 			clnt->iBuf.Left = sizeof(xConnClientPrefix);
 			clnt->iBuf.Done = 0;
@@ -229,10 +291,10 @@ ClntDelete (CLIENT * clnt)
 		                               : "Connection closed.");
 		PRINT (,f, clnt->Addr, clnt->Port);
 		close (clnt->Fd);
-		_CLNT_Base[clnt->Fd] = NULL;
 		_CLNT_BaseNum--;
-		MAIN_FDSET_wr &= ~(1uL << clnt->Fd);
-		MAIN_FDSET_rd &= ~(1uL << clnt->Fd);
+		MAIN_FDSET_wr &= ~clnt->FdSet;
+		MAIN_FDSET_rd &= ~clnt->FdSet;
+		SrvrConnRemove ((p_CONNECTION)clnt);
 		clnt->Fd = -1;
 	}
 	SlctRemove (clnt);
@@ -273,91 +335,6 @@ ClntDelete (CLIENT * clnt)
 		if (clnt->Addr)     free  (clnt->Addr);
 		if (clnt->iBuf.Mem) free  (clnt->iBuf.Mem); // is also oBuf.Mem
 		XrscDelete (CLNT_Pool, clnt);
-	}
-	
-	return _CLNT_BaseNum;
-}
-
-//==============================================================================
-static size_t _CLNT_MaxObuf = 0;
-int
-ClntSelect (long rd_set, long wr_set)
-{
-	volatile CARD32 todo = rd_set | wr_set;
-	volatile long   mask = 1L;
-	volatile int    proc = 0;
-	int i;
-	
-	if ((i = setjmp (CLNT_Error))) {
-		printf("aborted at #%i \n", i);
-		ClntDelete (_CLNT_Base[proc]);
-		todo >>= 1;
-		mask <<= 1;
-		proc++;
-	}
-	
-	while (todo) {
-		if (!(todo & 0xF)) {
-			todo >>= 4;
-			mask <<= 4;
-			proc  += 4;
-			continue;
-		}
-		if (!(todo & 1)) {
-			todo >>= 1;
-			mask <<= 1;
-			proc++;
-			continue;
-		}
-		CLNT_Requestor = _CLNT_Base[proc];
-		
-		if (rd_set & mask) {
-			long n = Finstat (CLNT_Requestor->Fd);
-			if (n < 0) {
-				longjmp (CLNT_Error, 1);
-			} else {
-				NETBUF * buf = &CLNT_Requestor->iBuf;
-				if (n > buf->Left) n = buf->Left;
-				n = Fread (CLNT_Requestor->Fd, n, buf->Mem + buf->Done);
-				if (n > 0) {
-					buf->Done += n;
-					if (!(buf->Left -= n)) {
-						CLNT_Requestor->Eval (CLNT_Requestor, (xReq*)buf->Mem);
-					}
-				}
-			}
-		}
-		if (CLNT_Requestor->oBuf.Left + CLNT_Requestor->oBuf.Done
-		                                                        > _CLNT_MaxObuf) {
-			_CLNT_MaxObuf = CLNT_Requestor->oBuf.Left + CLNT_Requestor->oBuf.Done;
-			printf ("## oBuf 0x%X -> %lu \n", CLNT_Requestor->Id, _CLNT_MaxObuf);
-		}
-		if (wr_set & mask) {
-			long n = Foutstat (CLNT_Requestor->Fd);
-			if (n < 0) {
-				longjmp (CLNT_Error, 1);
-			} else {
-				NETBUF * buf = &CLNT_Requestor->oBuf;
-				if (n > buf->Left) n = buf->Left;
-				n = Fwrite (CLNT_Requestor->Fd, n, buf->Mem + buf->Done);
-				if (n > 0) {
-					if (!(buf->Left -= n)) {
-						buf->Done     =  0;
-						MAIN_FDSET_wr &= ~(1uL << CLNT_Requestor->Fd);
-					} else {
-						buf->Done += n;
-						if (buf->Left + buf->Done > CNFG_MaxReqBytes) {
-							memcpy (buf->Mem, buf->Mem + buf->Done, buf->Done);
-							buf->Done = 0;
-						}
-					}
-				}
-			}
-		}
-		CLNT_Requestor = NULL;
-		todo >>= 1;
-		mask <<= 1;
-		proc++;
 	}
 	
 	return _CLNT_BaseNum;
@@ -454,7 +431,7 @@ ClntPrint (CLIENT * clnt, int req, const char * form, ...)
 		} else if (clnt->Id > 0) {
 			printf ("%03X#%04X: ",
 			        clnt->Id << (RID_MASK_BITS & 3), clnt->SeqNum);
-		} else if (clnt->Port) {
+		} else if (clnt->Port > 0) {
 			printf ("[%s:%i] ",  clnt->Addr, clnt->Port);
 		} else {
 			printf ("[wm]%04X: ", clnt->SeqNum);
