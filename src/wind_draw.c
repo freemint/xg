@@ -659,8 +659,27 @@ RQ_ClearArea (CLIENT * clnt, xClearAreaReq * q)
 	
 	if (!wind) {
 		Bad(Drawable, q->window, ClearArea,);
-		
-	} else {
+	
+	} else if (wind->Id == ROOT_WINDOW) {
+		if (wind->hasBackGnd) {
+			GRECT * sect;
+			PXY     orig;
+			CARD16  nClp;
+			GRECT   clip = { q->x, q->y,
+			                 (q->width  ? q->width  : wind->Rect.w - q->x),
+			                 (q->height ? q->height : wind->Rect.h - q->y) };
+			if ((nClp = WindClipLock (wind, 0, &clip, 1, &orig, &sect))) {
+				extern OBJECT WMGR_Desktop;
+				do {
+					objc_draw (&WMGR_Desktop, 0, 1,
+					           sect->x, sect->y, sect->w, sect->h);
+					sect++;
+				} while (--nClp);
+				WindClipOff();
+			}
+		}
+	
+	} else if (wind->hasBackGnd && !wind->hasBackPix) {
 		GRECT * clip = (GRECT*)&q->x, * sect;
 		PXY     orig;
 		CARD16  nClp;
