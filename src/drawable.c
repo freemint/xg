@@ -300,8 +300,8 @@ RQ_PolyArc (CLIENT * clnt, xPolyArcReq * q)
 				int i;
 				vs_clip_r (hdl, sect++);
 				for (i = 0; i < len; ++i) {
-					v_ellarc (hdl,
-					          arc[i].x, arc[i].y, arc[i].width, arc[i].height, 0,0);
+					v_ellarc (hdl, arc[i].x, arc[i].y,
+					          arc[i].width, arc[i].height, 0, 3600);
 				}
 			} while (--nClp);
 			vs_clip_r (hdl, NULL);
@@ -366,8 +366,8 @@ RQ_PolyFillArc (CLIENT * clnt, xPolyFillArcReq * q)
 				int i;
 				vs_clip_r (hdl, sect++);
 				for (i = 0; i < len; ++i) {
-					v_ellpie (hdl,
-					          arc[i].x, arc[i].y, arc[i].width, arc[i].height, 0,0);
+					v_ellpie (hdl, arc[i].x, arc[i].y,
+					          arc[i].width, arc[i].height, 0, 3600);
 				}
 			} while (--nClp);
 			vs_clip_r (hdl, NULL);
