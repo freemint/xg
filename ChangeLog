@@ -1,8 +1,13 @@
+2001-01-03: 0.02.4
+   - [Un]GrabPointer() requests implemented.
+   - bugfix: KillClient() couldn't detemine a windows owner.
+2000-12-28: 0.02.3
+   - bugfix: workaround for monochrome PolyFillRect, seems to cause crashes.
 2000-12-26: 0.02.2
    - First section in README file.
    - ClipRectangles added to Graphical context.
 2000-12-21: 0.02.1
-   - Bugfix: huge replies where cutted down to short values.
+   - bugfix: huge replies where cutted down to short values.
 
 2000-12-20: 0.02
    - NoExpose event added, needed by Copy...() requests
