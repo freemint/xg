@@ -1,3 +1,16 @@
+2001-09-21: 0.14
+   - if the server can't load its RSC file the normal way, it also
+     searches in /usr/X11/bin/ now.
+   - added output buffer boundary check to event generating functions
+     too, if lots of events happend the server was still crashing.
+   - corrected calculation of output stream buffer, was taken too big.
+   - some internal code tidy ups.
+2001-09-18: 0.13.3
+   - heaviely reworked handling of output stream buffer to avoid
+     crashes due to buffer overflows, especially in GetImage and
+     ListFonts request.
+   - speeded up Get/PutImage request for color depth >= 16bit.
+   - corrected drawing of window decor (border).
 2001-09-13: 0.13.2
    - closed a memory leakage in GetImage request.
    - added a workaround for xoring monochrome bitmaps to a bitmap of
