@@ -697,10 +697,10 @@ WindCirculate (WINDOW * wind, CARD8 place)
 		else                  redraw = notify;
 	
 	} else  { // (place == PlaceOnBottom)
-		if (wind->NextSibl) {
+		if (wind->PrevSibl) {
 			if ((wind->PrevSibl->NextSibl = wind->NextSibl)) {
 				  wind->NextSibl->PrevSibl = wind->PrevSibl;
-			} else { // (!wind->PrevSibl)
+			} else { // (!wind->NextSibl)
 				  wind->Parent->StackTop   = wind->PrevSibl;
 			}
 			wind->PrevSibl         = NULL;
