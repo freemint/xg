@@ -168,84 +168,101 @@ RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
 
 
 //------------------------------------------------------------------------------
-static int
-copy_clip (GRECT * r, p_DRAWABLE src, p_DRAWABLE dst, short * coord)
+#define COPYsP 0x01
+#define COPYsW 0x02
+#define COPYdP 0x10
+#define COPYdW 0x20
+//------------------------------------------------------------------------------
+static short
+clip_dst (GRECT * r, p_DRAWABLE draw, short * coord)
 {
-	// coord[0,1] src x/y   r[0]   src clip
-	// coord[2,3] dst x/y   r[1]   dst clip
-	// coord[4,5] w/h       r[2..] dst to be tiled
-	int     num  = -1;   // -1: no copy, 0: no tiles, 1..4: num of tiles in r
-	GRECT * tile = r +2;
-	short   w    = coord[4];
-	short   h    = coord[5];
+	// coord[0,1] src x/y   r[0] src clip
+	// coord[2,3] dst x/y   r[1] dst clip
+	// coord[4,5] w/h
+	
+	short w = coord[4];
+	short h = coord[5];
+	short t;
+	
+	if (!draw.p->isWind)                t = COPYdP;
+	else if (WindVisible (draw.Window)) t = COPYdW;
+	else                                return 0;
+	
 	*(PXY*)&r[0] = *(PXY*)(coord +0); // src
 	*(PXY*)&r[1] = *(PXY*)(coord +2); // dst
 	
-	if (r[1].x     < 0)        { r[0].x -= r[1].x; w += r[1].x;   r[1].x = 0; }
-	if (r[1].x + w > dst.p->W)                     w = dst.p->W - r[1].x;
-	if (r[1].y     < 0)        { r[0].y -= r[1].y; h += r[1].y;   r[1].y = 0; }
-	if (r[1].y + h > dst.p->H)                     h = dst.p->H - r[1].y;
+	if (r[1].x     < 0)         { r[0].x -= r[1].x; w += r[1].x;    r[1].x = 0; }
+	if (r[1].x + w > draw.p->W)                     w = draw.p->W - r[1].x;
+	if (r[1].y     < 0)         { r[0].y -= r[1].y; h += r[1].y;    r[1].y = 0; }
+	if (r[1].y + h > draw.p->H)                     h = draw.p->H - r[1].y;
 	
-	do {
-		if (w > 0 && h > 0) {
-			num++;
-		} else {
-			break;
-		}
-		if (r[0].y < 0) { // above src
-			num++;
-			tile->x = r[1].x;
-			tile->y = r[1].y;
-			tile->w = w;
-			tile->h = -r[0].y;
-			tile++;
-			r[1].y -= r[0].y;
-			h      += r[0].y;
-			r[0].y =  0;
-			if (h <= 0) break;
-		}
-		if (r[0].x < 0) { // left of src
-			num++;
-			tile->x = r[1].x;
-			tile->y = r[1].y;
-			tile->w = -r[0].x;
-			tile->h = h;
-			tile++;
-			r[1].x -= r[0].x;
-			w      += r[0].x;
-			r[0].x =  0;
-			if (w <= 0) break;
-		}
-		if (r[0].x + w > src.p->W) { // right of src
-			short d = src.p->W - r[0].x;
-			num++;
-			tile->x = r[1].x + d;
-			tile->y = r[1].y;
-			tile->w = w - d;
-			tile->h = h;
-			tile++;
-			w = d;
-			if (w <= 0) break;
-		}
-		if (r[0].y + h > src.p->H) { // below src
-			short d = src.p->H - r[0].y;
-			num++;
-			tile->x = r[1].x;
-			tile->y = r[1].y + d;
-			tile->w = w;
-			tile->h = h - d;
-			tile++;
-			h = d;
-		}
-		
-	} while (0);
+	if (w <= 0  ||  h <= 0) return 0;
 	
 	r[0].w = r[1].w = w;
 	r[0].h = r[1].h = h;
 	
+	return t;
+}
+
+//------------------------------------------------------------------------------
+static short
+clip_src (GRECT * r, p_DRAWABLE draw)
+{
+	// r[0]   src clip
+	// r[1]   dst clip
+	// r[2..] dst to be tiled
+	short   num   = 0;   // -1: no copy, 0: no tiles, 1..4: num of tiles in r
+	GRECT * tile  = r +2;
+	BOOL    below = xFalse;
+	short   x     = r[1].x;
+	short   y     = r[1].y;
+	short   w     = r[1].w;
+	short   h     = r[1].h;
+	short   d;
+	
+	#define SET(t, _x,_y,_w,_h)   t->x = _x; t->y = _y; t->w = _w; t->h = _h
+	
+	if (h > (d = draw.p->H - r[0].y)) { // below src
+		below = xTrue;
+		SET ((r +5), x, y + d, w, h - d);
+		h = d;
+		if (h <= 0) return -1;
+	}
+	if (r[0].y < 0) { // above src
+		if ((h += r[0].y) <= 0) return -1;
+		num++;
+		SET (tile, x, y, w, -r[0].y); tile++;
+		y      -= r[0].y;
+		r[0].y =  0;
+	}
+	if (r[0].x < 0) { // left of src
+		if ((w += r[0].x) <= 0) return -1;
+		num++;
+		SET (tile, x, y, -r[0].x, h); tile++;
+		x      -= r[0].x;
+		r[0].x =  0;
+	}
+	if (w > (d = draw.p->W - r[0].x)) { // right of src
+		num++;
+		SET (tile, x + d, y, w - d, h); tile++;
+		w = d;
+		if (w <= 0) return -1;
+	}
+	if (below && (++num < 4)) {
+		*tile = r[5];
+	}
+	r[1].x          = x;
+	r[1].y          = y;
+	r[1].w = r[0].w = w;
+	r[1].h = r[0].h = h;
+	
+	#undef SET
+	
 	return num;
 }
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+//------------------------------------------------------------------------------
 void
 RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 {
@@ -274,78 +291,148 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 		           (short)q->width, (short)q->height);
 	
 	} else {
-		BOOL debug = xTrue;
-		BOOL  no_exp = gc->GraphExpos;
-		GRECT r[6], * exps = r +2;
-		int   num = copy_clip (r, src_d, dst_d, &q->srcX);
+		BOOL    debug = xTrue;
+		GRECT   rect[6], work;
+		GRECT * exps = rect +2;
+		short   nExp   = -1;
+		PRECT * sect   = NULL;
+		short   nSct   = 0;
+		PXY     orig;
+		short   action;
 		
-		if (num >= 0  &&  r->w > 0  &&  r->h > 0) {
-			
-			if (dst_d.p->isWind) {
-				WINDOW * wind = dst_d.Window;
-				if (no_exp) {
-					exps--;
-					num++;
-				}
-				if (wind->hasBackGnd) {
-					PRECT * sect, area;
-					PXY     orig;
-					CARD16  nClp = WindClipLockP (wind, 0, NULL, 0, &orig, &sect);
-					if (nClp) {
-						if (!wind->hasBackPix) {
-							vswr_mode (GRPH_Vdi, MD_REPLACE);
-							vsf_color (GRPH_Vdi, wind->Back.Pixel);
-						}
-						area.rd.x = (area.lu.x = orig.x + q->dstX) + q->width  -1;
-						area.rd.y = (area.lu.y = orig.y + q->dstY) + q->height -1;
-						WindDrawBgnd (wind, orig, &area, sect, nClp, NULL);
-						WindClipOff();
-					} else {
-						num = 0;
-					}
-				}
-			}
-			if (no_exp && num) {
-				EvntGraphExp (clnt, dst_d, X_CopyArea, num, exps);
-				no_exp = xFalse;
-			}
-			
-			if (src_d.p->isWind) {
-			
-			} else { // src_d is Pixmap
-				MFDB * mfdb = PmapMFDB(src_d.Pixmap);
-				
-				DEBUG (CopyArea," G:%lX P:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)\n"
-					    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]",
-				       q->gc, q->srcDrawable,
-				       q->srcX, q->srcY, q->width, q->height,
-				       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
-				       q->dstX, q->dstY,
-					    r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
-				debug = xFalse;
-				
-				if (src_d.p->Depth == 1) {
-					if (dst_d.p->isWind) WindPutMono (dst_d.Window, gc, r, mfdb);
-					else                 PmapPutMono (dst_d.Pixmap, gc, r, mfdb);
-				
-				} else {
-					if (dst_d.p->isWind) WindPutColor (dst_d.Window, gc, r, mfdb);
-					else                 PmapPutColor (dst_d.Pixmap, gc, r, mfdb);
-				}
-			}
-		}
-		if (no_exp) {
-			EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
-		}
-		if (debug) {
+		if (gc->ClipNum < 0 || !(action = clip_dst (rect, dst_d, &q->srcX))) {
+			// the area doesn't intersects the destination drawable or the
+			// drawable isn't viewable
+			//
 			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)\n"
-				    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]  (%s)",
+				    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i] %c",
 			       q->gc, (src_d.p->isWind ? 'W' : 'P'), q->srcDrawable,
 			       q->srcX, q->srcY, q->width, q->height,
 			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
 			       q->dstX, q->dstY,
-				    r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h,
-				    (gc->GraphExpos ? "exp" : "-"));
+				    rect[0].x,rect[0].y,rect[0].w,rect[0].h,
+				    rect[1].x,rect[1].y,rect[1].w,rect[1].h,
+				    (gc->GraphExpos ? '*' : '-'));
+			if (gc->GraphExpos) {
+				EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
+			}
+			return;
+		}
+		if (!src_d.p->isWind) {
+			action |= COPYsP;
+		} else if (src_d.p == dst_d.p
+		           || (action == COPYdP && WindVisible (src_d.Window))) {
+			action |= COPYsW;
+		}
+		work = rect[1];
+		
+		if (action & (COPYsP|COPYsW)) {
+			// the action is _not_ copy window to _other_ window but one of:
+			// COPYsP|COPYdP, COPYsP|COPYdW, COPYsW|COPYdP, COPYsW|COPYdW
+			//
+			nExp = clip_src (rect, src_d);
+		}
+		if (nExp) {
+			if (nExp < 0) {
+				// no part of the source intersects the destination, or both are
+				// different windows, so onl generate events for the visible parts
+				//
+				exps   =  &rect[1];
+				nExp   =  1;
+				action &= ~(COPYsP|COPYsW);
+			}
+			if (gc->ClipNum > 0) {
+				// intersects destination and clipping rectangels for events
+				//
+				GRECT * r = exps;
+				exps      = alloca (sizeof(GRECT) * nExp * gc->ClipNum);
+				nExp      = GrphCombine (exps, gc->ClipRect, gc->ClipNum, r,nExp);
+				if (!nExp && !(action & (COPYsP|COPYsW))) {
+					action = 0x00;
+				}
+			}
+		}
+		if (action & COPYdW) {
+			WINDOW * wind = dst_d.Window;
+			if (!(nSct = WindClipLockP (wind, 0, &work,1, &orig, &sect))) {
+				action = 0x00;
+			
+			} else {
+				if (nExp) {
+					GRECT * r = (gc->GraphExpos ? (GRECT*)(sect + nSct) : NULL);
+					short   e = 0;
+					if (wind->hasBackGnd) {
+						if (!wind->hasBackPix) {
+							vswr_mode (GRPH_Vdi, MD_REPLACE);
+							vsf_color (GRPH_Vdi, wind->Back.Pixel);
+						}
+						do {
+							PRECT area;
+							int   n;
+							area.rd.x = (area.lu.x = orig.x + exps->x) + exps->w -1;
+							area.rd.y = (area.lu.y = orig.y + exps->y) + exps->h -1;
+							n = WindDrawBgnd (wind, orig, &area, sect, nSct, r);
+							if (n && r) {
+								e += n;
+								r += n;
+							}
+							exps++;
+						} while (--nExp);
+						
+					} else if (gc->GraphExpos) {
+						PRECT * s = sect;
+						short   n = nSct;
+						do {
+							GRECT a = { s->lu.x - orig.x,     s->lu.y - orig.y,
+							            s->rd.x - s->lu.x +1, s->rd.y - s->lu.y +1 };
+							e += GrphCombine (r + e, &a, 1, exps, nExp);
+							s++;
+						} while (--n);
+					}
+					nExp = e;
+					exps = (GRECT*)(sect + nSct);
+				}
+			}
+		}
+		switch (action) {
+			// case 0x00|0x00, 0x00|COPYdP: do nothing
+			
+			case COPYsP|COPYdP: {
+				if (src_d.p->Depth == 1) {
+					PmapPutMono (dst_d.Pixmap, gc, rect, PmapMFDB(src_d.Pixmap));
+				} else {
+					PmapPutColor (dst_d.Pixmap, gc, rect, PmapMFDB(src_d.Pixmap));
+				}
+				debug = xFalse;
+			}	break;
+			
+			case COPYsP|COPYdW: {
+				WindPutImg (dst_d.Window, gc, rect, PmapMFDB(src_d.Pixmap),
+				            orig, sect, nSct);
+				debug = xFalse;
+			}	break;
+			
+			case COPYsW|COPYdP: PRINT (CopyArea," W->P"); break;
+			case COPYsW|COPYdW: PRINT (CopyArea," W->W"); break;
+			default:            PRINT (CopyArea," 0x%02x", action); debug = xFalse;
+		}
+		if (gc->GraphExpos) {
+			if (nExp) EvntGraphExp (clnt, dst_d, X_CopyArea, nExp, exps);
+			else      EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
+		}
+		
+		if (sect) WindClipOff();
+		
+		if (debug) {
+			PRINT (- X_CopyArea," G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX (%i,%i)\n"
+				    "          [%i,%i/%i,%i] -> [%i,%i/%i,%i]  %c",
+			       q->gc, (src_d.p->isWind ? 'W' : 'P'), q->srcDrawable,
+			       q->srcX, q->srcY, q->width, q->height,
+			       (dst_d.p->isWind ? 'W' : 'P'), q->dstDrawable,
+			       q->dstX, q->dstY,
+				    rect[0].x,rect[0].y,rect[0].w,rect[0].h,
+				    rect[1].x,rect[1].y,rect[1].w,rect[1].h,
+				    (gc->GraphExpos ? '*' : '-'));
 		}
 	}
 }
