@@ -1,5 +1,8 @@
+2001-02-06: 0.04.5
+   - slightly speed improvements for draw and fill requests.
+   - correted calculations for begin and end angles of arcs.
 2001-02-03: 0.04.4
-   - added handling of clipping rectangle list, not only single rectangles, also
+   - added handling of clipping rectangle list, not only single rectangles; also
      implemented clipping lists for pixmaps.
    - code restructured and cleaned up.
    - implemented arc drawing for offscreen pixmaps.
