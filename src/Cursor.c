@@ -201,7 +201,7 @@ RQ_CreateCursor (CLIENT * clnt, xCreateCursorReq * q)
 		Bad(Match,, CreateCursor,"(C:%lX):\n"
 		            "          mask depth is %i.", q->cid, bgnd->Depth);
 	
-	} else if (bgnd && (bgnd->W != fgnd->W  ||  bgnd->W != fgnd->H)) {
+	} else if (bgnd && (bgnd->W != fgnd->W  ||  bgnd->H != fgnd->H)) {
 		Bad(Match,, CreateCursor,"(C:%lX):\n"
 		            "          mask size %i,%i differes from source %i,%i.",
 		            q->cid, bgnd->W,bgnd->H, fgnd->W,fgnd->H);
