@@ -152,7 +152,7 @@ GrphSetup (void * format_arr)
 	root->minInstalledMaps = 1;
 	root->maxInstalledMaps = 1;
 	root->backingStore     = NotUseful;
-	root->saveUnders       = xFalse;
+	root->saveUnders       = xTrue;
 	root->rootVisualID     =                   r_visl;
 	root->rootDepth        = WIND_Root.Depth = r_dpth;
 	root->nDepths          = GRPH_DepthNum;

@@ -99,6 +99,12 @@ void WindResize      (p_WINDOW , p_GRECT diff);
 BOOL WindMap         (p_WINDOW , BOOL visible);
 void WindUnmap       (p_WINDOW , BOOL by_conf);
 
+// save-under
+extern PRECT WIND_SaveArea[];
+extern BOOL  WIND_SaveDone;
+void WindSaveUnder (CARD32 id, GRECT * rect, short hdl);
+void WindSaveFlush (BOOL restore);
+
 // utility functions
 BOOL   WindVisible    (p_WINDOW );
 short  WindOrigin     (p_WINDOW , p_PXY   dst);

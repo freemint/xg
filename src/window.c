@@ -924,7 +924,7 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 
 //------------------------------------------------------------------------------
 void
-RQ_MapWindow (CLIENT * clnt, xMapWindowReq * q)//, WINDOW * wind)
+RQ_MapWindow (CLIENT * clnt, xMapWindowReq * q)
 {
 	WINDOW * wind = WindFind(q->id);
 
@@ -944,15 +944,16 @@ RQ_MapWindow (CLIENT * clnt, xMapWindowReq * q)//, WINDOW * wind)
 			if (WindMap (wind, WindVisible (wind->Parent))) {
 				GRECT curr;
 				WindGeometry (wind, &curr, wind->BorderWidth);
+				if (wind->SaveUnder) {
+					WindSaveUnder (wind->Id, &curr, wind->Handle);
+				}
 				WindDrawSection (wind, &curr);
+				if (wind->Parent == _WIND_PointerRoot) {
+					WindPointerWatch (xFalse);
+				}
 			}
-			if (wind->Parent == _WIND_PointerRoot) {
-				WindPointerWatch (xFalse);
-			}
-		
 		} else {
 			GRECT curr;
-			
 			WmgrWindMap (wind, &curr);
 			if (!_WIND_OpenCounter++) {
 				MainSetWatch (&curr, MO_ENTER);
@@ -1021,10 +1022,17 @@ RQ_UnmapWindow (CLIENT * clnt, xUnmapWindowReq * q)
 				_WIND_PointerRoot = NULL;
 				MainClrWatch(0);
 			}
+			if (wind->Id == _WIND_SaveUnder) {
+				WindSaveFlush (xTrue);
+			}
 		} else if (WindVisible (wind->Parent)) {
 			GRECT sect;
 			WindGeometry (wind, &sect, wind->BorderWidth);
-			WindDrawSection (wind->Parent, &sect);
+			if (wind->Id == _WIND_SaveUnder) {
+				WindSaveFlush (xTrue);
+			} else {
+				WindDrawSection (wind->Parent, &sect);
+			}
 			if (PXYinRect (MAIN_PointerPos, &sect)) {
 				WindPointerWatch (xFalse);
 			}

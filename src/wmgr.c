@@ -568,6 +568,12 @@ WmgrWindMap (WINDOW * wind, GRECT * curr)
 				                     work, wind->BorderWidth, wind->Override);
 			}
 		}
+		if (wind->SaveUnder && wind->Override) {
+			GRECT rect = *curr;
+			rect.w += 2;
+			rect.h += 2;
+			WindSaveUnder (wind->Id, &rect, 0);
+		}
 		wind->GwmParent = xFalse;
 	}
 	
@@ -796,15 +802,25 @@ WmgrMessage (short * msg)
 {
 	static BOOL color_changed = xFalse;
 	
-	WINDOW * wind  = _Wmgr_WindByHandle(msg[3]);
-	BOOL     reset = xFalse;
+	WINDOW * wind     = _Wmgr_WindByHandle(msg[3]);
+	BOOL     reset    = xFalse;
+	BOOL     inv_save = WIND_SaveDone;
 	
 	if (wind) switch (msg[0]) {
 		
-		case WM_REDRAW:
-			if (wind->GwmIcon) _Wmgr_DrawIcon  (wind, (GRECT*)(msg +4));
-			else               WindDrawSection (wind, (GRECT*)(msg +4));
-			break;
+		case WM_REDRAW: {
+			GRECT * rect = (GRECT*)(msg +4);
+			if (WIND_SaveDone
+			    &&  rect->x              >= WIND_SaveArea->lu.x
+			    &&  rect->y              >= WIND_SaveArea->lu.y
+			    &&  rect->x + rect->w -1 <= WIND_SaveArea->rd.x
+			    &&  rect->y + rect->h -1 <= WIND_SaveArea->rd.y) {
+				inv_save = xFalse;
+			} else {
+				if (wind->GwmIcon) _Wmgr_DrawIcon  (wind, rect);
+				else               WindDrawSection (wind, rect);
+			}
+		}	break;
 		
 		case WM_MOVED:
 			wind_set_r (msg[3], WF_CURRXYWH, (GRECT*)(msg +4));
@@ -899,6 +915,9 @@ WmgrMessage (short * msg)
 		default:
 			printf ("event #%i %X \n", msg[0], MAIN_KeyButMask);
 	}
+	
+	if (inv_save) WindSaveFlush (xFalse);
+	
 	return reset;
 }
 
