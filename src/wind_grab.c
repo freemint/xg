@@ -38,8 +38,10 @@ _Wind_PgrabSet (CLIENT * clnt, WINDOW * wind,
 	_WIND_PgrabEvents = mask;
 	_WIND_PgrabOwnrEv = ownr;
 	_WIND_PgrabTime   = time;
-	if (crsr) {
-		_WIND_PgrabCursor = CrsrShare (crsr);
+	if (_WIND_PgrabCursor) {
+		CrsrFree (_WIND_PgrabCursor, NULL);
+	}
+	if ((_WIND_PgrabCursor = crsr)) {
 		CrsrSelect (crsr);
 	} else {
 		_Wind_Cursor (_WIND_PgrabWindow);
@@ -95,6 +97,7 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 	
 	} else {
 		ClntReplyPtr (GrabPointer, r);
+		CARD32 time = (q->time ? q->time : MAIN_TimeStamp);
 		
 		PRINT (GrabPointer," W:%lX(W:%lX) evnt=0x%04X/%i mode=%i/%i"
 		                       " C:%lX T:%lX",
@@ -107,32 +110,19 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 		} else if (!WindVisible (wind)) {
 			r->status = GrabNotViewable;
 		
-		} else if (q->time
-		           && (q->time < _WIND_PgrabTime || q->time > MAIN_TimeStamp)) {
+		} else if (time < _WIND_PgrabTime || time > MAIN_TimeStamp) {
 			r->status = GrabInvalidTime;
 		
 		} else {
-			if (!_WIND_PgrabClient) {
-				WindMctrl (xTrue);
-			}
-			_WIND_PgrabClient = clnt;
-			_WIND_PgrabWindow = wind;
-			_WIND_PgrabEvents = q->eventMask;
-			_WIND_PgrabOwnrEv = q->ownerEvents;
-			_WIND_PgrabTime   = (q->time ? q->time : MAIN_TimeStamp);
-			if (crsr) {
-				_WIND_PgrabCursor = CrsrShare (crsr);
-				CrsrSelect (crsr);
-			} else {
-				_Wind_Cursor (_WIND_PgrabWindow);
-			}
 			r->status = GrabSuccess;
 		}
 		ClntReply (GrabPointer,, NULL);
 		
 		if (r->status == GrabSuccess) {
-			_Wind_PgrabSet (clnt, wind, crsr, q->eventMask, q->ownerEvents,
-			                (q->time ? q->time : MAIN_TimeStamp));
+			_Wind_PgrabSet (clnt, wind, crsr, q->eventMask, q->ownerEvents, time);
+		
+		} else if (crsr) {
+			CrsrFree (crsr, NULL);
 		}
 	}
 }
