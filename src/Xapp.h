@@ -3,11 +3,11 @@
 #define MENU 0  /* menu */
 #define MENU_CLNT 5  /* TITLE in tree MENU */
 #define MENU_ABOUT 8  /* STRING in tree MENU */
-#define MENU_GWM 18  /* STRING in tree MENU */
+#define MENU_GWM 17  /* STRING in tree MENU */
 #define MENU_QUIT 19  /* STRING in tree MENU */
-#define MENU_CLNT_FACE 20  /* BOX in tree MENU */
-#define MENU_CLNT_FRST 21  /* STRING in tree MENU */
-#define MENU_CLNT_LAST 50  /* STRING in tree MENU */
+#define MENU_CLNT_FACE 21  /* BOX in tree MENU */
+#define MENU_CLNT_FRST 22  /* STRING in tree MENU */
+#define MENU_CLNT_LAST 51  /* STRING in tree MENU */
 
 #define ABOUT 1  /* form/dial */
 #define ABOUT_LOGO 1  /* IMAGE in tree ABOUT */
@@ -90,3 +90,8 @@
 #define GLYPH_ur_angle 75  /* ICON in tree GLYPH */
 #define GLYPH_watch 76  /* ICON in tree GLYPH */
 #define GLYPH_xterm 77  /* ICON in tree GLYPH */
+
+#define ICONS 3  /* form/dial */
+#define ICONS_BIG_X 1  /* CICON in tree ICONS */
+#define ICONS_SMALL_X 2  /* CICON in tree ICONS */
+#define ICONS_NAME_X 3  /* CICON in tree ICONS */

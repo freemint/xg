@@ -1,16 +1,16 @@
 ResourceMaster v2.072
-#C 3@0@0@
+#C 4@0@0@
 #N 99@10@AZAaza___@AZAaza090___  _@@_@
 #FoC-Header@rsm2out@C-Header@h@@@ [C-Header@
 #R 2@1@
-#T 0@1@MENU@@51@
+#T 0@1@MENU@@52@
 #O 5@32@CLNT@@
 #O 8@28@ABOUT@@
-#O 18@28@GWM@@
+#O 17@28@GWM@@
 #O 19@28@QUIT@@
-#O 20@20@CLNT_FACE@@
-#O 21@28@CLNT_FRST@@
-#O 50@28@CLNT_LAST@@
+#O 21@20@CLNT_FACE@@
+#O 22@28@CLNT_FRST@@
+#O 51@28@CLNT_LAST@@
 #T 1@2@ABOUT@@7@
 #O 1@23@LOGO@@
 #T 2@2@GLYPH@@78@
@@ -91,4 +91,8 @@ ResourceMaster v2.072
 #O 75@31@ur_angle@@
 #O 76@31@watch@@
 #O 77@31@xterm@@
-#c 4985@
+#T 3@2@ICONS@@4@
+#O 1@33@BIG_X@@
+#O 2@33@SMALL_X@@
+#O 3@33@NAME_X@@
+#c 26188@
