@@ -24,10 +24,12 @@ extern CARD16   _WIND_OpenCounter;
 
 extern CLIENT * _WIND_PgrabClient;
 extern WINDOW * _WIND_PgrabWindow;
+extern p_CURSOR _WIND_PgrabCursor;
 extern CARD32   _WIND_PgrabEvents;
 extern BOOL     _WIND_PgrabOwnrEv;
 
 BOOL _Wind_PgrabClear (p_CLIENT clnt);
-
+void _Wind_Cursor     (p_WINDOW wind);
+BOOL _Wind_IsInferior (p_WINDOW wind, p_WINDOW inferior);
 
 #endif __WINDOW_P_H__

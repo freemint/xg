@@ -9,6 +9,7 @@
 //==============================================================================
 //
 #include "window_P.h"
+#include "Cursor.h"
 
 #include <stdio.h> // printf
 
@@ -17,6 +18,7 @@
 
 CLIENT * _WIND_PgrabClient = NULL;
 WINDOW * _WIND_PgrabWindow = NULL;
+CURSOR * _WIND_PgrabCursor = NULL;
 CARD32   _WIND_PgrabEvents = 0ul;
 BOOL     _WIND_PgrabOwnrEv = xFalse;
 CARD32   _WIND_PgrabTime   = 0ul;
@@ -29,6 +31,10 @@ _Wind_PgrabClear (p_CLIENT clnt)
 	if (!clnt  ||  clnt == _WIND_PgrabClient) {
 		_WIND_PgrabClient = NULL;
 		_WIND_PgrabWindow = NULL;
+		if (_WIND_PgrabCursor) {
+			CrsrFree (_WIND_PgrabCursor, NULL);
+			_WIND_PgrabCursor = NULL;
+		}
 		WindMctrl (xFalse);
 		
 		return xTrue;
@@ -48,9 +54,13 @@ void
 RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 {
 	WINDOW * wind = WindFind (q->grabWindow);
+	CURSOR * crsr = NULL;
 	
 	if (!wind) {
 		Bad(Window, q->grabWindow, GrabPointer,);
+	
+	} else if (q->cursor && !(crsr = CrsrGet(q->cursor))) {
+		Bad(Cursor, q->cursor, GrabPointer,);
 	
 	} else {
 		ClntReplyPtr (GrabPointer, r);
@@ -79,6 +89,12 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 			_WIND_PgrabEvents = q->eventMask;
 			_WIND_PgrabOwnrEv = q->ownerEvents;
 			_WIND_PgrabTime   = (q->time ? q->time : MAIN_TimeStamp);
+			if (crsr) {
+				_WIND_PgrabCursor = CrsrShare (crsr);
+				CrsrSelect (crsr);
+			} else {
+				_Wind_Cursor (_WIND_PgrabWindow);
+			}
 			r->status = GrabSuccess;
 		}
 		ClntReply (GrabPointer,, NULL);
