@@ -45,7 +45,7 @@ CmapPalette (CARD16 handle)
 		hdl = GRPH_Vdi;
 	}
 	rgb = _CMAP_VdiRGB + i;
-	for ( ; i < 256; vs_color (GRPH_Vdi, i++, (short*)(rgb++)));
+	for ( ; i < 256; vs_color (hdl, i++, (short*)(rgb++)));
 	
 	if (!handle) {
 		short mbuf[8] = { COLORS_CHANGED, ApplId(0), 0,0,0,0,0,0 };
