@@ -286,6 +286,10 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 //		            src_d.p->Depth, dst_d.p->Depth);
 	
 	} else if ((short)q->width < 0  ||  (short)q->height < 0) {
+if (gc->GraphExpos) {
+	EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
+}
+return;
 		Bad(Value, (short)((short)q->width <= 0 ? q->width : q->height),
 		           CopyArea,"(%c:%X,%c:%X) [%i,%i] -> [%i,%i] \n"
 		           "           width = %i height = %i",
@@ -391,7 +395,7 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 				//
 				// for _all_ cases of copy to a window, there might it be necessary
 				// to generate events and/or fill background for visible regions of
-				// source which can't be copied from source
+				// destination which can't be copied from source
 				//
 				WINDOW * wind = dst_d.Window;
 				PXY      orig;
