@@ -149,17 +149,19 @@ WmgrIntro (BOOL onNoff)
 			on_screen = xTrue;
 		}
 		
-	} else if (on_screen) {
-		MFDB scrn = { NULL };
-		
-		v_hide_c  (GRPH_Vdi);
-		vro_cpyfm (GRPH_Vdi, S_ONLY, _WMGR_P, &_WMGR_Qbuf, &scrn);
-		v_show_c  (GRPH_Vdi, 1);
-		
-		WindUpdate (xFalse);
+	} else {
+		if (on_screen) {
+			MFDB scrn = { NULL };
+			
+			v_hide_c  (GRPH_Vdi);
+			vro_cpyfm (GRPH_Vdi, S_ONLY, _WMGR_P, &_WMGR_Qbuf, &scrn);
+			v_show_c  (GRPH_Vdi, 1);
+			
+			WindUpdate (xFalse);
+			
+			on_screen = xFalse;
+		}
 		graf_mouse (ARROW, NULL);
-		
-		on_screen = xFalse;
 	}
 }
 
