@@ -31,8 +31,8 @@ BOOL WmgrWindHandle (p_WINDOW wind);
 BOOL WmgrWindMap    (p_WINDOW wind, p_GRECT );
 BOOL WmgrWindUnmap  (p_WINDOW wind, BOOL no_check);
 void WmgrWindName   (p_WINDOW wind, const char * name, BOOL windNicon);
-void WmgrWidget     (p_WINDOW wind, p_PXY rel_pos);
-void WmgrWidgetOff  (p_CURSOR new_crsr);
+void WmgrCursor     (p_WINDOW wind, p_PXY rel_pos);
+void WmgrCursorOff  (p_CURSOR new_crsr);
 
 void WmgrSetDesktop (BOOL onNoff);
 

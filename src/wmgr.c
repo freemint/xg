@@ -274,7 +274,7 @@ WmgrActivate (BOOL onNoff)
 		if (_app) menu_icheck (_WMGR_Menu, MENU_GWM, 1);
 	
 	} else {
-		WmgrWidgetOff (NULL);
+		WmgrCursorOff (NULL);
 		WMGR_Active = xFalse;
 		while (w) {
 			short hdl = w->Handle;
@@ -529,7 +529,6 @@ WmgrWindMap (WINDOW * wind, GRECT * curr)
 			
 			wind->GwmParent = xTrue;
 		}
-	//	wind_set (wind->Handle, WF_COLOR, W_NAME, RED, GREEN, 0);
 	
 	} else {
 		if (curr->y < 0) {
@@ -592,7 +591,7 @@ WmgrWindName (WINDOW * wind, const char * name, BOOL windNicon)
 
 //==============================================================================
 void
-WmgrWidget (WINDOW * wind, p_PXY pos)
+WmgrCursor (WINDOW * wind, p_PXY pos)
 {
 	CARD16 type = 0x000;
 	
@@ -616,7 +615,7 @@ WmgrWidget (WINDOW * wind, p_PXY pos)
 
 //==============================================================================
 void
-WmgrWidgetOff (CURSOR * new_crsr)
+WmgrCursorOff (CURSOR * new_crsr)
 {
 	CrsrSelect (new_crsr);
 	WMGR_Cursor = 0;

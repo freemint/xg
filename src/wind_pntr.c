@@ -260,7 +260,7 @@ WindPointerWatch (BOOL movedNreorg)
 	
 	if (!widget  &&  stack[0] == stack[top]) {
 		if (WMGR_Cursor) {
-			WmgrWidgetOff (NULL);
+			WmgrCursorOff (NULL);
 		}
 		if (movedNreorg && stack[top]) {
 			WindPointerMove (&r_p);
@@ -303,7 +303,7 @@ WindPointerWatch (BOOL movedNreorg)
 	
 	if (widget && !_WIND_PgrabWindow) {
 		if (WMGR_Active) {
-			WmgrWidget (widget, &r_p);
+			WmgrCursor (widget, &r_p);
 		}
 	
 	} else { // notify leave/out events
@@ -321,7 +321,7 @@ WindPointerWatch (BOOL movedNreorg)
 		}
 		
 		if (!_WIND_PgrabWindow) {
-			if (WMGR_Cursor) WmgrWidgetOff (NULL);
+			if (WMGR_Cursor) WmgrCursorOff (NULL);
 			/*else*/         _Wind_Cursor  (stack[top]);
 		}
 	}
