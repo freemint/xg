@@ -569,7 +569,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 		if (wind->hasBackPix)  PmapFree  (wind->Back.Pixmap, NULL);
 		
 		if (wind->Handle > 0) {
-			if (wind->isMapped) {
+			if (wind->isMapped || wind->GwmIcon) {
 				wind_close  (wind->Handle);
 				_WIND_OpenCounter--;
 			}
