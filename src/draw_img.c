@@ -168,6 +168,84 @@ RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
 
 
 //------------------------------------------------------------------------------
+static int
+copy_clip (GRECT * r, p_DRAWABLE src, p_DRAWABLE dst, short * coord)
+{
+	// coord[0,1] src x/y   r[0]   src clip
+	// coord[2,3] dst x/y   r[1]   dst clip
+	// coord[4,5] w/h       r[2..] dst to be tiled
+	int     num  = -1;   // -1: no copy, 0: no tiles, 1..4: num of tiles in r
+	GRECT * tile = r +2;
+	short   w    = coord[4];
+	short   h    = coord[5];
+	*(PXY*)&r[0] = *(PXY*)(coord +0); // src
+	*(PXY*)&r[1] = *(PXY*)(coord +2); // dst
+	
+	if (r[1].x     < 0)        { r[0].x -= r[1].x; w += r[1].x;   r[1].x = 0; }
+	if (r[1].x + w > dst.p->W)                     w = dst.p->W - r[1].x;
+	if (r[1].y     < 0)        { r[0].y -= r[1].y; h += r[1].y;   r[1].y = 0; }
+	if (r[1].y + h > dst.p->H)                     h = dst.p->H - r[1].y;
+	
+	do {
+		if (w > 0 && h > 0) {
+			num++;
+		} else {
+			break;
+		}
+		if (r[0].y < 0) { // above src
+			num++;
+			tile->x = r[1].x;
+			tile->y = r[1].y;
+			tile->w = w;
+			tile->h = -r[0].y;
+			tile++;
+			r[1].y -= r[0].y;
+			h      += r[0].y;
+			r[0].y =  0;
+			if (h <= 0) break;
+		}
+		if (r[0].x < 0) { // left of src
+			num++;
+			tile->x = r[1].x;
+			tile->y = r[1].y;
+			tile->w = -r[0].x;
+			tile->h = h;
+			tile++;
+			r[1].x -= r[0].x;
+			w      += r[0].x;
+			r[0].x =  0;
+			if (w <= 0) break;
+		}
+		if (r[0].x + w > src.p->W) { // right of src
+			short d = src.p->W - r[0].x;
+			num++;
+			tile->x = r[1].x + d;
+			tile->y = r[1].y;
+			tile->w = w - d;
+			tile->h = h;
+			tile++;
+			w = d;
+			if (w <= 0) break;
+		}
+		if (r[0].y + h > src.p->H) { // below src
+			short d = src.p->H - r[0].y;
+			num++;
+			tile->x = r[1].x;
+			tile->y = r[1].y + d;
+			tile->w = w;
+			tile->h = h - d;
+			tile++;
+			h = d;
+		}
+		
+	} while (0);
+	
+	r[0].w = r[1].w = w;
+	r[0].h = r[1].h = h;
+	
+	return num;
+}
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void
 RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 {
@@ -197,16 +275,40 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 	
 	} else {
 		BOOL debug = xTrue;
-		GRECT r[4] = { {0,       0,       src_d.p->W,  src_d.p->H},
-		               {0,       0,       dst_d.p->W,  dst_d.p->H},
-		               {q->srcX, q->srcY, q->width +1, q->height +1},
-		               {q->dstX, q->dstY, q->width +1, q->height +1} };
+		BOOL  no_exp = gc->GraphExpos;
+		GRECT r[6], * exps = r +2;
+		int   num = copy_clip (r, src_d, dst_d, &q->srcX);
 		
-		if (GrphIntersect (&r[0], &r[2]) && GrphIntersect (&r[1], &r[3])) {
-			if (r[0].w > r[1].w) r[0].w = r[1].w;
-			else                 r[1].w = r[0].w;
-			if (r[0].h > r[1].h) r[0].h = r[1].h;
-			else                 r[1].h = r[0].h;
+		if (num >= 0  &&  r->w > 0  &&  r->h > 0) {
+			
+			if (dst_d.p->isWind) {
+				WINDOW * wind = dst_d.Window;
+				if (no_exp) {
+					exps--;
+					num++;
+				}
+				if (wind->hasBackGnd) {
+					PRECT * sect, area;
+					PXY     orig;
+					CARD16  nClp = WindClipLockP (wind, 0, NULL, 0, &orig, &sect);
+					if (nClp) {
+						if (!wind->hasBackPix) {
+							vswr_mode (GRPH_Vdi, MD_REPLACE);
+							vsf_color (GRPH_Vdi, wind->Back.Pixel);
+						}
+						area.rd.x = (area.lu.x = orig.x + q->dstX) + q->width  -1;
+						area.rd.y = (area.lu.y = orig.y + q->dstY) + q->height -1;
+						WindDrawBgnd (wind, orig, &area, sect, nClp, NULL);
+						WindClipOff();
+					} else {
+						num = 0;
+					}
+				}
+			}
+			if (no_exp && num) {
+				EvntGraphExp (clnt, dst_d, X_CopyArea, num, exps);
+				no_exp = xFalse;
+			}
 			
 			if (src_d.p->isWind) {
 			
@@ -232,9 +334,7 @@ RQ_CopyArea (CLIENT * clnt, xCopyAreaReq * q)
 				}
 			}
 		}
-		// Hacking: GraphicsExposure should be generated if necessary instead!
-		//
-		if (gc->GraphExpos) {
+		if (no_exp) {
 			EvntNoExposure (clnt, dst_d.p->Id, X_CopyArea);
 		}
 		if (debug) {

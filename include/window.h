@@ -107,6 +107,8 @@ void WindClipOff   (void);
 void WindPutMono     (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
 void WindPutColor    (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
 void WindDrawSection (p_WINDOW , const GRECT * sect);
+int  WindDrawBgnd    (p_WINDOW , PXY orig, p_PRECT area,
+                                           p_PRECT sect, int num, GRECT * exps);
 void WindDrawPmap    (p_PIXMAP , PXY orig, p_PRECT sect);
 BOOL WindCirculate   (p_WINDOW , CARD8 place);
 void WindResize      (p_WINDOW , p_GRECT diff);

@@ -203,9 +203,9 @@ WindDrawPmap (PIXMAP * pmap, PXY orig, p_PRECT sect)
 }
 
 //------------------------------------------------------------------------------
-static int
-draw_bgnd (WINDOW * wind, PXY orig, PRECT * area,
-           PRECT * sect, int num, GRECT * exps)
+int
+WindDrawBgnd (WINDOW * wind, PXY orig, PRECT * area,
+              PRECT * sect, int num, GRECT * exps)
 {
 	int cnt = 0;
 	
@@ -408,7 +408,7 @@ draw_wind (WINDOW * wind, PRECT * work,
 			if (!wind->hasBackPix) {
 				vsf_color (GRPH_Vdi, wind->Back.Pixel);
 			}
-			nEvn = draw_bgnd (wind, orig, work, sect, nClp, exps);
+			nEvn = WindDrawBgnd (wind, orig, work, sect, nClp, exps);
 		
 		} else if (exps) {
 			do {
@@ -528,13 +528,14 @@ WindPutMono (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 		wind_get_first (hdl, &sec);
 		while (sec.w && sec.h) {
 			if (GrphIntersect (&sec, &r[1])) {
+				short mode = (gc->Function == GXor ? MD_TRANS : MD_REPLACE);
 				PXY p[4] = { {r[0].x + (sec.x - r[1].x), r[0].y + (sec.y - r[1].y)},
 				             *(PXY*)&sec.w, *(PXY*)&sec.x,
 				             {sec.x + sec.w -1,          sec.y + sec.h -1} };
 				p[1].x += p[0].x -1;
 				p[1].y += p[0].y -1;
 				v_hide_c  (GRPH_Vdi);
-				vrt_cpyfm_p (GRPH_Vdi, MD_REPLACE, p, src, &dst, colors);
+				vrt_cpyfm_p (GRPH_Vdi, mode, p, src, &dst, colors);
 				v_show_c  (GRPH_Vdi, 1);
 			}
 			wind_get_next (hdl, &sec);
@@ -795,7 +796,7 @@ RQ_ClearArea (CLIENT * clnt, xClearAreaReq * q)
 						vsf_color (GRPH_Vdi, wind->Back.Pixel);
 					}
 					do {
-						CARD16 n = draw_bgnd (wind, orig, sect++, area, num, exps);
+						CARD16 n = WindDrawBgnd (wind, orig, sect++, area, num, exps);
 						if (evn) {
 							nEvn += n;
 							exps += n;
