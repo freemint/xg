@@ -42,6 +42,11 @@ short   WMGR_Decor  = WMGR_DECOR;
 #define A_WIDGETS     (NAME|MOVER|CLOSER|SMALLER)
 #define P_WIDGETS     0
 
+CARD16       WMGR_OpenCounter  = 0;
+short        WMGR_Focus        = 0;
+short        _WMGR_FocusHolder = 0;
+static short _WMGR_HasFocus    = 0;
+static short _WMGR_WidgetFgnd, _WMGR_WidgetBgnd;
 
 #include "intro.c"
 static MFDB  _WMGR_Logo = { x_bits, x_width,x_height, (x_width +15) /16, 0, 1 };
@@ -167,7 +172,7 @@ WmgrInit (BOOL initNreset)
 			
 		} else {
 			OBJECT * tree;
-			int i;
+			short i;
 			
 			rsrc_gaddr (R_TREE, ABOUT, &tree);
 			_WMGR_Icon.fd_addr    = tree[ABOUT_LOGO].ob_spec.bitblk->bi_pdata;
@@ -185,6 +190,9 @@ WmgrInit (BOOL initNreset)
 				menu_bar     (_WMGR_Menu, 1);
 				menu_ienable (_WMGR_Menu, MENU_GWM, 1);
 			}
+			i = W_NAME;
+			wind_get (0, WF_DCOLOR, &i, &_WMGR_WidgetFgnd, &_WMGR_WidgetBgnd, &i);
+			_WMGR_FocusHolder = wind_create (0, -100, -100, 99, 99);
 		}
 	
 	} else {
@@ -449,13 +457,15 @@ WmgrWindHandle (WINDOW * wind)
 		if(rsrc_gaddr (R_TREE, ICONS, &icons)) {
 			wind_set_proc(hdl, icons[ICONS_NAME_X].ob_spec.ciconblk);
 		}
+		wind_set (hdl, WF_COLOR, W_NAME, _WMGR_WidgetBgnd, _WMGR_WidgetBgnd, -1);
+		
 		return xTrue;
 	}
 	return xFalse;
 }
 
 //==============================================================================
-void
+BOOL
 WmgrWindMap (WINDOW * wind, GRECT * curr)
 {
 	WmgrCalcBorder (curr, wind);
@@ -544,7 +554,30 @@ WmgrWindMap (WINDOW * wind, GRECT * curr)
 		wind->GwmParent = xFalse;
 	}
 	
+	if (!WMGR_OpenCounter++) {
+		wind_open   (_WMGR_FocusHolder, -100, -100, 10, 10);
+		_WMGR_HasFocus = 1;
+	} else {
+		_WMGR_HasFocus = 2;
+	}
 	wind_open_r (wind->Handle, curr);
+	
+	return (WMGR_OpenCounter > 1);
+}
+
+//==============================================================================
+BOOL
+WmgrWindUnmap (WINDOW * wind, BOOL no_check)
+{
+	if (no_check || wind->isMapped || wind->GwmIcon) {
+		wind_close (wind->Handle);
+		if (!--WMGR_OpenCounter) {
+			wind_close (_WMGR_FocusHolder);
+			
+			return xFalse;
+		}
+	}
+	return xTrue;
 }
 
 //==============================================================================
@@ -787,6 +820,24 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 }
 
 //==============================================================================
+void
+WmgrSetFocus (short focus)
+{
+	if (WMGR_Focus) {
+		wind_set (WMGR_Focus, WF_COLOR, W_NAME,
+		          _WMGR_WidgetBgnd, _WMGR_WidgetBgnd, -1);
+	}
+	if (focus) {
+		wind_set (focus, WF_COLOR, W_NAME,
+		          _WMGR_WidgetFgnd, _WMGR_WidgetFgnd, -1);
+		wind_set (_WMGR_FocusHolder, WF_TOP, 0,0,0,0);
+	} else {
+		wind_set (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
+	}
+	WMGR_Focus = focus;
+}
+
+//==============================================================================
 BOOL
 WmgrMessage (short * msg)
 {
@@ -794,7 +845,7 @@ WmgrMessage (short * msg)
 	
 	BOOL     reset    = xFalse;
 	BOOL     inv_save = WIND_SaveDone;
-	WINDOW * wind     = NULL;
+	WINDOW * wind;
 	
 	switch (msg[0]) {
 		
@@ -848,10 +899,13 @@ WmgrMessage (short * msg)
 				CmapPalette();
 				color_changed = xFalse;
 			}
+			_WMGR_HasFocus = (WMGR_OpenCounter > 1 ? 2 : 1);
 			WindCirculate (wind, PlaceOnTop);
-		}	break;
+		}
+			break;
 		
 		case WM_BOTTOMED: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
+			_WMGR_HasFocus = 0;
 			WindCirculate (wind, PlaceOnBottom);
 		}	break;
 		
@@ -860,7 +914,18 @@ WmgrMessage (short * msg)
 				CmapPalette();
 				color_changed = xFalse;
 			}
+			if (msg[3] == _WMGR_FocusHolder) {
+				wind_set (_WMGR_FocusHolder, WF_BOTTOM, 0,0,0,0);
+			} else {
+				_WMGR_HasFocus++;
+			}
+			WindPointerWatch (xFalse);
+			break;
+		
 		case WM_UNTOPPED:
+			if (msg[3] != _WMGR_FocusHolder) {
+				_WMGR_HasFocus--;
+			}
 		case 22360: // winshade
 		case 22361: // winunshade
 			WindPointerWatch (xFalse);

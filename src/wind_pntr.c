@@ -76,7 +76,8 @@ WindPointerWatch (BOOL movedNreorg)
 			   r_p = // pointer coordinates relative to the new pointer root origin
 			         { MAIN_PointerPos->x - WIND_Root.Rect.x,
 			           MAIN_PointerPos->y - WIND_Root.Rect.y };
-	CARD32   r_id = -1;
+	CARD32   r_id  = -1;
+	short    focus = 0;
 	
 	BOOL watch = (0 != (WIND_Root.u.List.AllMasks & ALL_MOTION_MASK));
 	
@@ -112,7 +113,7 @@ WindPointerWatch (BOOL movedNreorg)
 		r_id = (ROOT_WINDOW|hdl);
 		if (hdl > 0) {
 			stack[++top] = NULL;
-			if (_WIND_OpenCounter) {
+			if (WMGR_OpenCounter) {
 				WINDOW * w = WIND_Root.StackTop;
 				do if (w->Handle == hdl) {
 					// over x window
@@ -121,6 +122,7 @@ WindPointerWatch (BOOL movedNreorg)
 						r_p.x -= w->Rect.x;
 						r_p.y -= w->Rect.y;
 						stack[top] = w;
+						focus      = hdl;
 					}
 					break;
 				} while ((w = w->PrevSibl));
@@ -132,6 +134,10 @@ WindPointerWatch (BOOL movedNreorg)
 			}
 		}
 		// else (hdl == 0), over root window
+		
+		if (WMGR_Focus != focus) {
+			WmgrSetFocus (focus);
+		}
 		
 		/*--- find the windows section the pointer is in ---*/
 		
@@ -244,7 +250,7 @@ WindPointerWatch (BOOL movedNreorg)
 		}
 	}
 	_WIND_PointerRoot = stack[top];
-	if (_WIND_OpenCounter) {
+	if (WMGR_OpenCounter) {
 		MainSetWatch (&sect, MO_LEAVE);
 		MainSetMove  (watch);
 	} else {
