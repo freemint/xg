@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// gcontext.c
+//
+// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #include "main.h"
 #include "clnt.h"
 #include "tools.h"
@@ -18,6 +28,7 @@ GcntDelete (p_GC gc, p_CLIENT clnt)
 	if (gc->Tile)     PmapFree (gc->Tile, NULL);
 	if (gc->Stipple)  PmapFree (gc->Stipple, NULL);
 	if (gc->ClipMask) PmapFree (gc->ClipMask, NULL);
+	if (gc->ClipRect) free     (gc->ClipRect);
 	if (gc->Vdi > 0)  v_clsvwk (gc->Vdi);
 	XrscDelete (clnt->Fontables, gc);
 }
@@ -272,25 +283,22 @@ _Gcnt_setup (CLIENT * clnt, GC * gc, CARD32 mask, CARD32 * val, CARD8 req)
 		DEBUG (,"+- clpy=%i", gc->Clip.y);
 	}
 	if (mask & GCClipMask) {
-		PIXMAP * clip;
-		if (gc->ClipMask) {
-			PmapFree (gc->ClipMask, NULL);
-			gc->ClipMask = NULL;
-		}
 		if (*val == None) {
-			DEBUG (,"+- stip=<none>");
-			gc->ClipMask = NULL;
-		} else if (!(clip = PmapFind (*val))) {
-			PRINT(," ");
-			Bad(Pixmap, *val, +req, "          invalid clip-mask.");
-			return;
-		} else if (clip->Depth != 1) {
-			PRINT(," ");
-			Bad(Match,, +req, "          clip-mask depth %u.", clip->Depth);
-			return;
+			DEBUG (,"+- clip=<none>");
 		} else {
-			DEBUG (,"+- clip=0x%X", clip->Id);
-			gc->ClipMask = PmapShare(clip);
+			PIXMAP * clip = PmapFind (*val);
+			if (!clip) {
+				PRINT(," ");
+				Bad(Pixmap, *val, +req, "          invalid clip-mask.");
+				return;
+			} else if (clip->Depth != 1) {
+				PRINT(," ");
+				Bad(Match,, +req, "          clip-mask depth %u.", clip->Depth);
+				return;
+			} else {
+				DEBUG (,"+- clip=P:%X", clip->Id);
+				gc->ClipMask = PmapShare(clip);
+			}
 		}
 		val++;
 	}
@@ -378,6 +386,8 @@ RQ_CreateGC (CLIENT * clnt, xCreateGCReq * q)
 		gc->TileStip.x  = gc->TileStip.y = 0;
 		gc->Clip.x      = gc->Clip.y     = 0;
 		gc->Vdi         = 0;
+		gc->ClipNum     = 0;
+		gc->ClipRect    = NULL;
 		
 		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_CreateGC);
 		
@@ -409,6 +419,16 @@ RQ_ChangeGC (CLIENT * clnt, xChangeGCReq * q)
 		
 		DEBUG (ChangeGC,"- G:%lX", q->gc);
 		
+		if (q->mask & GCClipMask) {
+			if (gc->ClipMask) {
+				PmapFree (gc->ClipMask, NULL);
+				gc->ClipMask = NULL;
+			} else if (gc->ClipRect) {
+				free (gc->ClipRect);
+				gc->ClipRect = NULL;
+				gc->ClipNum  = 0;
+			}
+		}
 		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_ChangeGC);
 		
 		DEBUG (,);
@@ -466,8 +486,14 @@ RQ_CopyGC (CLIENT * clnt, xCopyGCReq * q)
 			dst->Stipple    = PmapShare (src->Stipple);
 		}
 		if (q->mask & GCClipMask) {
-			if (dst->ClipMask) PmapFree  (dst->ClipMask, NULL);
-			dst->ClipMask    = PmapShare (src->ClipMask);
+			if (dst->ClipMask) {
+				PmapFree  (dst->ClipMask, NULL);
+			} else if (dst->ClipRect) {
+				free (dst->ClipRect);
+				dst->ClipRect = NULL;
+				dst->ClipNum  = 0;
+			}
+			dst->ClipMask = PmapShare (src->ClipMask);
 		}
 		if (q->mask & GCFont) FontCopy ((p_FONTABLE)dst, (p_FONTABLE)src);
 		if (q->mask & GCFunction)          dst->Function    = src->Function;
@@ -513,18 +539,51 @@ RQ_SetDashes (CLIENT * clnt, xSetDashesReq * q)
 	       q->gc, q->dashOffset, q->nDashes);
 }
 
-//------------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
 RQ_SetClipRectangles (CLIENT * clnt, xSetClipRectanglesReq * q)
 {
+	// Change the clip-mask(s) and clip origin in the GC.  An empty rectangle
+	// list disables output.
+	//
 	// GContext gc:
 	// INT16    xOrigin:
 	// INT16    yOrigin:
 	// BYTE     ordering:
-	// GRECT  * (q +1):
+	GRECT * src = (GRECT*)(q +1);
 	//...........................................................................
 	
-	PRINT (- X_SetClipRectangles," G:%lX %i,%i", q->gc, q->xOrigin, q->yOrigin);
+	GC    * gc  = GcntFind (q->gc);
+	GRECT * clp = NULL;
+	size_t  num = ((q->length *4) - sizeof (xSetClipRectanglesReq))
+	                / sizeof(GRECT);
+	
+	if (!gc) {
+		Bad(GC, q->gc, SetClipRectangles,);
+	
+	} else if (num && !(clp = malloc (sizeof(GRECT) * num))) {
+		Bad(Alloc,, SetClipRectangles,);
+	
+	} else { //..................................................................
+		
+		PRINT (SetClipRectangles," G:%lX %i,%i", q->gc, q->xOrigin, q->yOrigin);
+		
+		if (gc->ClipMask) {
+			PmapFree (gc->ClipMask, NULL);
+			gc->ClipMask = NULL;
+		}
+		if (gc->ClipRect) {
+			free (gc->ClipRect);
+		}
+		if ((gc->ClipRect = clp)) {
+			memcpy (clp, src, sizeof(GRECT) * num);
+			gc->ClipNum = num;
+		} else {
+			gc->ClipNum = -1; // disables output
+		}
+		gc->Clip.x = q->xOrigin;
+		gc->Clip.y = q->yOrigin;
+	}
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// gcontext.c
+//
+// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #ifndef __GCONTEXT_H__
 #	define __GCONTEXT_H__
 
@@ -38,6 +48,9 @@ typedef struct s_GC {
 	p_PIXMAP Tile, Stipple, ClipMask;
 	PXY      TileStip,      Clip;
 	short    Vdi;
+	
+	short   ClipNum;
+	p_GRECT ClipRect;
 } GC;
 
 
