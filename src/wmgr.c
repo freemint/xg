@@ -845,7 +845,7 @@ WmgrButton (void)
 		EVMULTI_IN  ev_i = {
 			MU_BUTTON|MU_M1|MU_TIMER, 1,0x03,0x00,
 		   MO_LEAVE, { MAIN_PointerPos->x, MAIN_PointerPos->y, 1,1 },
-		   0, {0,0, 0,0}, 200,0 };
+		   0, {0,0, 0,0}, 20,0 };
 		EVMULTI_OUT ev_o;
 		short       ev, dummy[8];
 		PXY         pc[5],   pw[5];
@@ -945,10 +945,10 @@ WmgrButton (void)
 			v_hide_c (GRPH_Vdi);
 			v_pline_p (GRPH_Vdi, 5, pw);
 			v_pline_p (GRPH_Vdi, 5, pc);
-			if (ev == MU_TIMER) {
+			if (ev & MU_TIMER) {
 				ev_i.evi_flags &= ~MU_TIMER;
 			}
-			if (ev == MU_M1) {
+			if (ev & MU_M1) {
 				if (WMGR_Cursor & 0x100) {
 					pc[0].x = pc[3].x = pc[4].x = mx + ch;
 					pw[1].x = pw[2].x           = mx + wh;
