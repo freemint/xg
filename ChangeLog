@@ -1,3 +1,10 @@
+2001-02-28: 0.06
+   - added support for GEM-fonts with completed ISO Latin-1 character set, also
+     supply the both most often fonts 6x13 and 9x15 as separate package.
+   - improved handling for separate real ascent and descent of font glyphs by
+     using a heuristic.
+   - repaired the "transparente window" failure.
+   - updated to new gem-lib binding.
 2001-02-22: 0.05.4
    - implemented GraphicsExpose event, window scrolling by CopyArea() request
      works now.
