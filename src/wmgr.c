@@ -464,11 +464,14 @@ WmgrWindHandle (WINDOW * wind)
 	BOOL decor = WMGR_Active && !wind->Override;
 	short hdl = wind_create_r ((decor ? A_WIDGETS : P_WIDGETS), &WIND_Root.Rect);
 	if (hdl > 0) {
+		OBJECT *icons;
 		wind_set (hdl, WF_BEVENT, 0x0001, 0,0,0);
 		wind->Handle    = hdl;
 		wind->GwmDecor  = decor;
 		wind->GwmParent = xFalse;
-		
+		if(rsrc_gaddr (R_TREE, ICONS, &icons)) {
+			wind_set_proc(hdl, icons[ICONS_NAME_X].ob_spec.ciconblk);
+		}
 		return xTrue;
 	}
 	return xFalse;
@@ -721,6 +724,8 @@ _Wmgr_DrawIcon (WINDOW * wind, GRECT * clip)
 BOOL
 WmgrMessage (short * msg)
 {
+	static BOOL color_changed = xFalse;
+	
 	WINDOW * wind  = _Wmgr_WindByHandle(msg[3]);
 	BOOL     reset = xFalse;
 	
@@ -771,6 +776,10 @@ WmgrMessage (short * msg)
 		}	break;
 		
 		case WM_TOPPED:
+			if (color_changed) {
+			//	CmapInit();
+				color_changed = xFalse;
+			}
 			WindCirculate (wind, PlaceOnTop);
 			break;
 		
@@ -779,6 +788,10 @@ WmgrMessage (short * msg)
 			break;
 		
 		case WM_ONTOP:
+			if (color_changed) {
+			//	CmapInit();
+				color_changed = xFalse;
+			}
 		case WM_UNTOPPED:
 		case 22360: // winshade
 		case 22361: // winunshade
@@ -809,6 +822,10 @@ WmgrMessage (short * msg)
 			WindPointerWatch (xFalse);
 		}	break;
 		
+		case COLORS_CHANGED:
+			color_changed = xTrue;
+			break;
+
 		default:
 			printf ("event #%i %X \n", msg[0], MAIN_KeyButMask);
 	}
