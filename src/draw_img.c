@@ -95,8 +95,8 @@ RQ_PutImage (CLIENT * clnt, xPutImageReq * q)
 				       (q->length *4) - sizeof (xPutImageReq),
 				       r[0].x,r[0].y,r[0].w,r[0].h, r[1].x,r[1].y,r[1].w,r[1].h);
 				
-			} else if (!GraphRaster (&mfdb, q->width, q->height)) {
-				printf ("Can't allocate buffer.\n");
+			} else if (!GrphRasterPut (&mfdb, q->width, q->height)) {
+				printf ("PutImage: Can't allocate buffer.\n");
 				
 			} else { // q->format == ZPixmap
 				
@@ -131,25 +131,104 @@ RQ_PutImage (CLIENT * clnt, xPutImageReq * q)
 void
 RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
 {
+	// CARD8    format:
+	// Drawable drawable:
+	// INT16    x, y:
+	// CARD16   width, height:
+	// CARD32   planeMask
 	//
-	// fully faked atm
-	//
+	// Reply:
+	// CARD8    depth:
+	// VisualID visual:
+	// (char*)  (r +1):
+	//...........................................................................
 	
-	p_DRAWABLE draw = DrawFind(q->drawable);
+	p_DRAWABLE draw   = { NULL };
+	PRECT      rec[2] = { {{q->x, q->y}, {q->width -1, q->height -1}},
+	                      {{0, 0}, } };
+	BOOL       ok     = xFalse;
 	
-	ClntReplyPtr (GetImage, r);
+	if ((q->drawable & ~RID_MASK) && !(draw = DrawFind(q->drawable)).p) {
+		Bad(Drawable, q->drawable, GetImage,);
+		
+	} else if (!(q->drawable & ~RID_MASK) &&
+	           !wind_get_work (q->drawable & 0x7FFF, (GRECT*)&rec[1])) {
+		Bad(Drawable, q->drawable, GetImage,);
+		
+	} else if (q->format != XYPixmap  &&  q->format != ZPixmap) {
+		Bad(Value, q->format, GetImage,);
 	
-	size_t size = (q->width * draw.p->Depth +7) /8 * q->height;
-	
-	PRINT (- X_GetImage,
-	       " D:%lX [%i,%i/%u,%u] form=%i mask=%lX -> dpth = %i size = %lu",
-	       q->drawable, q->x,q->y, q->width, q->height, q->format, q->planeMask,
-	       draw.p->Depth, size);
-	
-	r->depth  = draw.p->Depth;
-	r->visual = (draw.p->Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
-	
-	ClntReply (GetImage, size, NULL);
+	} else {
+		short xy, w, h;
+		if (draw.p) {
+			xy = (draw.p->isWind ? -draw.Window->BorderWidth : 0);
+			w  = draw.p->W - xy;
+			h  = draw.p->H - xy;
+		} else {
+			xy = -1;
+			w  = rec[1].rd.x;
+			h  = rec[1].rd.y;
+		}
+		if (q->x < xy || q->x + q->width  > w ||
+		    q->y < xy || q->y + q->height > h) {
+			Bad(Match,, GetImage,);
+		
+		} else {
+			rec[1].rd = rec[0].rd;
+			ok        = xTrue;
+		}
+	}
+	if (ok) { //.................................................................
+		
+		short  dpth = (draw.p ? draw.p->Depth : GRPH_Depth);
+		size_t size = (q->width * dpth +7) /8 * q->height;
+		ClntReplyPtr (GetImage, r);
+		MFDB   dst = { (r +1), q->width, q->height, 
+		               (q->width + PADD_BITS -1) /16, 0, dpth, 0,0,0 };
+		MFDB * src = NULL;
+		
+		PRINT (- X_GetImage,
+		       " D:%lX [%i,%i/%u,%u] form=%i mask=%lX -> dpth = %i size = %lu",
+		       q->drawable, q->x,q->y, q->width, q->height, q->format,
+		       q->planeMask, dpth, size);
+		
+		if (!draw.p) {
+			rec[0].rd.x += (rec[0].lu.x += rec[1].lu.x);
+			rec[0].rd.y += (rec[0].lu.y += rec[1].lu.y);
+			rec[1].lu.x = rec[1].lu.y = 0;
+		} else if (draw.p->isWind) {
+			PXY pos;
+			pos = WindOrigin (draw.Window);
+			rec[0].rd.x += (rec[0].lu.x += pos.x);
+			rec[0].rd.y += (rec[0].lu.y += pos.y);
+		} else {
+			src = PmapMFDB(draw.Pixmap);
+		}
+		
+		if (dpth == 1) {   // all possible formats are matching
+			if (!src) {
+				src = alloca (sizeof(MFDB));
+				src->fd_addr = NULL;
+			}
+			vro_cpyfm (GRPH_Vdi, S_ONLY, (short*)rec, src, &dst);
+			
+		} else if (!GrphRasterGet (&dst, rec, src)) {
+			printf ("GetImage: Can't allocate buffer.\n");
+		
+		} else {
+		}
+		
+		if (!draw.p) {
+			r->visual = (GRPH_Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
+		} else if (draw.p->isWind) {
+			r->visual = (draw.p->Depth > 1 ? DFLT_VISUAL +1 : DFLT_VISUAL);
+		} else {
+			r->visual = None;
+		}
+		r->depth = dpth;
+		
+		ClntReply (GetImage, size, NULL);
+	}
 }
 
 
@@ -539,10 +618,10 @@ RQ_CopyPlane (CLIENT * clnt, xCopyPlaneReq * q)
 				MFDB mfdb = *PmapMFDB(src_d.Pixmap);
 				
 				DEBUG (CopyPlane," #%i(0x%lx)"
-				       " G:%lX %c:%lX [%i,%i/%u,%u] to %c:%lX %i,%i",
+				       " G:%lX %c:%lX [%i,%i/%u,%u *%i] to %c:%lX %i,%i",
 				       plane, q->bitPlane, q->gc, (src_d.p->isWind ? 'W' : 'P'),
 				       q->srcDrawable, q->srcX, q->srcY, q->width, q->height,
-			   	    (dst_d.p->isWind ? 'W' : 'P'),
+			   	    src_d.p->Depth, (dst_d.p->isWind ? 'W' : 'P'),
 			   	    q->dstDrawable, q->dstX, q->dstY);
 				
 				if (src_d.p->Depth > 1) {
