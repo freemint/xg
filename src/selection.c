@@ -8,7 +8,6 @@
 // 2000-08-31 - Initial Version.
 //==============================================================================
 //
-#define TRACE
 #include "main.h"
 #include "clnt.h"
 #include "tools.h"
