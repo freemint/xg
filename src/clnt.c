@@ -502,7 +502,7 @@ RQ_KillClient (CLIENT * clnt, xKillClientReq * q)
 		}
 		
 	} else {
-		CLIENT * kill = Xrsc(CLIENT, c_id, CLNT_Pool);
+		CLIENT * kill = Xrsc(CLIENT, RID_Base(c_id), CLNT_Pool);
 		
 		if (kill) {
 			DEBUG (KillClient, "(%lX)", q->id);
