@@ -30,13 +30,13 @@ const CARD8 KYBD_MapMax = KEYSYM_OFFS + (sizeof(KYBD_Map) / sizeof(*KYBD_Map));
 
 
 //==============================================================================
-void
+short
 KybdEvent (short scan, short prev_meta)
 {
 	static BYTE pndg = 0;
+	CARD8       chng = (MAIN_KeyButMask ^ prev_meta);
 	
 	if (_WIND_PointerRoot) {
-		CARD8  chng = (MAIN_KeyButMask ^ prev_meta) >> 1;
 		CARD32 c_id = _WIND_PointerRoot->Id;
 		PXY    r_xy = WindPointerPos (NULL);
 		PXY    e_xy = WindPointerPos (_WIND_PointerRoot);
@@ -46,7 +46,7 @@ KybdEvent (short scan, short prev_meta)
 			               _WIND_PointerRoot->Id, r_xy, e_xy, pndg);
 			pndg = 0;
 		}
-		if (chng) {
+		if (chng >>= 1) {
 			BYTE code[] = { 0, KEY_LOCK, KEY_CTRL, KEY_ALT,
 			                   KEY_SHIFT_R, KEY_SHIFT_L, 0, KEY_ALTGR };
 			int  i      = 1;
@@ -87,7 +87,12 @@ KybdEvent (short scan, short prev_meta)
 			EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
 			               c_id, r_xy, e_xy, pndg);
 		}
+	
+	} else {
+		pndg = 0;
 	}
+	
+	return chng;
 }
 
 

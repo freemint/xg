@@ -55,7 +55,7 @@
 #define MIL_MU        0x77
 
 
-void KybdEvent (short scan, short prev);
+short KybdEvent (short scan, short prev);
 
 extern const CARD8 KYBD_MapMin, KYBD_MapMax;
 
