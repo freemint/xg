@@ -68,13 +68,14 @@ clip_children (WINDOW * wind, PXY orig, PRECT * dst, PRECT * clip)
 		for (i = 1; i < num; i++) {
 			short x = dst->lu.x;
 			short y = dst->lu.y;
-			int   j = i;
-			while (j > 0  &&  list[j-1]->lu.y > y) {
-				list[j] = list[j-1];
+			int   j = i -1;
+			while (j >= 0  &&  list[j]->lu.y > y) {
+				list[j+1] = list[j];
 				j--;
 			}
-			while (--j >= 0  &&  list[j]->lu.y == y  &&  list[j]->lu.x > x) {
+			while (j >= 0  &&  list[j]->lu.y == y  &&  list[j]->lu.x > x) {
 				list[j+1] = list[j];
+				j--;
 			}
 			list[j+1] = dst++;
 		}
