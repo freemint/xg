@@ -1,3 +1,8 @@
+2001-05-17: 0.08.4
+   - fixed an ugly bug which caused random crashes after a window has been
+     backdropped due to messing up list pointers.
+   - change BV_EVENT flag while un/iconifying windows to allow topping by user
+     of iconifyed windows also.
 2001-05-15: 0.08.3
    - fixed bug in calculating of clipping rectangles by child windows.
 2001-05-10: 0.08.2
