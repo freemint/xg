@@ -1,6 +1,6 @@
 WARN    = -Wall -Wpointer-arith -Wwrite-strings -Wmissing-prototypes -Wshadow \
           -Werror #-Wcast-qual
-CCOPTS  = -D_TRACE -g #-O2 -fstrength-reduce #-DNODEBUG
+CCOPTS  = -D_TRACE -g -O2 -fstrength-reduce #-DNODEBUG
 CCFLAGS = -funsigned-char -fomit-frame-pointer \
           -I. -I../include -I/usr/GEM/include \
           $(CCOPTS) $(WARN)
@@ -15,7 +15,7 @@ AR  = ar rs
 
 PRG    = X.app
 OBJDIR = ../obj
-LIBS   = gem socket
+LIBS   = gem socket iio
 DEPEND = $(OBJDIR)/depends
 
 LDFLAGS = -v $(CCOPTS) -L/usr/GEM/lib
@@ -26,12 +26,12 @@ $(OBJDIR)/%.o: %.c ; rm -f $(PRG) ; $(CC) $(CCFLAGS) -D_$(<:.c=)_ -c $< -o $@
 
 ALL: $(PRG)
 
-SRC = 	Atom.c Cursor.c Pointer.c Property.c Request.c \
-	clnt.c clnt_swap.c colormap.c config.c draw_img.c drawable.c \
-	event.c font.c font_init.c fontable.c gcontext.c grph.c keyboard.c \
-	main.c pixm_mono.c pixmap.c selection.c srvr.c \
-	wind_draw.c wind_grab.c wind_pntr.c wind_save.c wind_util.c \
-	window.c wmgr.c x_gem.c xrsc.c
+SRC = Atom.c Cursor.c Pointer.c Property.c Request.c \
+      clnt.c clnt_swap.c colormap.c config.c draw_img.c drawable.c \
+      event.c font.c font_init.c fontable.c gcontext.c grph.c keyboard.c \
+      main.c pixm_mono.c pixmap.c selection.c srvr.c \
+      wind_draw.c wind_grab.c wind_pntr.c wind_save.c wind_util.c \
+      window.c wmgr.c x_gem.c xrsc.c
 
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
