@@ -28,9 +28,6 @@
 #include <X11/keysym.h>
 
 
-#define numberof(array)   (sizeof(array) / sizeof(*array))
-
-
 #define KEYSYM_OFFS   8
 #define KEYCODE(s)    (s + KEYSYM_OFFS)
 

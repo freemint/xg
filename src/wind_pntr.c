@@ -213,7 +213,7 @@ WindPointerWatch (BOOL movedNreorg)
 							if (GrphIntersect (&r, &w->Rect) && PXYinRect (&r_p, &r)) {
 								if (anc &&  w == stack[anc-1]) {
 									top = --anc;
-								} else if (top == sizeof(stack) / sizeof(*stack)) {
+								} else if (top == numberof(stack)) {
 									break;
 								} else {
 									stack[++top] = w;

@@ -310,7 +310,7 @@ _Cmap_LookupName (const char * name, size_t len)
 		#include "color_db.c"
 	};
 	short beg = 0;
-	short end = (sizeof(Cmap_NameDB) / sizeof(*Cmap_NameDB)) -1;
+	short end = numberof(Cmap_NameDB) -1;
 	char  buf[32];
 	int   i;
 	

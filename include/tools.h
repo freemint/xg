@@ -2,7 +2,7 @@
 //
 // tools.h
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-08-14 - Initial Version.
@@ -93,6 +93,9 @@ static inline BOOL RectIntersect (const GRECT * a, const GRECT * b)
                       (((v) & 0xFF00)<<8) | (((v) & 0xFF)<<24) )
 #define Units(n)    (((n) +3) /4)
 #define Align(n)    (((n) +3) & ~3ul)
+
+
+#define numberof(array)   (sizeof(array) / sizeof(*array))
 
 
 #endif __TOOLS_H__
