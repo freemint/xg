@@ -36,8 +36,6 @@ WINDOW WIND_Root = {
 	NULL, NULL, NULL,NULL, NULL,NULL, NULL, NULL
 };
 
-CARD16 _WIND_OpenCounter = 0;
-
 static short _MAP_Inc, _MAP_IncX, _MAP_IncY;
 static short _WIND_RootX2, _WIND_RootY2;
 
@@ -213,7 +211,7 @@ WindButton (CARD16 prev_mask, int count)
 	}
 	
 	if (_WIND_PgrabWindow) {
-		if (_WIND_OpenCounter && wind) {
+		if (WMGR_OpenCounter && wind) {
 			w_id = wind->Id;
 
 		} else {
@@ -596,11 +594,8 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			int anc  = 0;
 			while (w != bott) {
 				if (w->Handle > 0) {
-					if (w->isMapped || w->GwmIcon) {
-						wind_close (w->Handle);
-						_WIND_OpenCounter--;
-					}
-					wind_delete (w->Handle);
+					WmgrWindUnmap (w, xFalse);
+					wind_delete   (w->Handle);
 				}
 				if (w->isMapped) {
 					WindUnmap (w, xFalse);
@@ -618,11 +613,8 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 		
 		} else {
 			if (wind->Handle > 0) {
-				if (wind->isMapped || wind->GwmIcon) {
-					wind_close (wind->Handle);
-					_WIND_OpenCounter--;
-				}
-				wind_delete (wind->Handle);
+				WmgrWindUnmap (wind, xFalse);
+				wind_delete   (wind->Handle);
 			}
 			if (wind->isMapped) {
 				WindUnmap (wind, xFalse);
@@ -663,7 +655,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 		if (bott->u.List.AllMasks & FocusChangeMask) {
 			EvntFocusIn (bott, NotifyNormal, NotifyInferior);
 		}
-		if (_WIND_OpenCounter) {
+		if (WMGR_OpenCounter) {
 			WindPointerWatch (xFalse); // correct watch rectangle
 		} else {
 			_WIND_PointerRoot = NULL;
@@ -949,11 +941,10 @@ RQ_MapWindow (CLIENT * clnt, xMapWindowReq * q)
 			}
 		} else {
 			GRECT curr;
-			WmgrWindMap (wind, &curr);
-			if (!_WIND_OpenCounter++) {
-				MainSetWatch (&curr, MO_ENTER);
-			} else {
+			if (WmgrWindMap (wind, &curr)) {
 				WindPointerWatch (xFalse);
+			} else {
+				MainSetWatch (&curr, MO_ENTER);
 			}
 			WindMap (wind, xTrue);
 		}
@@ -1010,8 +1001,7 @@ RQ_UnmapWindow (CLIENT * clnt, xUnmapWindowReq * q)
 		WindUnmap (wind, xFalse);
 		
 		if (wind->Handle > 0) {
-			wind_close (wind->Handle);
-			if (--_WIND_OpenCounter) {
+			if (WmgrWindUnmap (wind, xTrue)) {
 				WindPointerWatch (xFalse);
 			} else {
 				_WIND_PointerRoot = NULL;
@@ -1315,8 +1305,7 @@ RQ_ReparentWindow (CLIENT * clnt, xReparentWindowReq * q)
 			WindUnmap (wind, xFalse);
 			
 			if (wind->Handle > 0) {
-				wind_close (wind->Handle);
-				if (--_WIND_OpenCounter) {
+				if (WmgrWindUnmap (wind, xTrue)) {
 					WindPointerWatch (xFalse);
 				} else {
 					_WIND_PointerRoot = NULL;
