@@ -56,7 +56,9 @@ __depth_lsb_1, __depth_lsb_n,
 static BOOL _raster_I4 (MFDB * mfdb, CARD16 width, CARD16 height);
 static BOOL _raster_I8 (MFDB * mfdb, CARD16 width, CARD16 height);
 static BOOL _raster_P8 (MFDB * mfdb, CARD16 width, CARD16 height);
-static BOOL _raster_15 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _raster_16 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _raster_24 (MFDB * mfdb, CARD16 width, CARD16 height);
+static BOOL _raster_32 (MFDB * mfdb, CARD16 width, CARD16 height);
 
 
 //==============================================================================
@@ -156,7 +158,8 @@ GrphSetup (void * format_arr)
 		GRPH_DepthNum++;
 		GRPH_DepthMSB[1]->dpth.depth = r_dpth  = GRPH_Depth;
 		if (GRPH_Depth > 8) {
-			GRPH_DepthMSB[1]->visl.class         = TrueColor;
+			GRPH_DepthMSB[1]->visl.colormapEntries = 256;
+			GRPH_DepthMSB[1]->visl.class           = TrueColor;
 			wht_px = (1uL << GRPH_Depth) -1;
 			blk_px = 0;
 			if (GRPH_Format == SCRN_FalconHigh) {
@@ -164,26 +167,24 @@ GrphSetup (void * format_arr)
 				GRPH_DepthMSB[1]->visl.greenMask  = 0x000007C0uL;
 				GRPH_DepthMSB[1]->visl.blueMask   = 0x0000001FuL;
 				GRPH_DepthMSB[1]->visl.bitsPerRGB = 5;
-				GraphRaster                       = _raster_15;
+				GraphRaster                       = _raster_16;
 			} else if (GRPH_Depth == 16) {
 				GRPH_DepthMSB[1]->visl.redMask    = 0x0000F800uL;
 				GRPH_DepthMSB[1]->visl.greenMask  = 0x000007E0uL;
 				GRPH_DepthMSB[1]->visl.blueMask   = 0x0000001FuL;
 				GRPH_DepthMSB[1]->visl.bitsPerRGB = 6;
-				GraphRaster                       = _raster_15;
+				GraphRaster                       = _raster_16;
 			} else {
 				GRPH_DepthMSB[1]->visl.redMask    = 0x00FF0000uL;
 				GRPH_DepthMSB[1]->visl.greenMask  = 0x0000FF00uL;
 				GRPH_DepthMSB[1]->visl.blueMask   = 0x000000FFuL;
 				GRPH_DepthMSB[1]->visl.bitsPerRGB = 8;
-			//	if      (GRPH_Depth == 24) GraphRaster = _raster_24;
-			//	else if (GRPH_Depth == 32) GraphRaster = _raster_32;
+				if      (GRPH_Depth == 24) GraphRaster = _raster_24;
+				else if (GRPH_Depth == 32) GraphRaster = _raster_32;
 			}
-			GRPH_DepthMSB[1]->visl.colormapEntries
-			                              = 1 << GRPH_DepthMSB[1]->visl.bitsPerRGB;
 		} else {
 			GRPH_DepthMSB[1]->visl.colormapEntries = 1 << GRPH_Depth;
-			GRPH_DepthMSB[1]->visl.bitsPerRGB   = pfrm->depth;
+			GRPH_DepthMSB[1]->visl.bitsPerRGB      = pfrm->depth;
 			if (GRPH_Depth == 4) {
 				if      (GRPH_Format == SCRN_Interleaved) GraphRaster = _raster_I4;
 			} else if (GRPH_Depth == 8) {
@@ -434,15 +435,16 @@ static BOOL
 _raster_I4 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
 	CARD8 val[16] = { 0,15,1,2,4,6,3,5, 7,8,9,10,12,14,11,13 };
-	char  * src = mfdb->fd_addr;
 	short * dst;
+	char  * src = mfdb->fd_addr;
+	int     inc = mfdb->fd_wdwidth *2 * 4;
 	
-	if (!(dst = malloc (mfdb->fd_wdwidth *2 * height * 4))) return xFalse;
+	if (!(dst = malloc (inc * height))) return xFalse;
 	
 	mfdb->fd_addr = dst;
 	
 	while (height--) {
-		int c = -1, w = (width +1) /2;
+		int c, w = (width +1) /2;
 		
 		while (w) {
 			dst[0] = dst[1] = dst[2] = dst[3] = 0;
@@ -473,10 +475,11 @@ _raster_I4 (MFDB * mfdb, CARD16 width, CARD16 height)
 static BOOL
 _raster_I8 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
-	char  * src = mfdb->fd_addr;
 	short * dst;
+	char  * src = mfdb->fd_addr;
+	int     inc = mfdb->fd_wdwidth *2 * 8;
 	
-	if (!(dst = malloc (mfdb->fd_wdwidth *2 * height * 8))) return xFalse;
+	if (!(dst = malloc (inc * height))) return xFalse;
 	
 	mfdb->fd_addr = dst;
 	
@@ -548,41 +551,90 @@ _raster_I8 (MFDB * mfdb, CARD16 width, CARD16 height)
 static BOOL
 _raster_P8 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
-	char * src = mfdb->fd_addr;
 	char * dst;
-	int    i;
+	char * src = mfdb->fd_addr;
+	int    inc = mfdb->fd_wdwidth *2 * 8;
 	
-	if (!(dst = malloc (mfdb->fd_wdwidth *2 * height * 8))) return xFalse;
+	if (!(dst = malloc (inc * height))) return xFalse;
 	
 	mfdb->fd_addr = dst;
 	
 	while (height--) {
+		int i;
 		for (i = 0; i < width; i++) {
-			dst[i] = (src[i] == 1 ? 255 : src[i]);
+			char c = *(src++);
+			dst[i] = (c == 1 ? 255 : c);
 		}
-		src += (width +1) & ~1;
-		dst += (width +15) & ~15;
+		src += (int)src & 1;
+		dst += inc / sizeof(*dst);
 	}
 	return xTrue;
 }
 
 //------------------------------------------------------------------------------
 static BOOL
-_raster_15 (MFDB * mfdb, CARD16 width, CARD16 height)
+_raster_16 (MFDB * mfdb, CARD16 width, CARD16 height)
 {
-	short * src = mfdb->fd_addr;
 	short * dst;
-	int     i;
+	short * src = mfdb->fd_addr;
+	int     inc = mfdb->fd_wdwidth *2 * 16;
 	
-	if (!(dst = malloc (mfdb->fd_wdwidth *2 * height * 16))) return xFalse;
+	if (!(dst = malloc (inc * height))) return xFalse;
 	
 	mfdb->fd_addr = dst;
 	
 	while (height--) {
+		int i;
 		for (i = 0; i < width; i++) {
 			dst[i] = *(src++);
 		}
-		dst += (width +15) & ~15;
+		dst += inc / sizeof(*dst);
+	}
+	return xTrue;
+}
+
+//------------------------------------------------------------------------------
+static BOOL
+_raster_24 (MFDB * mfdb, CARD16 width, CARD16 height)
+{
+	short * dst;
+	short * src = mfdb->fd_addr;
+	int     inc = mfdb->fd_wdwidth *2 * 24;
+	
+	if (!(dst = malloc (inc * height))) return xFalse;
+	
+	mfdb->fd_addr = dst;
+	
+	width = (width *3 +1) /2;
+	
+	while (height--) {
+		int i;
+		for (i = 0; i < width; i++) {
+			dst[i] = *(src++);
+		}
+		dst += inc / sizeof(*dst);
+	}
+	return xTrue;
+}
+
+//------------------------------------------------------------------------------
+static BOOL
+_raster_32 (MFDB * mfdb, CARD16 width, CARD16 height)
+{
+	long * src = mfdb->fd_addr;
+	long * dst;
+	int    inc = mfdb->fd_wdwidth *2 * 32;
+	
+	if (!(dst = malloc (inc * height))) return xFalse;
+	
+	mfdb->fd_addr = dst;
+	
+	while (height--) {
+		int i;
+		for (i = 0; i < width; i++) {
+			dst[i] = *(src++);
+		}
+		dst += inc / sizeof(*dst);
 	}
 	return xTrue;
 }
