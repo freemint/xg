@@ -83,28 +83,6 @@ WindPointerWatch (BOOL movedNreorg)
 	
 	/*--- flatten the leave path to the stack list ---*/
 	
-#if 0
-{	WINDOW * w = WIND_Root.StackBot;
-	int      n = 0;
-	
-	while (w) {
-		if (w->isMapped) n++;
-		w = w->NextSibl;
-	}
-	if (n != WMGR_OpenCounter) {
-		printf ("\n*****\n\n   WMGR_OpenCounter %i != %i  !!!\n\n*****\n\n",
-		        WMGR_OpenCounter, n);
-	}
-	if (!WMGR_OpenCounter && _WIND_PointerRoot) {
-		if (_WIND_PointerRoot == &WIND_Root) {
-			printf ("\n*****\n\n   _WIND_PointerRoot == Desktop\n\n*****\n\n");
-		} else {
-			printf ("\n*****\n\n   _WIND_PointerRoot != NULL  !!!\n\n*****\n\n");
-		}
-	}
-}
-#endif
-
 	if (!(*stack = _WIND_PointerRoot)) {
 		// noting to leave
 		e_p.x -= WIND_Root.Rect.x;
@@ -197,22 +175,20 @@ WindPointerWatch (BOOL movedNreorg)
 				
 				GRECT o = // the origin of the window, absolute coordinate
 				          { WIND_Root.Rect.x + stack[top]->Rect.x,
-				            WIND_Root.Rect.y + stack[top]->Rect.y };
+				            WIND_Root.Rect.y + stack[top]->Rect.y,
+				            stack[top]->Rect.w, stack[top]->Rect.h };
 				
-				if (r_p.x < 0  ||  r_p.x >= stack[top]->Rect.w  ||
-				    r_p.y < 0  ||  r_p.y >= stack[top]->Rect.h) {
+				if (r_p.x < 0  ||  r_p.y < 0  ||  r_p.x >= o.w  ||  r_p.y >= o.h) {
 					// the pointer is over the border of the main window
 					
 					WINDOW * w = stack[top];
 					short    b = (w->GwmDecor ? WMGR_Decor : 0);
 					if (b) widget = w;
 					else   b      = w->BorderWidth;
-					if      (r_p.x <  0)         { o.x -= b;         o.w = b; }
-					else if (r_p.x >= w->Rect.w) { o.x += w->Rect.w; o.w = b; }
-					else                         { o.w =  w->Rect.w;  }
-					if      (r_p.y <  0)         { o.y -= b;         o.h = b; }
-					else if (r_p.y >= w->Rect.h) { o.y += w->Rect.h; o.h = b; }
-					else                         { o.h =  w->Rect.h;  }
+					if      (r_p.x <  0)   { o.x -= b;   o.w = b;   }
+					else if (r_p.x >= o.w) { o.x += o.w; o.w = b;   }
+					if      (r_p.y <  0)   { o.y -= b;   o.h = b;   }
+					else if (r_p.y >= o.h) { o.y += o.h; o.h = b;   }
 					GrphIntersect (&sect, &o);
 					watch = xFalse;
 					if (stack[anc-1]) {
@@ -225,29 +201,32 @@ WindPointerWatch (BOOL movedNreorg)
 				} else {
 					WINDOW * w = stack[top]->StackTop;
 					while (w) {
-						if (w->isMapped && PXYinRect (&r_p, &w->Rect)) {
-							if (anc &&  w == stack[anc-1]) {
-								top = --anc;
-							} else if (top == sizeof(stack) / sizeof(*stack)) {
-								break;
-							} else {
-								stack[++top] = w;
+						if (w->isMapped) {
+							GRECT r = { 0, 0, o.w, o.h };
+							if (GrphIntersect (&r, &w->Rect) && PXYinRect (&r_p, &r)) {
+								if (anc &&  w == stack[anc-1]) {
+									top = --anc;
+								} else if (top == sizeof(stack) / sizeof(*stack)) {
+									break;
+								} else {
+									stack[++top] = w;
+								}
+								watch |= (0 != (w->u.List.AllMasks & ALL_MOTION_MASK));
+								// set origin to inferiors value, and watching rectangle
+								o.x += w->Rect.x;
+								o.y += w->Rect.y;
+								o.w =  r.w;
+								o.h =  r.h;
+								// update relative pointer position for new origin
+								r_p.x -= w->Rect.x;
+								r_p.y -= w->Rect.y;
+								w   =  w->StackTop;
+								continue;
 							}
-							watch |= (0 != (w->u.List.AllMasks & ALL_MOTION_MASK));
-							// set origin to inferiors value
-							o.x += w->Rect.x;
-							o.y += w->Rect.y;
-							// update relative pointer position for new origin
-							r_p.x -= w->Rect.x;
-							r_p.y -= w->Rect.y;
-							w   =  w->StackTop;
-							continue;
 						}
 						w = w->PrevSibl;
 					}
 					r_id = stack[top]->Id;
-					o.w  = stack[top]->Rect.w;
-					o.h  = stack[top]->Rect.h;
 					GrphIntersect (&sect, &o);
 					if ((w = stack[top]->StackBot)) {
 						sect.w += sect.x;
