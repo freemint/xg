@@ -1,3 +1,8 @@
+2001-03-01: 0.06.1
+   - implemented save-under screen buffering, which avoids a lot of redraw
+     events for popup windows.
+   - fixed wrong mapping of generic <w>x<h> fonts.
+
 2001-02-28: 0.06
    - added support for GEM-fonts with completed ISO Latin-1 character set, also
      supply the both most often fonts 6x13 and 9x15 as separate package.
