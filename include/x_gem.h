@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// x_gem.h -- extensions to the gem-lib.
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-05 - Initial Version.
+//==============================================================================
+//
 #ifndef __X_GEM_H__
 # define __X_GEM_H__
 
@@ -81,8 +91,21 @@ short wind_get_one  (int WindowHandle, int What);
 short wind_open_r   (int WindowHandle, const GRECT * curr);
 short wind_set_r    (int WindowHandle, int What, GRECT * rec);
 #define wind_set_curr(h,r)        wind_set_r (h, WF_CURRXYWH, r)
+short wind_set_proc (int WindowHandle, CICONBLK *icon);
 #define WIND_UPDATE_BEG           wind_update (BEG_UPDATE); {
 #define WIND_UPDATE_END           } wind_update (END_UPDATE);
+
+
+#define SHUT_COMPLETED   60
+#define RESCHG_COMPLETED 61
+#define RESCH_COMPLETED  61
+#define AP_DRAGDROP      63
+#define SH_WDRAW         72
+#define SC_CHANGED       80
+#define PRN_CHANGED      82
+#define FNT_CHANGED      83
+#define COLORS_CHANGED   84
+#define CH_EXIT          90
 
 
 #endif __X_GEM_H__
