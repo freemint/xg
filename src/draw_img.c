@@ -216,6 +216,7 @@ RQ_GetImage (CLIENT * clnt, xGetImageReq * q)
 			printf ("GetImage: Can't allocate buffer.\n");
 		
 		} else {
+			if (dst.fd_addr != (q +1)) free (dst.fd_addr);
 		}
 		
 		if (!draw.p) {
