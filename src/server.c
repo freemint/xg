@@ -176,8 +176,9 @@ SrvrGrab (p_CLIENT clnt)
 void
 SrvrUngrab (p_CLIENT clnt)
 {
-	if (clnt) SRVR_GrabFD |= clnt->FdSet;
-	else      SRVR_GrabFD  = 0xFFFFFFFF;
+	if (!clnt || (SRVR_GrabFD & clnt->FdSet)) {
+		SRVR_GrabFD = 0xFFFFFFFF;
+	}
 }
 
 
