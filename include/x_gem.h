@@ -36,6 +36,10 @@ void vs_clip_r   (int handle, const GRECT * rect);
 void vs_clip_p   (int handle, const PXY   * clip);
 void vs_clip_off (int handle);
 
+void vro_cpyfm_p (int , int mode, const PXY * , MFDB * src, MFDB * dst);
+void vrt_cpyfm_p (int , int mode, const PXY * ,
+                  MFDB * src, MFDB * dst, const short * color);
+
 void vqt_extent_n (int , const short * str, int count, short * ext);
 
 void v_bar_p      (int , const PXY pxyarray[]);

@@ -100,14 +100,15 @@ CARD16 WindClipLock  (p_WINDOW , CARD16 border, const GRECT * clip,
                                  short n_clip, p_PXY orig, p_GRECT * pBuf);
 CARD16 WindClipLockP (p_WINDOW , CARD16 border, const GRECT * clip,
                                  short n_clip, p_PXY orig, p_PRECT * pBuf);
-void   WindClipOff   (void);
-void   WindPutMono     (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
-void   WindPutColor    (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
-void   WindDrawSection (p_WINDOW , const GRECT * sect);
-BOOL   WindCirculate   (p_WINDOW , CARD8 place);
-void   WindResize      (p_WINDOW , p_GRECT diff);
-BOOL   WindMap         (p_WINDOW , BOOL visible);
-void   WindUnmap       (p_WINDOW , BOOL by_conf);
+void WindClipOff   (void);
+void WindPutMono     (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
+void WindPutColor    (p_WINDOW , p_GC , p_GRECT , p_MFDB src);
+void WindDrawSection (p_WINDOW , const GRECT * sect);
+void WindDrawPmap    (p_PIXMAP , PXY orig, p_PRECT sect);
+BOOL WindCirculate   (p_WINDOW , CARD8 place);
+void WindResize      (p_WINDOW , p_GRECT diff);
+BOOL WindMap         (p_WINDOW , BOOL visible);
+void WindUnmap       (p_WINDOW , BOOL by_conf);
 
 // utility functions
 BOOL   WindVisible    (p_WINDOW );

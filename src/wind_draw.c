@@ -12,9 +12,11 @@
 #include "event.h"
 #include "gcontext.h"
 #include "grph.h"
+#include "pixmap.h"
 #include "wmgr.h"
 #include "x_gem.h"
 
+#include <stdlib.h>
 #include <stdio.h> // printf
 
 #include <X11/Xproto.h>
@@ -222,6 +224,57 @@ WindClipLockP (WINDOW * wind, CARD16 border, const GRECT * clip, short n_clip,
 }
 
 
+//==============================================================================
+void
+WindDrawPmap (PIXMAP * pmap, PXY orig, p_PRECT sect)
+{
+	MFDB  scrn = { NULL, };
+	PXY   offs = { sect->lu.x - orig.x, sect->lu.y - orig.y };
+	short rd_x = pmap->W -1, rd_y = pmap->H -1;
+	short color[2] = { BLACK, WHITE };
+	PXY   pxy[4];
+	#define s_lu pxy[0]
+	#define s_rd pxy[1]
+	#define d_lu pxy[2]
+	#define d_rd pxy[3]
+	int  d;
+	
+	if (offs.x >= pmap->W) offs.x %= pmap->W;
+	if (offs.y >= pmap->H) offs.y %= pmap->H;
+	
+	s_lu.y = offs.y;
+	s_rd.y = rd_y;
+	d_lu.y = sect->lu.y;
+	d_rd   = sect->rd;
+	while ((d = d_rd.y - d_lu.y) >= 0) {
+		if (d < rd_y - s_lu.y) {
+			s_rd.y = s_lu.y + d;
+		}
+		s_lu.x = offs.x;
+		s_rd.x = rd_x;
+		d_lu.x = sect->lu.x;
+		while ((d = d_rd.x - d_lu.x) >= 0) {
+			if (d < rd_x - s_lu.x) {
+				s_rd.x = s_lu.x + d;
+			}
+			if (pmap->Depth == 1) {
+				vrt_cpyfm_p (GRPH_Vdi, MD_REPLACE,
+				             pxy, PmapMFDB(pmap), &scrn, color);
+			} else {
+				vro_cpyfm_p (GRPH_Vdi, S_ONLY, pxy, PmapMFDB(pmap), &scrn);
+			}
+			d_lu.x += pmap->W - s_lu.x;
+			s_lu.x =  0;
+		}
+		d_lu.y += pmap->H - s_lu.y;
+		s_lu.y =  0;
+	}
+	#undef s_lu
+	#undef s_rd
+	#undef d_lu
+	#undef d_rd
+}
+
 //------------------------------------------------------------------------------
 static int
 draw_bgnd (WINDOW * wind, PXY orig, PRECT * area,
@@ -231,10 +284,11 @@ draw_bgnd (WINDOW * wind, PXY orig, PRECT * area,
 	
 	v_hide_c (GRPH_Vdi);
 	
-	if (0 &&  wind->hasBackPix) {
+	if (wind->hasBackPix) {
 		do {
 			PRECT rect = *area;
 			if (GrphIntersectP (&rect, sect)) {
+				WindDrawPmap (wind->Back.Pixmap, orig, &rect);
 				if (exps) {
 					exps->w = rect.rd.x - rect.lu.x +1;
 					exps->h = rect.rd.y - rect.lu.y +1;
@@ -534,7 +588,7 @@ WindPutMono (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 		short hdl = WindOrigin (wind, &pos);
 		MFDB  dst = { NULL };
 		GRECT sec;
-		int colors[2] = { gc->Foreground, gc->Background };
+		short colors[2] = { gc->Foreground, gc->Background };
 		
 		r[1].x += pos.x;
 		r[1].y += pos.y;
@@ -543,14 +597,13 @@ WindPutMono (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 		wind_get_first (hdl, &sec);
 		while (sec.w && sec.h) {
 			if (GrphIntersect (&sec, &r[1])) {
-				int p[8] = { r[0].x + (sec.x - r[1].x), r[0].y + (sec.y - r[1].y),
-				             sec.w,                     sec.h,
-				             sec.x,                     sec.y,
-				             sec.x + sec.w -1,          sec.y + sec.h -1 };
-				p[2] += p[0] -1;
-				p[3] += p[1] -1;
+				PXY p[4] = { {r[0].x + (sec.x - r[1].x), r[0].y + (sec.y - r[1].y)},
+				             *(PXY*)&sec.w, *(PXY*)&sec.x,
+				             {sec.x + sec.w -1,          sec.y + sec.h -1} };
+				p[1].x += p[0].x -1;
+				p[1].y += p[0].y -1;
 				v_hide_c  (GRPH_Vdi);
-				vrt_cpyfm (GRPH_Vdi, MD_REPLACE, p, src, &dst, colors);
+				vrt_cpyfm_p (GRPH_Vdi, MD_REPLACE, p, src, &dst, colors);
 				v_show_c  (GRPH_Vdi, 1);
 			}
 			wind_get_next (hdl, &sec);
@@ -576,14 +629,13 @@ WindPutColor (p_WINDOW wind, p_GC gc, p_GRECT r, p_MFDB src)
 		wind_get_first (hdl, &sec);
 		while (sec.w && sec.h) {
 			if (GrphIntersect (&sec, &r[1])) {
-				int p[8] = { r[0].x + (sec.x - r[1].x), r[0].y + (sec.y - r[1].y),
-				             sec.w,                     sec.h,
-				             sec.x,                     sec.y,
-				             sec.x + sec.w -1,          sec.y + sec.h -1 };
-				p[2] += p[0] -1;
-				p[3] += p[1] -1;
+				PXY p[4] = { {r[0].x + (sec.x - r[1].x), r[0].y + (sec.y - r[1].y)},
+				             *(PXY*)&sec.w, *(PXY*)&sec.x,
+				             {sec.x + sec.w -1,          sec.y + sec.h -1} };
+				p[1].x += p[0].x -1;
+				p[1].y += p[0].y -1;
 				v_hide_c  (GRPH_Vdi);
-				vro_cpyfm (GRPH_Vdi, gc->Function, p, src, &dst);
+				vro_cpyfm_p (GRPH_Vdi, gc->Function, p, src, &dst);
 				v_show_c  (GRPH_Vdi, 1);
 			}
 			wind_get_next (hdl, &sec);
