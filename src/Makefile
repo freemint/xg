@@ -1,7 +1,7 @@
 WARN    = -Wall -Wpointer-arith -Wwrite-strings -Wmissing-prototypes -Wshadow \
           -Werror #-Wcast-qual
 CCOPTS  = -D_TRACE -g -O2 -fstrength-reduce #-DNODEBUG
-CCFLAGS = -funsigned-char -fomit-frame-pointer \
+CCFLAGS = -funsigned-char -fomit-frame-pointer -m68030 \
           -I. -I../include -I/usr/GEM/include \
           $(CCOPTS) $(WARN)
 

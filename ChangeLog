@@ -1,3 +1,6 @@
+2001-05-21: 0.09.1
+   - improved keyboard focus tracking, now apart from iconified windows.
+
 2001-05-18: 0.09
    - changed handling of keyboard focus, X programs should now behave exactely
      as the X core protocol defines as default.
