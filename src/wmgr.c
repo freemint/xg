@@ -46,8 +46,7 @@ CARD16       WMGR_OpenCounter  = 0;
 short        WMGR_Focus        = 0;
 short        _WMGR_FocusHolder = 0;
 static short _WMGR_HasFocus    = 0;
-static short _WMGR_WidgetColor[][3] = { {W_NAME,}, {0} };
-static short _WMGR_WidgetFgnd, _WMGR_WidgetBgnd;
+static short _WMGR_WidgetColor[3] = { W_NAME, };
 
 #include "intro.c"
 static MFDB  _WMGR_Logo = { x_bits, x_width,x_height, (x_width +15) /16, 0, 1 };
@@ -191,14 +190,9 @@ WmgrInit (BOOL initNreset)
 				menu_bar     (_WMGR_Menu, 1);
 				menu_ienable (_WMGR_Menu, MENU_GWM, 1);
 			}
-			i = W_NAME;
-			wind_get (0, WF_DCOLOR, &i, &_WMGR_WidgetFgnd, &_WMGR_WidgetBgnd, &i);
-			i = 0;
-			do {
-				short n = _WMGR_WidgetColor[i][0];
-				wind_get (0, WF_DCOLOR, &n,
-				          &_WMGR_WidgetColor[i][1], &_WMGR_WidgetColor[i][2], &n);
-			} while (_WMGR_WidgetColor[++i][0]);
+			i = *_WMGR_WidgetColor;
+			wind_get (0, WF_DCOLOR, &i,
+			          &_WMGR_WidgetColor[1], &_WMGR_WidgetColor[2], &i);
 			_WMGR_FocusHolder = wind_create (0, -100, -100, 99, 99);
 		}
 	
@@ -459,11 +453,9 @@ _Wmgr_SetWidgets (short hdl, int state)
 	
 	int a = (state >= 0 ? 1 : 2);
 	int b = (state <= 0 ? 2 : 1);
-	int n = 0;
-	do {
-		wind_set (hdl, WF_COLOR, _WMGR_WidgetColor[n][0],
-		          _WMGR_WidgetColor[n][a], _WMGR_WidgetColor[n][b], -1);
-	} while (_WMGR_WidgetColor[++n][0]);
+	
+	wind_set (hdl, WF_COLOR, *_WMGR_WidgetColor,
+	          _WMGR_WidgetColor[a], _WMGR_WidgetColor[b], -1);
 }
 
 //==============================================================================
