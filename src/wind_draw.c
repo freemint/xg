@@ -315,8 +315,7 @@ draw_deco (PRECT * work, PRECT * area, PRECT * sect, int num)
 	brdr[n].rd.x = 0x7FFF;
 	brdr[n].rd.y = work->rd.y;
 	if (GrphIntersectP (brdr + n, area)) {
-		if (brdr[0].lu.x <= work->lu.x - deco_size) lft = xTrue;
-		if (brdr[0].rd.x >= work->rd.x - deco_size) rgt = xTrue;
+		if (brdr[n].rd.y >= work->rd.y - deco_size) rgt = xTrue;
 		n++;
 	}
 	brdr[n].lu.x = 0;
@@ -324,7 +323,8 @@ draw_deco (PRECT * work, PRECT * area, PRECT * sect, int num)
 	brdr[n].rd.x = 0x7FFF;
 	brdr[n].rd.y = 0x7FFF;
 	if (GrphIntersectP (brdr + n, area)) {
-		if (brdr[0].rd.y >= work->rd.y - deco_size) rgt = xTrue;
+		if (!lft && brdr[n].lu.x <= work->lu.x + deco_size) lft = xTrue;
+		if (!rgt && brdr[n].rd.x >= work->rd.x - deco_size) rgt = xTrue;
 		n++;
 	} else if (!n) {
 		return;
@@ -752,10 +752,10 @@ RQ_ClearArea (CLIENT * clnt, xClearAreaReq * q)
 		DEBUG (ClearArea," W:%X [%i,%i/%i,%i]",
 		       wind->Id, q->x, q->y, q->width, q->height);
 		
-		if (q->width <= 0 || q->x + q->width > wind->Rect.w) {
+		if ((short)q->width <= 0 || q->x + q->width > wind->Rect.w) {
 			q->width = wind->Rect.w - q->x;
 		}
-		if(q->height <= 0 || q->y + q->height > wind->Rect.h) {
+		if((short)q->height <= 0 || q->y + q->height > wind->Rect.h) {
 			q->height = wind->Rect.h - q->y;
 		}
 		if (q->width > 0  &&  q->height > 0
