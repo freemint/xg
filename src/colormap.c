@@ -9,7 +9,6 @@
 //==============================================================================
 //
 #include "main.h"
-#include "Request.h"
 #include "tools.h"
 #include "clnt.h"
 #include "grph.h"
@@ -36,7 +35,7 @@ static RGB   _CMAP_VdiRGB[256];
 // Pixel values for higher depths are the color values as used by VDI bitmap
 // operations.
 //
-CARD32 (*_Cmap_Lookup) (RGB * dst, const RGB * src) = (void*)GrphError;
+CARD32 (*CmapLookup)(RGB * dst, const RGB * src) = (void*)GrphError;
 
 #define MAX3(a,b,c)   (a >= b ? a >= c ? a : c : b >= c ? b : c)
 #define MIN3(a,b,c)   (a <= b ? a <= c ? a : c : b <= c ? b : c)
@@ -217,7 +216,7 @@ CmapInit(void)
 	vq_color (GRPH_Vdi, G_BLACK, 1, (short*)&_CMAP_VdiRGB[G_BLACK]);
 	
 	if (GRPH_Depth == 1) {
-		_Cmap_Lookup = _lookup_1;
+		CmapLookup = _lookup_1;
 		
 	} else {
 		RGB * rgb = _CMAP_VdiRGB +2;
@@ -229,7 +228,7 @@ CmapInit(void)
 			for (i = 16; i < 24; _CMAP_TransGrey[i++] = G_LWHITE);
 			for (i = 24; i < 31; _CMAP_TransGrey[i++] = G_WHITE);
 			
-			_Cmap_Lookup = _lookup_4;
+			CmapLookup = _lookup_4;
 		
 		} else {
 			int r, g, b = 200;
@@ -250,18 +249,18 @@ CmapInit(void)
 			}
 			if (GRPH_Depth == 8) {
 				i = 0;
-				_Cmap_Lookup = _lookup_8;
+				CmapLookup = _lookup_8;
 			} else {
 				i = GRPH_Vdi;
 				if (GRPH_Format == SCRN_FalconHigh) {
-					_Cmap_Lookup  = _lookup_15;
+					CmapLookup    = _lookup_15;
 					Cmap_PixelIdx = _pixel_15;
 				} else if (GRPH_Format == SCRN_PackedPixel) {
 					if (GRPH_Depth == 16) {
-						_Cmap_Lookup  = _lookup_16;
+						CmapLookup    = _lookup_16;
 						Cmap_PixelIdx = _pixel_16;
 					} else if (GRPH_Depth == 24 || GRPH_Depth == 32) {
-						_Cmap_Lookup  = _lookup_24_32;
+						CmapLookup    = _lookup_24_32;
 						Cmap_PixelIdx = _pixel_24_32;
 					}
 				}
@@ -329,11 +328,18 @@ _Cmap_LookupName (const char * name, size_t len)
 	return NULL;
 }
 
+
 //==============================================================================
-CARD32
-CmapLookup (RGB * dst, const RGB * src)
+CARD16
+CmapRevertIdx (CARD16 idx)
 {
-	return _Cmap_Lookup (dst, src);
+	RGB  * rgb   = _CMAP_VdiRGB +idx;
+	short  red   = ((long)rgb->r * 256) /1001,
+	       green = ((long)rgb->g * 256) /1001,
+	       blue  = ((long)rgb->b * 256) /1001;
+	RGB    src = { ~PIXEL(red), ~PIXEL(green), ~PIXEL(blue) }, dst;
+	
+	return _lookup_8 (&dst, &src);
 }
 
 
@@ -341,6 +347,7 @@ CmapLookup (RGB * dst, const RGB * src)
 //
 // Callback Functions
 
+#include "Request.h"
 
 //------------------------------------------------------------------------------
 void
@@ -397,7 +404,7 @@ RQ_AllocColor (CLIENT * clnt, xAllocColorReq * q)
 {
 	ClntReplyPtr (AllocColor, r);
 	
-	r->pixel = _Cmap_Lookup ((RGB*)&r->red, (RGB*)&q->red);
+	r->pixel = CmapLookup ((RGB*)&r->red, (RGB*)&q->red);
 	
 	ClntReply (AllocColor,, ":.2l");
 	
@@ -420,7 +427,7 @@ RQ_AllocNamedColor (CLIENT * clnt, xAllocNamedColorReq * q)
 		r->exactRed     = rgb->r;
 		r->exactGreen   = rgb->g;
 		r->exactBlue    = rgb->b;
-		r->pixel        = _Cmap_Lookup ((RGB*)&r->screenRed, rgb);
+		r->pixel        = CmapLookup ((RGB*)&r->screenRed, rgb);
 		
 		ClntReply (AllocNamedColor,, "l:::");
 	}
@@ -563,7 +570,7 @@ RQ_LookupColor (CLIENT * clnt, xLookupColorReq * q)
 		r->exactRed     = rgb->r;
 		r->exactGreen   = rgb->g;
 		r->exactBlue    = rgb->b;
-		_Cmap_Lookup ((RGB*)&r->screenRed, rgb);
+		CmapLookup ((RGB*)&r->screenRed, rgb);
 		
 		ClntReply (LookupColor,, ":::");
 	}

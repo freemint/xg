@@ -19,8 +19,9 @@ typedef struct {
 
 void CmapInit(void);
 
-void   CmapPalette (CARD16 handle);
-CARD32 CmapLookup  (RGB * dst, const RGB * src);
+void            CmapPalette   (CARD16 handle);
+extern CARD32 (*CmapLookup)   (RGB * dst, const RGB * src);
+CARD16          CmapRevertIdx (CARD16 idx);
 
 static inline CARD16 CmapPixelIdx (CARD32 pixel, CARD16 depth)
 {
