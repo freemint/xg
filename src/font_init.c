@@ -153,8 +153,8 @@ FontInit (short count)
 			if (!*(b = a)) continue;
 			while (*(++b) &&  *b != ':'  && !isspace(*b));
 			if (!*b) break;
-			len_a = b - a +1;
 			*b = '\0';
+			len_a = b - a;
 			while (*(++b) && isspace(*b));
 			if (!*b) break;
 			p = strchr (b, '\0');
@@ -453,3 +453,18 @@ FontInit (short count)
 		free (db);
 	}
 }
+
+/*
+void font_check (void);
+void font_check (void)
+{
+	FONTFACE * face = _FONT_List;
+	while (face) {
+		if ((long)face & 1) {
+			puts("XXXXXXXXXX");
+			exit(1);
+		}
+		face = face->Next;
+	}
+}
+*/
