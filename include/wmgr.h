@@ -47,6 +47,8 @@ BOOL WmgrMessage (short * msg);
 BOOL WmgrButton  (p_WINDOW);
 void WmgrKeybd   (short chng_meta);
 
+short WmgrLaunch (const char * prg, int argc, const char * argv[]);
+
 
 extern CONST CARD16 WMGR_OpenCounter;
 extern CONST BOOL   WMGR_Active;

@@ -15,7 +15,6 @@
 #include "wmgr.h"
 #include "x_gem.h"
 #include "x_mint.h"
-#include <mint/ssystem.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,6 +23,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <mint/ssystem.h>
 
 #include <X11/X.h>
 #include <X11/Xproto.h>
@@ -66,18 +66,38 @@ main (int argc, char * argv[])
 		printf ("ERROR: Can't initialize AES.\n");
 	
 	} else {
-		char  r_cmd[] = "U:\\usr\\bin\\xcat", r_tail[] = "";
-		BOOL  redir = _app && shel_write (1, 0, 0, r_cmd, r_tail);
-		if (redir) sleep (1);
+		short xcon  = Fopen ("/dev/xconout2", 0x80);
+		short redir = _app;
+		
+		short c_id = -1;
+		if (xcon >= 0) {
+			const char * args[] = {
+				"-g","-0-0", "-notify", "-file", "/dev/xconout2" };
+			c_id = WmgrLaunch ("/usr/X11/bin/xconsole",
+			                   sizeof(args) / sizeof(*args), args);
+			if (c_id >= 0) {
+				(void)Pkill (c_id, 17);
+				redir = 0;
+			} else {
+				Fclose (xcon);
+			}
+		}
+		if (redir) {
+			char  r_cmd[] = "U:\\usr\\bin\\xcat", r_tail[] = "";
+			if ((redir = shel_write (1, 0, 0, r_cmd, r_tail))) {
+				sleep (1);
+			}
+		}
 		atexit (shutdown);
 		WmgrIntro (xTrue);
 		
 		if (redir) {
-			char   path[] = "/pipe\0ttyp\0\0";
-			char * file   = strchr (path, '\0') +1;
-			char * ttyp   = strchr (file, '\0');
-			size_t len    = ttyp - file;
-			DIR  * dir    = opendir (path);
+			short  typ, pid;
+			char   path[33] = "/pipe\0ttyp\0\0";
+			char * file     = strchr (path, '\0') +1;
+			char * ttyp     = strchr (file, '\0');
+			size_t len      = ttyp - file;
+			DIR  * dir      = opendir (path);
 			if (dir) {
 				struct dirent * ent;
 				int fd;
@@ -93,6 +113,10 @@ main (int argc, char * argv[])
 					dup2 (fd, STDOUT_FILENO);
 				}
 			}
+			if (appl_search (-redir, path, &typ, &pid)) {
+				(void)Pkill (pid,    1);
+				(void)Pkill (pid +1, 1);
+			}
 		}
 		
 		printf ("X Server %s [%s] starting ...\n", GLBL_Version, GLBL_Build);
@@ -107,13 +131,17 @@ main (int argc, char * argv[])
 			
 			WmgrActivate (xTrue); //(_app == 0);
 			
+			if (c_id >= 0) {
+				Fclose (xcon);
+				(void)Pkill (c_id, 19);
+			}
+			
 			if (argc > 1  &&  argv[1] && *argv[1]) {
-				if (!access (argv[1], X_OK)
-				    &&  Pexec (100, argv[1], "\0\0", NULL) > 0) {
-					printf ("  Started '%s'.\n",    argv[1]);
-				} else {
-					printf ("  Can't exec '%s'.\n", argv[1]);
+				int i;
+				if (!access (argv[1], X_OK)) {
+					WmgrLaunch (argv[1], argc -2, (const char **)(argv +2));
 				}
+				for (i = 2; i < argc; i++) printf("  |%s|\n", argv[i]);
 			}
 			
 			rtn = 0;
