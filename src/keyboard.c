@@ -16,10 +16,15 @@
 #include "event.h"
 #include "x_gem.h"
 #include "x_mint.h"
+#include "wmgr.h" // for debugging only
 
 #include <stdio.h>
+#include <mint/ssystem.h>
 
 #include <X11/Xproto.h>
+
+#define XK_PUBLISHING
+#define XK_TECHNICAL
 #include <X11/keysym.h>
 
 
@@ -27,25 +32,21 @@
 
 
 #define KEYSYM_OFFS   8
+#define KEYCODE(s)    (s + KEYSYM_OFFS)
 
 #define KC_SHFT_L   0x2A // 42
 #define KC_SHFT_R   0x36 // 54
 #define KC_CTRL     0x1D // 29
 #define KC_ALT      0x38 // 56
 #define KC_LOCK     0x3A // 58
-#define KC_ALTGR    0x37 // 55 (normally PrintScreen)
-#define KC_Modify   0x00 //    (pseudo key)
-static KeyCode KYBD_Mod[8][2] = {
-	{ KC_SHFT_L + KEYSYM_OFFS, KC_SHFT_R + KEYSYM_OFFS },
-	{ KC_LOCK   + KEYSYM_OFFS, 0         },
-	{ KC_CTRL   + KEYSYM_OFFS, 0         },
-	{ KC_ALT    + KEYSYM_OFFS, 0         },
-	{ 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } };
-static KeySym  KYBD_Map[128][4];
+#define KC_ALTGR    0x00 //
+
+static KeyCode KYBD_Mod[8][2];
+static KeySym  KYBD_Map[140][4];
 static CARD8   KYBD_Set[256];
 
 const CARD8 KYBD_CodeMin = KEYSYM_OFFS;
-CARD8       KYBD_CodeMax = KEYSYM_OFFS + numberof(KYBD_Map) -1;
+CARD8       KYBD_CodeMax;
 CARD8       KYBD_PrvMeta = 0;
 CARD8       KYBD_Pending = 0;
 CARD16      KYBD_Repeat;
@@ -58,6 +59,16 @@ static char KYBD_Lang  = K_ENGLISH;
 static BOOL KYBD_Atari = xFalse;
 
 typedef struct {
+	CARD8 scan, asc;
+} KEYPAIR;
+
+static struct { 
+	CARD8   * unShift, * Shift,   * CapsLck;
+	KEYPAIR * Alt,     * AltShft, * AltCaps, * AltGr;
+} * KYBD_Table = NULL;
+	
+
+typedef struct {
 	CARD16 scan;
 	CARD8  col;
 	CARD8  chr;
@@ -65,61 +76,103 @@ typedef struct {
 } SCANTAB;
 
 
+static KeySym Tos2Iso[256] = {
+
+#	define NO_SYM(_) NoSymbol
+	
+	// 0 .. 31
+	NoSymbol, XK_Up,        XK_Down,  XK_Right,    XK_Left,  NoSymbol, NoSymbol,
+	NoSymbol, XK_BackSpace, XK_Tab,   XK_Linefeed, XK_Clear, NoSymbol, XK_Return,
+	NoSymbol, NoSymbol,     NoSymbol, NoSymbol,    NoSymbol, NoSymbol, NoSymbol,
+	NoSymbol, NoSymbol,     NoSymbol, NoSymbol,    NoSymbol, NoSymbol, XK_Escape,
+	NoSymbol, NoSymbol,     NoSymbol, NoSymbol,
+	
+	// 32 .. 47
+	XK_space,    XK_exclam,    XK_quotedbl,   XK_numbersign, XK_dollar,
+	XK_percent,  XK_ampersand, XK_apostrophe, XK_parenleft,  XK_parenright,
+	XK_asterisk, XK_plus,      XK_comma,      XK_minus,      XK_period,
+	XK_slash,
+	// 48 .. 57
+	XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9,
+	// 58 .. 64
+	XK_colon, XK_semicolon, XK_less, XK_equal, XK_greater, XK_question, XK_at,
+	// 65 .. 90
+	XK_A, XK_B, XK_C, XK_D, XK_E, XK_F, XK_G, XK_H, XK_I, XK_J, XK_K, XK_L, XK_M,
+	XK_N, XK_O, XK_P, XK_Q, XK_R, XK_S, XK_T, XK_U, XK_V, XK_W, XK_X, XK_Y, XK_Z,
+	// 91 .. 96
+	XK_bracketleft, XK_backslash, XK_bracketright, XK_asciicircum, XK_underscore,
+	XK_grave,
+	// 97 .. 122
+	XK_a, XK_b, XK_c, XK_d, XK_e, XK_f, XK_g, XK_h, XK_i, XK_j, XK_k, XK_l, XK_m,
+	XK_n, XK_o, XK_p, XK_q, XK_r, XK_s, XK_t, XK_u, XK_v, XK_w, XK_x, XK_y, XK_z,
+	// 123 .. 127
+	XK_braceleft, XK_bar, XK_braceright, XK_asciitilde, XK_Delete,
+	
+	// 128 .. 147 -- Non-ASCII
+	XK_Ccedilla,   XK_udiaeresis, XK_eacute,      XK_acircumflex, XK_adiaeresis,
+	XK_agrave,     XK_aring,      XK_ccedilla,    XK_ecircumflex, XK_ediaeresis,
+	XK_egrave,     XK_idiaeresis, XK_icircumflex, XK_igrave,      XK_Adiaeresis,
+	XK_Aring,      XK_Eacute,     XK_ae,          XK_AE,          XK_ocircumflex,
+	// 148 .. 165
+	XK_odiaeresis, XK_ograve,     XK_ucircumflex, XK_ugrave,      XK_ydiaeresis,
+	XK_Odiaeresis, XK_Udiaeresis, XK_cent,        XK_sterling,    XK_yen,
+	XK_ssharp,     XK_FFrancSign, XK_aacute,      XK_iacute,      XK_oacute,
+	XK_uacute,     XK_ntilde,     XK_Ntilde,
+	// 166 .. 184
+	XK_ordfeminine,   XK_masculine,      XK_questiondown, NO_SYM('©'),
+	NO_SYM('™'),      XK_onehalf,        XK_onequarter,   XK_exclamdown,
+	XK_guillemotleft, XK_guillemotright, XK_atilde,       XK_otilde,
+	XK_Ooblique,      XK_oslash,         XK_oe,           XK_OE,
+	XK_Agrave,        XK_Atilde,         XK_Otilde,
+	// 185 .. 193
+	XK_diaeresis, XK_acute,                                  NO_SYM('ª'),
+	XK_paragraph, XK_copyright, XK_registered, XK_trademark,
+	NO_SYM('¿'),  NO_SYM('¡'),
+	// 194 .. 220
+	NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol,
+	NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol,
+	NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol,
+	NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol, NoSymbol,
+	// 221 .. 223
+	XK_section, XK_logicaland, XK_infinity,
+	// 224 .. 235
+	XK_Greek_alpha,   XK_Greek_beta,  XK_Greek_GAMMA, XK_Greek_pi,
+	XK_Greek_EPSILON, XK_Greek_sigma, XK_Greek_mu,    XK_Greek_rho,
+	XK_Greek_PHI,     XK_Greek_THETA, XK_Greek_OMEGA, XK_Greek_delta,
+	// 235 .. 
+	NO_SYM('Ï'),    NO_SYM('Ì'),       XK_includedin,       XK_intersection,
+	NO_SYM(''),    XK_plusminus,      XK_greaterthanequal, XK_lessthanequal,
+	XK_topintegral, XK_botintegral,    XK_division,         XK_similarequal,
+	XK_degree,      XK_periodcentered, NO_SYM('˙'),         NO_SYM('˚'),
+	NO_SYM('¸'),    XK_twosuperior,    XK_threesuperior,    XK_macron
+	
+#	undef NO_SYM
+};
+
+
 //------------------------------------------------------------------------------
-static KeySym
-asc2sym (CARD8 c, BOOL key_pad)
+static void
+set_sym (KeySym line[], int col, KeySym sym)
 {
-	KeySym s;
-	switch (c) {
-		case '*'  ... '9':
-			if (key_pad)   { s = XK_KP_Multiply + c - '*';  break; }
-		case ' '  ... ')':
-		case ':'  ... '~':  s = XK_space       + c - ' ';  break;
-		
-		case 0x0D:
-			if (key_pad)   { s = XK_KP_Enter;               break; }
-		case 0x1B:
-		case 0x08 ... 0x0B: s = XK_BackSpace   + c - 0x08; break;
-		
-		case 0x7F:          s = XK_Delete;                 break;
-		
-		case '›': s = XK_section;    break;
-		case 'û': s = XK_ssharp;     break;
-		case 'Ñ': s = XK_adiaeresis; break;   case 'é': s = XK_Adiaeresis; break;
-		case 'î': s = XK_odiaeresis; break;   case 'ô': s = XK_Odiaeresis; break;
-		case 'Å': s = XK_udiaeresis; break;   case 'ö': s = XK_Udiaeresis; break;
-		
-		case 'ú': s = XK_FFrancSign; break;
-		case 'á': s = XK_cedilla;    break;   case 'Ä': s = XK_Ccedilla; break;
-		case 'Ö': s = XK_agrave;     break;   case '∂': s = XK_Agrave;   break;
-		case 'Ç': s = XK_eacute;     break;   case 'ê': s = XK_Eacute;   break;
-		case 'ä': s = XK_egrave;     break;   case 'ƒ': s = XK_Egrave;   break;
-		case 'ó': s = XK_ugrave;     break;   case 'œ': s = XK_Ugrave;   break;
-		
-		case 'Ü': s = XK_aring;      break;   case 'è': s = XK_Aring;    break;
-		
-		default:  s = 0;
+	line[col] = sym;
+	if (!(col & 1)) {
+		col = 4 - col;
+		while (--col > 0) *(++line) = NoSymbol;
 	}
-	return s;
 }
 
 //------------------------------------------------------------------------------
 static void
-set_map (SCANTAB * tab, size_t len)
+set_map (SCANTAB * tab, size_t num)
 {
-	while (len--) {
+	while (num--) {
 		KeySym * k = &KYBD_Map[tab->scan][tab->col];
 		if (*k  &&  *k != XK_VoidSymbol) {
-			char buf[] = "(_)";
-			printf ("    *** can't map code %i:%i to %04lX%s, is %04lX ***\n",
-			        tab->col, tab->scan, tab->sym,
-			        ((buf[1] = tab->chr) ? buf : ""), *k);
+			printf ("    * can't map code %i:%i to %04lX '%.1s', is %04lX \n",
+			        tab->scan, tab->col, tab->sym,
+			        (tab->chr >= ' ' ? (char*)&tab->chr : ""), *k);
 		} else {
-			*k = tab->sym;
-			if (!(tab->col & 1)) {
-				int n = 4 - tab->col;
-				while (--n > 0) *(++k) = NoSymbol;
-			}
+			set_sym (KYBD_Map[tab->scan], tab->col, tab->sym);
 			if (tab->chr) {
 				KYBD_Set[tab->chr] = tab->scan;
 			}
@@ -130,38 +183,145 @@ set_map (SCANTAB * tab, size_t len)
 
 //------------------------------------------------------------------------------
 static int
-ins_map (const char * chr)
+ins_map (const char * set)
 {
-	int key = 1, n = 0;
-	while (key <= KYBD_CodeMax) {
-		if (KYBD_Set[(unsigned)*chr]) {
-			printf ("    *** ''%c'(%04lX) already mapped to keycode %i ***\n",
-			        *chr, asc2sym (*chr, xFalse), KYBD_Set[(unsigned)*chr]);
-			if (!*(++chr)) return n;
-		}
-		if (KYBD_Map[key][0] == XK_VoidSymbol) {
-			KYBD_Set[(unsigned)*chr] = key;
-			KYBD_Map[key][0]         = asc2sym (*chr, xFalse);
-			n++;
-		//	printf ("    mapped '%c'(%04lX) to keycode %i[0] \n",
-		//	        *chr, KYBD_Map[key][0], key);
-			if (!chr[1]  ||  *(++chr) == ' ') {
-				KYBD_Map[key][1]         = NoSymbol;
-			} else {
-				KYBD_Set[(unsigned)*chr] = key;
-				KYBD_Map[key][1]         = asc2sym (*chr, xFalse);
-				n++;
-			//	printf ("    mapped '%c'(%04lX) to keycode %i[1] \n",
-			//	        *chr, KYBD_Map[key][1], key);
-			}
-			if (!*(++chr)) return n;
-		}
-		key++;
-	}
-	do {
-		printf ("    *** no space to map keycode for '%c' ***\n", *chr);
-	} while (*(++chr));
+	int   scan = 0, num = 0;
+	CARD8 asc;
 	
+	while ((asc = *(set++))) {
+		if (KYBD_Set[asc]) {
+			printf ("    * '%c'(%04lX) already mapped to keycode %i \n",
+			        asc, Tos2Iso[asc], KYBD_Set[asc]);
+			if (*set) set++;
+			continue;
+		}
+		do if (++scan > KYBD_CodeMax - KEYSYM_OFFS) {
+			printf ("    * no space to map keycode%s for '%c%s'\n",
+			        (*set ? "s" : ""), asc, set);
+			return num;
+		} while (KYBD_Map[scan][0] != XK_VoidSymbol);
+		
+		KYBD_Set[asc]     = scan;
+		KYBD_Map[scan][0] = Tos2Iso[asc];
+		num++;
+	//	printf ("    mapped '%c'(%04lX) to keycode %i[0] \n",
+	//	        asc, Tos2Iso[asc], scan);
+		if (*set  &&  (asc = *(set++)) != ' ') {
+			KYBD_Set[asc]     = scan;
+			KYBD_Map[scan][1] = Tos2Iso[asc];
+			num++;
+		//	printf ("    mapped '%c'(%04lX) to keycode %i[1] \n",
+		//	        asc, Tos2Iso[asc], scan);
+		}
+	}
+	return num;
+}
+
+//------------------------------------------------------------------------------
+static int
+analyse_ktbl (const char * tbl, int shift)
+{
+	// Analyse a standard keytable returned by Keytbl() and store the results in
+	// the KeyCode-to-KeySym translation table KYBD_Map[].
+	//...........................................................................
+	
+	int    n   = 0;
+	KeySym sym = NoSymbol;
+	CARD8  asc;
+	int    scan;
+	
+	for (scan = 1; scan < 128; scan++) {
+		if ((asc = *(++tbl))) {
+			if (!KYBD_Set[asc]) {
+				KYBD_Set[asc] = scan;
+				sym           = Tos2Iso[asc];
+				
+			} else if (KYBD_Set[asc] == scan) {
+				asc = 0;
+				
+			} else switch (scan) {
+				case 74: case 78: case 99 ... 114:
+					// scancode already defined for this ascii, so it must be a
+					// numblock key
+					//
+					if (KYBD_Map[scan][shift] == XK_VoidSymbol) {
+						sym = XK_KP_Space + asc;
+					} else {
+						asc = 0;
+					}
+					break;
+				
+				default: if (shift) switch (asc) {
+					// scancode is already defined by a numblock key, so replace it
+					// by the shifted key's code
+					//
+					case '*'...'+': case '-'...'/': {
+						// replace the numblock key's symbol
+						//
+						int s = KYBD_Set[asc];
+						KYBD_Map[s][0] = XK_KP_Space + asc;
+					}
+					case '('...')':
+						KYBD_Set[asc] = scan;
+						sym           = Tos2Iso[asc];
+						break;
+					
+					case '0'...'9':
+						// there seems to be a bug in the falcon's shift-keytbl, it
+						// defines shifted ins, home and arrows to numbers
+						asc = 0;
+						break;
+				}
+			}
+			if (sym) {
+				set_sym (KYBD_Map[scan], shift, sym);
+				sym = NoSymbol;
+				
+			} else if (asc) {
+				WmgrIntro (xFalse);
+				printf ("    * duplicate scancode for 0x%02X '%.1s' (0x%02X):"
+				               " 0x%02X %s \n",
+				        asc, (asc >= ' ' ? (char*)&asc : ""), KYBD_Set[asc],
+				        scan, (shift == 0 ? "unshift" : "shift"));
+			}
+			n++;
+		}
+	}
+	return n;
+}
+
+//------------------------------------------------------------------------------
+static int
+analyse_xtbl (const KEYPAIR * tbl, int shift)
+{
+	// Analyse an extended keytable as returned by Keytbl() in TOS >= 4.0 and
+	// store the results in the KeyCode-to-KeySym translation table KYBD_Map[].
+	//...........................................................................
+	
+	int   n = 0;
+	CARD8 scan;
+	
+	while ((scan = tbl->scan)) {
+		CARD8 asc = tbl->asc;
+		if (scan > numberof(KYBD_Map)) {
+			WmgrIntro (xFalse);
+			printf ("    * ignored scancode 0x%02X for 0x%02X '%.1s'\n",
+			        scan, asc, (asc >= ' ' ? (char*)&asc : ""));
+		
+		} else if (!KYBD_Set[asc]) {
+			KYBD_Set[asc] = scan;
+			set_sym (KYBD_Map[scan], 2 + shift, Tos2Iso[asc]);
+		
+		} else {
+			WmgrIntro (xFalse);
+			printf ("    * duplicate scancode for 0x%02X '%.1s' (0x%02X):"
+			               " 0x%02X alt/%s \n",
+			        asc, (asc >= ' ' ? (char*)&asc : ""), KYBD_Set[asc],
+			        scan, (shift == 0 ? "unshift" : "shift"));
+		}
+		tbl++;
+		n++;
+	}
 	return n;
 }
 
@@ -169,117 +329,138 @@ ins_map (const char * chr)
 void
 KybdInit (void)
 {
-	static struct { CARD8 * ushft, * shift; } * keytbl = NULL;
-	
-	if (!keytbl) {
-		int i       = Kbrate (-1, -1);
-		KYBD_Repeat = ((unsigned)(i & 0xFF00) >>6) *5;
-		keytbl      = Keytbl ((void*)-1, (void*)-1, (void*)-1);
+	if (!KYBD_Table) {
+		const char * type = "<unknown>";
+		int   i;
+		int   n_usf, n_sft, n_alt = 0, n_asf = 0, n_agr = 0, n_xtr = 0, n_gap = 0;
+		BOOL  prnth;
+		short os_ver = Ssystem (S_OSHEADER, 0x0000, 0);
+		long  os_beg = Ssystem (S_OSHEADER, 0x0008, 0);
+		long  os_end = Ssystem (S_OSHEADER, 0x000C, 0);
+		if (os_end < os_beg) os_end += os_beg;
 		
+		i            = Kbrate (-1, -1);
+		KYBD_Repeat  = ((unsigned)(i & 0xFF00) >>6) *5;
+		KYBD_Table   = Keytbl ((void*)-1, (void*)-1, (void*)-1);
+		KYBD_CodeMax = KYBD_CodeMin + numberof(KYBD_Map) -1;
+		
+		printf ("  Keyboard diagnostics: (TOS %i.%02i) \n",
+		        os_ver >> 8, os_ver & 0x00FF);
+/*
+		printf ("    rom-tos ranges 0x%0lX..0x%0lX\n", os_beg, os_end);
+		printf ("    unShift = %p   Shift   = %p   CapsLck = %p \n",
+		        KYBD_Table->unShift, KYBD_Table->Shift, KYBD_Table->CapsLck);
+		printf ("    Alt     = %p   AltShft = %p   AltCaps = %p \n",
+		        KYBD_Table->Alt, KYBD_Table->AltShft, KYBD_Table->AltCaps);
+		printf ("    AltGr   = %p \n", KYBD_Table->AltGr);
+		
+		//	Hades Keyboard diagnostics: TOS 3.06 (0x7fe00000..0x7fe08316)
+		//	  unShift = 0x7fe3673c   Shift   = 0x7fe367bc   CapsLck = 0x7fe3683c
+		//	  Alt     = 0x80b0101    AltShft = 0x10070000   AltCaps = (nil)
+		//	  AltGr   = (nil)
+*/		
 		memset (KYBD_Set, 0, sizeof(KYBD_Set));
-		for (i = 1; i < 128; i++) {
-			CARD8 c = keytbl->ushft[i];
-			if (c) KYBD_Set[c] = i;
+		for (i = 0; i < numberof(KYBD_Map); i++) {
+			KYBD_Map[i][0] = KYBD_Map[i][1] = 
+			KYBD_Map[i][2] = KYBD_Map[i][3] = XK_VoidSymbol;
 		}
+		
+		// analyse the standard keytables
+		
+		n_usf = analyse_ktbl (KYBD_Table->unShift, 0);
 		if (KYBD_Set[')']) {
-			KYBD_Atari = xTrue;
+			prnth = xTrue;
 			if      (KYBD_Set['@']) KYBD_Lang = K_FRENCH;
 			else if (KYBD_Set['#']) KYBD_Lang = K_GERMAN;
 		}
-		for (i = 1; i < 128; i++) {
-			CARD8 c = keytbl->shift[i];
-			if (c) KYBD_Set[c] = i;
+		n_sft = analyse_ktbl (KYBD_Table->Shift,   1);
+		
+		if (os_ver < 0x0400) {
+			
+			if (prnth) {
+				KYBD_Atari = xTrue;
+				type       = "TT";
+				if (KYBD_Lang == K_GERMAN) {
+					SCANTAB tab[] = {
+						{ KYBD_Set['Å'],2,  '@',XK_at },
+						{ KYBD_Set['ö'],3, '\\',XK_backslash },
+						{ KYBD_Set['î'],2,  '[',XK_bracketleft },
+						{ KYBD_Set['ô'],3,  '{',XK_braceleft },
+						{ KYBD_Set['Ñ'],2,  ']',XK_bracketright },
+						{ KYBD_Set['é'],3,  '}',XK_braceright } };
+					set_map (tab, numberof(tab));
+				}
+			
+			} else {
+				KYBD_Atari = xFalse;
+				type       = "Hades";
+				if (!KYBD_Set['@']) {
+					SCANTAB tab[] = {
+						{ KYBD_Set['q'],2,  '@',XK_at },
+						{ KYBD_Set['?'],3, '\\',XK_backslash },
+						{ KYBD_Set['<'],2,  '|',XK_bar },
+						{ KYBD_Set['+'],3,  '~',XK_asciitilde },
+						{ KYBD_Set['8'],2,  '[',XK_bracketleft },
+						{ KYBD_Set['7'],3,  '{',XK_braceleft },
+						{ KYBD_Set['0'],2,  ']',XK_bracketright },
+						{ KYBD_Set['9'],3,  '}',XK_braceright } };
+					set_map (tab, numberof(tab));
+				}
+			}
+		
+		} else { // analyse extended keytables
+			
+			if ((long)KYBD_Table->AltGr >= os_beg  &&
+			    (long)KYBD_Table->AltGr <  os_end) {
+				KYBD_Atari = xFalse;
+				type       = "Milan";
+				n_agr = analyse_xtbl (KYBD_Table->AltGr, 0);
+			
+			} else {
+				KYBD_Atari = xTrue;
+				type       = "Falcon";
+				n_alt = analyse_xtbl (KYBD_Table->Alt,     0);
+				n_asf = analyse_xtbl (KYBD_Table->AltShft, 1);
+			}
 		}
-		if (!KYBD_Atari) {
+		
+		// apply the default modifier and function keycodes
+		
+		{	static SCANTAB tab[] = {
+				{ KC_SHFT_L,0, 0,XK_Shift_L },   { KC_SHFT_R,0, 0,XK_Shift_R },
+				{ KC_LOCK,0,   0,XK_Caps_Lock }, { KC_CTRL,0,   0,XK_Control_L },
+				{ KC_ALT,0,    0,XK_Alt_L },     { KC_ALTGR,0,  0,XK_Mode_switch },
+				{ 59,0, 0,XK_F1  }, { 84,0, 0,XK_F11 },
+				{ 60,0, 0,XK_F2  }, { 85,0, 0,XK_F12 },
+				{ 61,0, 0,XK_F3  }, { 86,0, 0,XK_F13 },
+				{ 62,0, 0,XK_F4  }, { 87,0, 0,XK_F14 },
+				{ 63,0, 0,XK_F5  }, { 88,0, 0,XK_F15 },
+				{ 64,0, 0,XK_F6  }, { 89,0, 0,XK_F16 },
+				{ 65,0, 0,XK_F7  }, { 90,0, 0,XK_F17 },
+				{ 66,0, 0,XK_F8  }, { 91,0, 0,XK_F18 },
+				{ 67,0, 0,XK_F9  }, { 92,0, 0,XK_F19 },
+				{ 68,0, 0,XK_F10 }, { 93,0, 0,XK_F20 },
+				{ 71,0, 0,XK_Home },  { 82,0, 0,XK_Insert },
+				{ 72,0, 0,XK_Up },    { 75,0, 0,XK_Left },
+				{ 77,0, 0,XK_Right }, { 80,0, 0,XK_Down },
+				{ 97,0, 0,XK_Undo },  { 98,0, 0,XK_Help } };
+			set_map (tab, numberof(tab));
+		}
+		if (KYBD_Atari) {
+			static SCANTAB tab[] = {   { 113,2, 0,XK_End },
+			   { 99,2, 0,XK_Page_Up }, { 100,2, 0,XK_Page_Down } };
+			set_map (tab, numberof(tab));
+		
+		} else { // pc keyboard
+			static SCANTAB tab[] = {   { 79,0, 0,XK_End },
+			   { 73,0, 0,XK_Page_Up }, { 81,0, 0,XK_Page_Down } };
+			set_map (tab, numberof(tab));
 			if      (KYBD_Set['Ü']) KYBD_Lang = K_SWEDISH;
 			else if (KYBD_Set['á']) KYBD_Lang = K_FRENCH;
 			else if (KYBD_Set['û']) KYBD_Lang = K_GERMAN;
 		}
 		
-		printf ("  Keyboard layout %s %s: repeat %ums,\n",
-		        (KYBD_Atari ? "Atari" : "PC"),
-		        (KYBD_Lang == K_GERMAN ?  "german"  :
-		         KYBD_Lang == K_FRENCH ?  "french"  :
-		         KYBD_Lang == K_SWEDISH ? "swedish" : "us/english"),
-		        KYBD_Repeat);
-//	}
-//	if () {
-{
-		SCANTAB vdi_tab[] = {
-			{ KC_SHFT_L,0, 0,XK_Shift_L },   { KC_SHFT_R,0, 0,XK_Shift_R },
-			{ KC_LOCK,0,   0,XK_Caps_Lock }, { KC_CTRL,0,   0,XK_Control_L },
-			{ KC_ALT,0,    0,XK_Alt_L },
-			{ 59,0, 0,XK_F1  }, { 84,0, 0,XK_F11 },
-			{ 60,0, 0,XK_F2  }, { 85,0, 0,XK_F12 },
-			{ 61,0, 0,XK_F3  }, { 86,0, 0,XK_F13 },
-			{ 62,0, 0,XK_F4  }, { 87,0, 0,XK_F14 },
-			{ 63,0, 0,XK_F5  }, { 88,0, 0,XK_F15 },
-			{ 64,0, 0,XK_F6  }, { 89,0, 0,XK_F16 },
-			{ 65,0, 0,XK_F7  }, { 90,0, 0,XK_F17 },
-			{ 66,0, 0,XK_F8  }, { 91,0, 0,XK_F18 },
-			{ 67,0, 0,XK_F9  }, { 92,0, 0,XK_F19 },
-			{ 68,0, 0,XK_F10 }, { 93,0, 0,XK_F20 },
-			{ 71,0, 0,XK_Home },  { 82,0, 0,XK_Insert },
-			{ 72,0, 0,XK_Up },    { 75,0, 0,XK_Left },
-			{ 77,0, 0,XK_Right }, { 80,0, 0,XK_Down },
-			{ 97,0, 0,XK_Undo },  { 98,0, 0,XK_Help } };
-		
-		KeySym * k = *KYBD_Map;
-		int      n = sizeof(KYBD_Map) / sizeof(KeySym);
-		
-		KYBD_Map[0][0] = KYBD_Map[0][1] = 
-		KYBD_Map[0][2] = KYBD_Map[0][3] = XK_Mode_switch;
-		while (--n) *(++k) = XK_VoidSymbol;
-		for (i = 1; i < 128; i++) {
-			CARD8  c = keytbl->ushft[i];
-			KeySym s = asc2sym (c, i >= 73);
-			if (c && s) {
-				KYBD_Map[i][0] = s;
-				if ((c = keytbl->shift[i])) KYBD_Map[i][1] = asc2sym (c, xFalse);
-				else                        KYBD_Map[i][1] = NoSymbol;
-				KYBD_Map[i][2] = KYBD_Map[i][3] = NoSymbol;
-			}
-		}
-		set_map (vdi_tab, numberof(vdi_tab));
-		
-		if (KYBD_Atari) {
-			SCANTAB page_tab[] = {     { 113,2, 0,XK_End },
-			   { 99,2, 0,XK_Page_Up }, { 100,2, 0,XK_Page_Down } };
-			set_map (page_tab, numberof(page_tab));
-			
-			if (KYBD_Lang == K_GERMAN) {
-				SCANTAB tab[] = {
-					{ KYBD_Set['Å'],2,  '@',XK_at },
-					{ KYBD_Set['ö'],3, '\\',XK_backslash },
-					{ KYBD_Set['î'],2,  '[',XK_bracketleft },
-					{ KYBD_Set['ô'],3,  '{',XK_braceleft },
-					{ KYBD_Set['Ñ'],2,  ']',XK_bracketright },
-					{ KYBD_Set['é'],3,  '}',XK_braceright } };
-				set_map (tab, numberof(tab));
-			}
-			KYBD_Mod[3][1] = KC_Modify + KEYSYM_OFFS;
-			
-		} else { // pc keyboard
-			SCANTAB page_tab[] = {
-				{ KC_ALTGR,0, 0,XK_Super_R }, { 79,0, 0,XK_End },
-			   { 73,0, 0,XK_Page_Up },       { 81,0, 0,XK_Page_Down } };
-			set_map (page_tab, numberof(page_tab));
-
-			if (!KYBD_Set['@']) {
-				SCANTAB tab[] = {
-					{ KYBD_Set['q'],2,  '@',XK_at },
-					{ KYBD_Set['?'],3, '\\',XK_backslash },
-					{ KYBD_Set['<'],2,  '|',XK_bar },
-					{ KYBD_Set['+'],3,  '~',XK_asciitilde },
-					{ KYBD_Set['8'],2,  '[',XK_bracketleft },
-					{ KYBD_Set['7'],3,  '{',XK_braceleft },
-					{ KYBD_Set['0'],2,  ']',XK_bracketright },
-					{ KYBD_Set['9'],3,  '}',XK_braceright } };
-				set_map (tab, numberof(tab));
-			}
-			KYBD_Mod[4][0] = KC_ALTGR  + KEYSYM_OFFS;
-			KYBD_Mod[4][1] = KC_Modify + KEYSYM_OFFS;
-		}
+		// apply some additional keycodes
 		
 		if (!KYBD_Set['˝']) {
 			SCANTAB tab = { KYBD_Set['2'],2,  '˝',XK_twosuperior };
@@ -293,24 +474,49 @@ KybdInit (void)
 			SCANTAB tab[] = {{ KYBD_Set['m'],2,  'Ê',XK_mu }};
 			set_map (tab, 1);
 		}
-		i = 0;
-		if (!KYBD_Set['›']) i += ins_map("›");
-		if (!KYBD_Set['û']) i += ins_map("û");
-		if (!KYBD_Set['Ñ']) i += ins_map("ÑéîôÅö");
-		if (!KYBD_Set['ú']) i += ins_map("ú");
-		if (!KYBD_Set['á']) i += ins_map("áÄÖ∂Çêäƒóœ");
-		if (!KYBD_Set['Ü']) i += ins_map("Üè");
-		if (i) {
-			printf ("    mapped %i extra keycode%s,\n", i, (i == 1 ? "" : "s"));
+		
+		if (!KYBD_Set['ú']) n_xtr += ins_map("ú");
+		if (!KYBD_Set['›']) n_xtr += ins_map("›");
+		if (!KYBD_Set['û']) n_xtr += ins_map("û");
+		if (!KYBD_Set['Ñ']) n_xtr += ins_map("ÑéîôÅö");
+		if (!KYBD_Set['á']) n_xtr += ins_map("áÄ† É Ö∂Çêà äƒ£ ñ óœ");
+		if (!KYBD_Set['Ü']) n_xtr += ins_map("Üè");
+		n_xtr += ins_map("ëí¥µ≥≤∞∑§•±∏â ã å ç ò");
+		n_xtr += ins_map("ÆØ® ≠ õ ü");
+		
+		i = KYBD_CodeMax - KEYSYM_OFFS +1;
+		while (KYBD_Map[--i][0] == XK_VoidSymbol);
+		KYBD_CodeMax = i + KEYSYM_OFFS;
+		
+		// build modifier mapping table (for GetModifierMapping request)
+		
+		memset (KYBD_Mod, 0, sizeof(KYBD_Mod));
+		KYBD_Mod[0][0] = KEYCODE(KC_SHFT_L);
+		KYBD_Mod[0][1] = KEYCODE(KC_SHFT_R);
+		KYBD_Mod[1][0] = KEYCODE(KC_LOCK);
+		KYBD_Mod[2][0] = KEYCODE(KC_CTRL);
+		KYBD_Mod[3][0] = KEYCODE(KC_ALT);
+		if (KYBD_Atari) KYBD_Mod[3][1] = KEYCODE(KC_ALTGR);
+		else            KYBD_Mod[4][0] = KEYCODE(KC_ALTGR);
+		
+		printf ("    got keycodes: %i unShift, %i Shift",   n_usf, n_sft);
+		if (n_alt || n_asf) printf (", %i Alt, %i AltShft", n_alt, n_asf);
+		if (n_agr)          printf (", %i AltGr",           n_agr);
+		for (i = 1; i < sizeof(KYBD_Set); n_gap += (KYBD_Set[i++] ? 0 : 1));
+		printf (", %i gap%s\n", n_gap, (n_gap == 1 ? "" : "s"));
+		if (n_xtr) {
+			printf ("    mapped %i extra keycode%s, ",
+			        n_xtr, (n_xtr == 1 ? "" : "s"));
+		} else {
+			printf ("    ");
 		}
-		while (KYBD_Map[KYBD_CodeMax-8][0] == XK_VoidSymbol) --KYBD_CodeMax;
-		printf ("    keycode range: [%i .. %i] \n", KYBD_CodeMin, KYBD_CodeMax);
-	//	printf ("    unused:");
-	//	for (i = 1; i <= KYBD_CodeMax-8; i++) {
-	//		if (KYBD_Map[i][0] == XK_VoidSymbol) printf (" %i ", i +8);
-	//	}
-	//	printf ("\n");
-}		
+		printf ("keycode range: [%i .. %i] \n", KYBD_CodeMin, KYBD_CodeMax);
+		printf ("    assume layout '%s/%s' %s, repeat %ums\n",
+		        (KYBD_Atari ? "Atari" : "PC"), type,
+		        (KYBD_Lang == K_GERMAN ?  "german"  :
+		         KYBD_Lang == K_FRENCH ?  "french"  :
+		         KYBD_Lang == K_SWEDISH ? "swedish" : "us/english"),
+		        KYBD_Repeat);
 	}
 }
 
@@ -352,18 +558,18 @@ KybdEvent (CARD16 scan, CARD16 meta)
 				if (meta & (1 << i)) {
 					MAIN_KeyButMask |= modi[1][i];
 					EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
-					               c_id, r_xy, e_xy, modi[0][i] + KEYSYM_OFFS);
+					               c_id, r_xy, e_xy, KEYCODE(modi[0][i]));
 				} else {
 					MAIN_KeyButMask &= ~modi[1][i] | mask;
 					EvntPropagate (_WIND_PointerRoot, KeyReleaseMask, KeyRelease,
-					               c_id, r_xy, e_xy, modi[0][i] + KEYSYM_OFFS);
+					               c_id, r_xy, e_xy, KEYCODE(modi[0][i]));
 				}
 			}
 			chng >>=1;
 			i++;
 		}
 		if (code) {
-			code += KEYSYM_OFFS;
+			code = KEYCODE(code);
 			EvntPropagate (_WIND_PointerRoot, KeyPressMask, KeyPress,
 			               c_id, r_xy, e_xy, code);
 			if (scan < 0x0100) {
