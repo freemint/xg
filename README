@@ -42,8 +42,8 @@ absolutely minimum to get it useable.
 
 The latest binary version can be downloaded from the homepage at
    http://X11.freemint.de ,
-there there is also a source snapshot.  The very latest sources are
-accessible from the FreeMiNT CVS Repository at
+there is also a source snapshot.  The very latest sources are accessible
+from the FreeMiNT CVS Repository at
    http://wh58-508.st.uni-magdeburg.de/cgi-bin/cvsweb/xg/
 Bug reports should be mailed to <AltF4@freemint.de>.
 
@@ -52,12 +52,12 @@ Installation
 ============
 
 Copy the server's files to some location on your filesystem; there is no
-requirement of a fix path for the server.  A usefull place might be
+requirement of a fixed path for the server.  A usefull place might be
 /usr/X11R6/bin/ but everything else works as well.
 
 The next step is to make a directory /var/lib/Xapp/ for the server.  If the
 server is startet by root at the first time, or the directory is writeable
-by the server, it will do the followings steps by itself.  Else do the
+by the server, it will do the following steps by itself.  Else do the
 following (as root user):
 	cd /var/lib ; mkdir Xapp ; chmod 777 Xapp
 
@@ -74,12 +74,12 @@ opend on your local machine.  The value of DISPLAY has to be of the form
 contains simply the value "0:0.0", where the first "0" is simply a shortcut
 for the local IP or even "localhost".  For clients started on a remote
 machine connected to an Atari with e.g. the IP 123.234.34.56, DISPLAY at
-the remote machine must be than "123.234.34.56:0.0".
+the remote machine must be then "123.234.34.56:0.0".
 
 Most comfortable for the user is, to have somewhere in mint.cnf the line
 	setenv DISPLAY 0:0.0
-so it can't be forgotten to set.  Otherway it would be necessary to set it
-by hand in a shell window and start every client from that shell.
+so the setting it can't be forgotten.  Otherway it would be necessary to
+set it by hand in a shell window and start every client from that shell.
 
 Preparing Directories
 ---------------------
@@ -87,21 +87,21 @@ Preparing Directories
 The following isn't necessary for the server itself but should be done for
 client programs to have a common directory hirachy.
 
-First there should be a directory /etc/X11/app-defaults/ wich will later
+First there should be a directory /etc/X11/app-defaults/ which will later
 contain default configuration files for several client programs.  These
 configuration files are such with the suffix ".ad" in packages and needs to
 be renamed without the suffix while copying to the app-defaults e.g.
 "Xcalc.ad" to only "Xcalc".  Also the X server will search for optional
 configuration fileas at /etc/X11/.
 
-Next, a directory /usr/X11R6/ should be created as beeing the "XTOPDIR" and
+Next, a directory /usr/X11R6/ should be created as being the "XTOPDIR" and
 a link /usr/X11 pointing to this directory as well, for historical reasons.
 Furthermore, some clients are looking for their configuration files not at
 /etc/X11/app-defaults/, but at /usr/X11R6/lib/X11/app-defaults/ (or at
 /usr/X11/lib/X11/app-defaults/, therefor the link) instead, so there should
 be placed a link pointing to /etc/X11/app-defaults/.
 
-After carrying out all the previous steps, the system should have this
+After carrying out all the previous steps, the system should have these
 directories and links:
    /var/lib/Xapp/
    /etc/X11/app-defaults/
@@ -141,13 +141,13 @@ All of these fields my contain wildcards (a '*').  For example, often
 clients requests a font named '-*-*-*-*-*-*-*-120-*-*-*-*-ISO8859-1' which
 means some font of 12 point height and that charset encoding is needed, no
 matter of which family or style and so on.  The server will than take the
-first font of where this both criteria matches.
+first font where both criteria matches.
 
 Handling of GEM-Fonts
 ---------------------
 
 At startup, the server parses all fonts provided by the VDI and translates
-the available informations to XLFD strings.  These are stored in the hash
+the available information to XLFD strings.  These are stored in the hash
 file /var/lib/Xapp/fonts.db to accelerate further startups.
 
 Font-Aliasing
@@ -158,7 +158,7 @@ startup and later be used to substitute font names from client requests to
 fonts the server provides.  Have a look at the server's font hash file at
 /var/lib/Xapp/fonts.db to see which fonts are provided by your system.
 There is also an example configuration 'fonts.alias.EXMPL' coming along
-whis this file.
+with this file.
 
 The format of the fonts.alias file is very simple, lines starting with a
 '!' are comment lines and will be ignored.  The relevant lines are formed
