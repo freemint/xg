@@ -165,9 +165,17 @@ PmapPutMono (PIXMAP * pmap, p_GC gc, p_GRECT r, p_MFDB src)
 		                 r[1].x,             r[1].y,
 		                 r[1].x + r[1].w -1, r[1].y + r[1].h -1 };
 		short colors[2] = { gc->Foreground, gc->Background };
+		short mode;
 		
-		vrt_cpyfm (GRPH_Vdi, (gc->Function == GXor ? MD_TRANS : MD_REPLACE),
-		           pxy, src, PmapMFDB(pmap), colors);
+		if (pmap->Depth >= 16  &&  gc->Function == GXxor) {
+			mode      = MD_TRANS;
+			colors[0] = CmapRevertIdx (gc->Foreground);
+		} else {
+			mode      = (gc->Function == GXor ? MD_TRANS : MD_REPLACE);
+			colors[0] = gc->Foreground;
+			colors[1] = gc->Background;
+		}
+		vrt_cpyfm (GRPH_Vdi, mode, pxy, src, PmapMFDB(pmap), colors);
 	}
 }
 
