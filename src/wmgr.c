@@ -2,7 +2,7 @@
 //
 // wmgr.c
 //
-// Copyright (C) 2000 Ralph Lowinski <AltF4@freemint.de>
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
 // 2000-12-14 - Module released for beta state.
 // 2000-09-01 - Initial Version.
@@ -225,6 +225,8 @@ WmgrInit (BOOL initNreset)
 void
 WmgrExit (void)
 {
+	ClntInit (xFalse);
+	
 	if (_WMGR_Menu) {
 		menu_bar (_WMGR_Menu, 0);
 		rsrc_free();

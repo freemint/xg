@@ -1,3 +1,13 @@
+//==============================================================================
+//
+// srvr.c
+//
+// Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
+//------------------------------------------------------------------------------
+// 2000-12-14 - Module released for beta state.
+// 2000-06-03 - Initial Version.
+//==============================================================================
+//
 #include "main.h"
 #include "tools.h"
 #include "grph.h"
@@ -95,7 +105,7 @@ SrvrInit (int port)
 	MAIN_FDSET_rd = SRVR_RdSet = 1uL << SRVR_Socket;
 	
 	AtomInit (xTrue);
-	ClntInit ();
+	ClntInit (xTrue);
 	PmapInit (xTrue);
 	WindInit (xTrue);
 	
@@ -126,6 +136,7 @@ SrvrInit (int port)
 void
 SrvrReset()
 {
+	ClntInit (xFalse);
 	WindInit (xFalse);
 	CrsrInit (xFalse);
 	PmapInit (xFalse);
@@ -193,9 +204,9 @@ SrvrSetup (void* buf, CARD16 maxreqlen, int DoSwap, long rid)
 	
 /***{
 	FILE * f = fopen ("_setup.txt", "w");
-	int i, j;
-	for (i = 0; i < _SRVR_SetupBytes; i += 8) {
-		for (j = i; j < i+8 && j < _SRVR_SetupBytes; ++j) {
+	int ii, j;
+	for (ii = 0; ii < _SRVR_SetupBytes; ii += 8) {
+		for (j = ii; j < ii+8 && j < _SRVR_SetupBytes; ++j) {
 			fprintf (f, "%02x ", ((char*)buf)[j]);
 		}
 		fprintf (f, "\n");
