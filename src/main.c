@@ -33,6 +33,7 @@ void set_printf (BOOL buffer);
 extern const short  _app;
 extern const char * GLBL_Version;
 extern const char * GLBL_Build;
+extern const BOOL   WIND_ChngTrigger;
 
 static void shutdown (void);
 
@@ -56,6 +57,8 @@ PXY  * MAIN_PointerPos = &ev_o.evo_mouse;
 short _MAIN_Mctrl = 0;
 short _MAIN_Wupdt = 0;
 
+static short _MAIN_Xcons = 0;   // pid of xconsole, if started by server
+
 
 //==============================================================================
 int
@@ -71,17 +74,16 @@ main (int argc, char * argv[])
 		short xcon  = Fopen ("/dev/xconout2", 0x80);
 		short redir = _app;
 		
-		short c_id = 0;
 		if (xcon >= 0) {
 			const char * args[] = {
 					"-g","-0-0", "-fn","6x10", "-notify", "-file", "/dev/xconout2" };
-			c_id = WmgrLaunch ("/usr/X11/bin/xconsole",
-			                   sizeof(args) / sizeof(*args), args);
-			if (c_id > 0) {
-				set_printf  (xTrue);
+			_MAIN_Xcons = WmgrLaunch ("/usr/X11/bin/xconsole",
+			                          sizeof(args) / sizeof(*args), args);
+			if (_MAIN_Xcons > 0) {
+				set_printf (xTrue);
 				redir = 0;
 			} else {
-				c_id = 0;
+				_MAIN_Xcons = 0;
 			}
 			Fclose (xcon);
 		}
@@ -219,7 +221,7 @@ main (int argc, char * argv[])
 				if      (event & MU_M1) WindPointerWatch (xTrue);
 				else if (event & MU_M2) WindPointerMove  (NULL);
 				
-				if (reset || SrvrSelect()) {
+				if (reset || SrvrSelect (_MAIN_Xcons)) {
 					printf ("\nLast client left, server reset ...\n");
 					if (_MAIN_Mctrl) {
 						puts("*BOING*");
@@ -231,13 +233,12 @@ main (int argc, char * argv[])
 						WindUpdate (xFalse);
 					}
 					SrvrReset();
-				} else if (c_id) {
-					extern BOOL wind_done;
-					if (wind_done) {
-						set_printf  (xFalse);
-						printf ("------------------END-BUFFERED------------------\n");
-						c_id = 0;
-					}
+				
+				} else if (_MAIN_Xcons && WIND_ChngTrigger) {
+					SrvrUngrab (0xFFFFFFFF);
+					set_printf (xFalse);
+					printf ("-------------------END-BUFFERED-------------------\n");
+					_MAIN_Xcons = 0;
 				}
 			} 
 		}

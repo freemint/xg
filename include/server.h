@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// srvr.h
+// server.h
 //
 // Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
@@ -14,7 +14,8 @@
 
 int    SrvrInit   (int port);
 void   SrvrReset  (void);
-BOOL   SrvrSelect (void);
+BOOL   SrvrSelect (short exclusive);
+void   SrvrUngrab (CARD32 mask);
 size_t SrvrSetup  (void * buf, CARD16 maxreqlen, int DoSwap, long rid);
 
 

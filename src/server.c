@@ -1,6 +1,6 @@
 //==============================================================================
 //
-// srvr.c
+// server.c
 //
 // Copyright (C) 2000,2001 Ralph Lowinski <AltF4@freemint.de>
 //------------------------------------------------------------------------------
@@ -43,7 +43,9 @@ typedef size_t socklen_t;
 
 
 static long SRVR_RdSet  = 0L;
+static long SRVR_GrabFD = 0xFFFFFFFFL;
 static int  SRVR_Socket = -1;
+
 
 //==============================================================================
 static const char _SRVR_Vendor[] = "FreeMiNT/ATARI";
@@ -153,11 +155,12 @@ SrvrReset()
 	printf("... ready\n\n");
 }
 
+
 //==============================================================================
 BOOL
-SrvrSelect (void)
+SrvrSelect (short exclusive)
 {
-	long rd_set = MAIN_FDSET_rd,
+	long rd_set = MAIN_FDSET_rd & SRVR_GrabFD,
 	     wr_set = MAIN_FDSET_wr;
 	
 	if (!Fselect (1, &rd_set, &wr_set, 0)) return xFalse;
@@ -180,11 +183,27 @@ SrvrSelect (void)
 			peer = gethostbyname (addr);
 			ClntCreate (fd, (peer ? peer->h_name : "<unknown>"),
 			            addr, sock_in.sin_port);
+			
+			if (exclusive && !(~SRVR_GrabFD)) {
+				// if set, the new established connection performs automatically
+				// a server grab.  this is used to wait for xconsole to become
+				// ready to work if launched at server start.
+				
+				SRVR_GrabFD = (1ul << fd) | SRVR_RdSet;
+				rd_set     &= SRVR_GrabFD;
+			}
 		}
 		if (!(rd_set &= ~SRVR_RdSet) && !wr_set) return xFalse;
 	}
 	return (ClntSelect (rd_set, wr_set) == 0);
 }
+//==============================================================================
+void
+SrvrUngrab (CARD32 mask)
+{
+	SRVR_GrabFD |= mask;
+}
+
 
 //==============================================================================
 size_t
