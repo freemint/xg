@@ -295,14 +295,12 @@ WindPointerWatch (BOOL movedNreorg)
 		}
 	}
 	
-	if (widget) {
+	if (widget && !_WIND_PgrabWindow) {
 		if (WMGR_Active) {
 			WmgrWidget (widget, &r_p);
 		}
 	
 	} else { // notify leave/out events
-		CURSOR * crsr = NULL;
-		
 		for (bot = anc +1; bot < top; ++bot) {
 			if (stack[bot]->u.List.AllMasks & FocusChangeMask) {
 				TRACEF (stack[bot], "FocusIn", next);
@@ -314,11 +312,12 @@ WindPointerWatch (BOOL movedNreorg)
 				TRACEF (stack[top], "FocusIn", last);
 				EvntFocusIn (stack[top], NotifyNormal, last);
 			}
-			crsr = stack[top]->Cursor;
 		}
 		
-		if (WMGR_Cursor) WmgrWidgetOff (crsr);
-		else             CrsrSelect    (crsr);
+		if (!_WIND_PgrabWindow) {
+			if (WMGR_Cursor) WmgrWidgetOff (NULL);
+			/*else*/         _Wind_Cursor  (stack[top]);
+		}
 	}
 }
 

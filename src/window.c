@@ -135,6 +135,30 @@ WindVisible (WINDOW * wind)
 }
 
 
+//------------------------------------------------------------------------------
+void
+_Wind_Cursor (WINDOW * wind)
+{
+	CURSOR * crsr = NULL;
+	
+	while (wind && !(crsr = wind->Cursor)) {
+		wind = wind->Parent;
+	}
+	CrsrSelect (crsr);
+}
+
+//------------------------------------------------------------------------------
+BOOL
+_Wind_IsInferior (WINDOW * wind, WINDOW * inferior)
+{
+	while (inferior) {
+		if (inferior == wind) return xTrue;
+		inferior = inferior->Parent;
+	}
+	return xFalse;
+}
+
+
 //==============================================================================
 BOOL
 WindButton (CARD16 prev_mask, int count)
@@ -388,9 +412,6 @@ _Wind_setup (CLIENT * clnt, WINDOW * w, CARD32 mask, CARD32 * val, CARD8 req)
 			}
 		} else {
 //			PRINT (,"+-<none>");
-		}
-		if (w == _WIND_PointerRoot) {
-			CrsrSelect (w->Cursor);
 		}
 		val++;
 	}
@@ -1095,6 +1116,16 @@ RQ_ChangeWindowAttributes (CLIENT * clnt, xChangeWindowAttributesReq * q)
 			if ((wind->Override == xFalse) != (wind->GwmDecor == xTrue)) {
 				short hdl = wind->Handle;
 				if (WmgrWindHandle (wind)) wind_delete (hdl);
+			}
+		}
+		if (q->valueMask & CWCursor) {
+			if (_WIND_PgrabWindow) {
+				if (!_WIND_PgrabCursor
+				    && _Wind_IsInferior (wind, _WIND_PgrabWindow)) {
+					_Wind_Cursor (_WIND_PgrabWindow);
+				}
+			} else if (_Wind_IsInferior (wind, _WIND_PointerRoot)) {
+				_Wind_Cursor (_WIND_PointerRoot);
 			}
 		}
 	}
