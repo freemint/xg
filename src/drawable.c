@@ -582,10 +582,11 @@ RQ_PolyFillRectangle (CLIENT * clnt, xPolyFillRectangleReq * q)
 				int i;
 				for (i = 0; i < len; i++) {
 					PRECT clip = *(PRECT*)(rec +i);
-					if (GrphIntersectP (&clip, sect++)) {
+					if (GrphIntersectP (&clip, sect)) {
 						v_bar_p (hdl, &clip.lu);
 					}
 				}
+				sect++;
 			} while (--nClp);
 			
 			if (draw.p->isWind) {
