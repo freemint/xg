@@ -92,8 +92,10 @@ AtomInit (BOOL initNreset)
 	// predefined atom
 	//
 	if (initNreset) {
-		if ((sizeof(_ATOM_Order)/sizeof(*_ATOM_Order)) != (LAST_PREDEF_ATOM -1)) {
-			printf ("pFATAL:q Internal failure in AtomInit()\n");
+		if (sizeof(_ATOM_Order) / sizeof(*_ATOM_Order) != LAST_PREDEF_ATOM) {
+			printf ("pFATALq Internal failure in AtomInit():\n"
+			        "      order list = %li, count = %li\n",
+			        sizeof(_ATOM_Order) / sizeof(*_ATOM_Order), LAST_PREDEF_ATOM);
 			exit(1);
 		}
 		for (i = 1; i <= LAST_PREDEF_ATOM; ++i) {
