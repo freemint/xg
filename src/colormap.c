@@ -496,7 +496,7 @@ RQ_QueryColors (CLIENT * clnt, xQueryColorsReq * q)
 {
 	size_t   len = ((q->length *4) - sizeof (xQueryColorsReq)) / sizeof(CARD32);
 	CARD32 * pix = (CARD32*)(q +1);
-	ClntReplyPtr (QueryColors, r, sizeof(CARD32) * len);
+	ClntReplyPtr (QueryColors, r, sizeof(xrgb) * len);
 	xrgb * dst = (xrgb*)(r +1);
 	int i;
 	
