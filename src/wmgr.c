@@ -266,7 +266,8 @@ WmgrActivate (BOOL onNoff)
 				if (w->isMapped) {
 					GRECT dummy;
 					WindClrMapped (w, xFalse);
-					WmgrWindMap   (w, &dummy);
+					WMGR_OpenCounter--;
+					WmgrWindMap (w, &dummy);
 				} else {
 				#	define clnt &_WMGR_Client
 					PRINT (ReparentWindow, "(W:%X) active", w->Id);
@@ -299,6 +300,7 @@ WmgrActivate (BOOL onNoff)
 					}
 					if (w->isMapped) {
 						WindClrMapped (w, xFalse);
+						WMGR_OpenCounter--;
 						wind_get_curr (hdl, &curr);
 					} else {
 						w->GwmIcon = xFalse;
