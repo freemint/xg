@@ -796,7 +796,7 @@ WmgrMessage (short * msg)
 	BOOL     inv_save = WIND_SaveDone;
 	WINDOW * wind     = NULL;
 	
-	if (wind) switch (msg[0]) {
+	switch (msg[0]) {
 		
 		case WM_REDRAW: if ((wind = _Wmgr_WindByHandle(msg[3]))) {
 			GRECT * rect = (GRECT*)(msg +4);
