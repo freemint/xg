@@ -10,6 +10,7 @@
 //
 #include "font_P.h"
 #include "tools.h"
+#include "Atom.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -346,6 +347,22 @@ RQ_QueryFont (CLIENT * clnt, xQueryFontReq * q)
 		r->fontAscent     = face->Ascent;
 		r->fontDescent    = face->Descent;
 		r->nFontProps     = 0;
+		while (1) {
+			Atom * atom = (Atom*)(r +1);
+			if (!(*(atom++) = AtomGet ("FONT", 4, xFalse)) ||
+			    !(*(atom++) = AtomGet (face->Name, face->Length, xFalse))) break;
+			r->nFontProps++;
+			size += sizeof(Atom) *2;
+			break;
+		}
+		if (r->nFontProps && clnt->DoSwap) {
+			Atom * a = (Atom*)(r +1);
+			int    n = r->nFontProps;
+			while (n--) {
+				*a = Swap16(*a);
+				a++;
+			}
+		}
 		if (face->isMono) {
 			r->nCharInfos  = 0;
 		} else {
