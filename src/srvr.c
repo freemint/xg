@@ -32,6 +32,11 @@
 
 #include <X11/Xproto.h>
 
+#ifndef __socklen_t_defined
+typedef size_t socklen_t;
+#define __socklen_t_defined
+#endif
+
 
 #define RELEASE   1001
 #define MOTIONB   0uL
@@ -154,7 +159,7 @@ SrvrSelect (long rd_set, long wr_set)
 		struct hostent   * peer;
 		const char       * addr;
 		struct sockaddr_in sock_in;
-		size_t s_len    = sizeof(sock_in);
+		socklen_t s_len    = sizeof(sock_in);
 		
 		int fd  = accept (SRVR_Socket, (struct sockaddr*)&sock_in, &s_len);
 		if (fd < 0) {
