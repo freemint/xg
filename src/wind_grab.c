@@ -28,7 +28,7 @@ BOOL     _WIND_PgrabPassive = xFalse;
 
 
 //------------------------------------------------------------------------------
-static void
+void
 _Wind_PgrabSet (CLIENT * clnt, WINDOW * wind, p_CURSOR crsr,
                 CARD32 mask, BOOL ownr, CARD32 time, BOOL passive)
 {
@@ -62,6 +62,25 @@ _Wind_PgrabSet (CLIENT * clnt, WINDOW * wind, p_CURSOR crsr,
 
 //------------------------------------------------------------------------------
 BOOL
+_Wind_PgrabClr (CLIENT * clnt)
+{
+	if (!clnt  ||  clnt == _WIND_PgrabClient) {
+		_WIND_PgrabClient = NULL;
+		_WIND_PgrabWindow = NULL;
+		if (_WIND_PgrabCursor) {
+			CrsrFree (_WIND_PgrabCursor, NULL);
+			_WIND_PgrabCursor = NULL;
+		}
+		WindMctrl (xFalse);
+		
+		return xTrue;
+	}
+	return xFalse;
+}
+
+
+//------------------------------------------------------------------------------
+BOOL
 _Wind_PgrabMatch (WINDOW * wind, CARD8 but, CARD16 mod)
 {
 	BTNGRAB * grab = wind->ButtonGrab;
@@ -80,21 +99,14 @@ _Wind_PgrabMatch (WINDOW * wind, CARD8 but, CARD16 mod)
 }
 
 //------------------------------------------------------------------------------
-BOOL
-_Wind_PgrabClear (CLIENT * clnt)
+void
+_Wind_PgrabRemove (p_BTNGRAB * pGrab)
 {
-	if (!clnt  ||  clnt == _WIND_PgrabClient) {
-		_WIND_PgrabClient = NULL;
-		_WIND_PgrabWindow = NULL;
-		if (_WIND_PgrabCursor) {
-			CrsrFree (_WIND_PgrabCursor, NULL);
-			_WIND_PgrabCursor = NULL;
-		}
-		WindMctrl (xFalse);
-		
-		return xTrue;
-	}
-	return xFalse;
+	BTNGRAB * grab = *pGrab;
+	*pGrab         = grab->Next;
+	if (grab->Cursor) CrsrFree (grab->Cursor, NULL);
+	grab->Client->EventReffs--;
+	free (grab);
 }
 
 
@@ -136,7 +148,7 @@ RQ_GrabPointer (CLIENT * clnt, xGrabPointerReq * q)
 		ClntReplyPtr (GrabPointer, r);
 		CARD32 time = (q->time ? q->time : MAIN_TimeStamp);
 		
-		PRINT (GrabPointer," W:%lX(W:%lX) evnt=0x%04X/%i mode=%i/%i"
+		DEBUG (GrabPointer," W:%lX(W:%lX) evnt=0x%04X/%i mode=%i/%i"
 		                       " C:%lX T:%lX",
 		       q->grabWindow, q->confineTo, q->eventMask, q->ownerEvents,
 		       q->pointerMode, q->keyboardMode, q->cursor, q->time);
@@ -188,7 +200,7 @@ RQ_ChangeActivePointerGrab (CLIENT * clnt, xChangeActivePointerGrabReq * q)
 		if (clnt == _WIND_PgrabClient
 		    &&  time >= _WIND_PgrabTime  &&  time <= MAIN_TimeStamp) {
 			
-			PRINT (ChangeActivePointerGrab," C:%lX T:%lX evnt=%04X",
+			DEBUG (ChangeActivePointerGrab," C:%lX T:%lX evnt=%04X",
 			       q->cursor, q->time, q->eventMask);
 			
 			_WIND_PgrabEvents = q->eventMask;
@@ -204,7 +216,7 @@ RQ_ChangeActivePointerGrab (CLIENT * clnt, xChangeActivePointerGrabReq * q)
 		
 		} else {
 			
-			PRINT (ChangeActivePointerGrab," C:%lX T:%lX evnt=%04X ignored",
+			DEBUG (ChangeActivePointerGrab," C:%lX T:%lX evnt=%04X ignored",
 			       q->cursor, q->time, q->eventMask);
 			
 			if (crsr) CrsrFree (crsr, NULL);
@@ -221,33 +233,24 @@ RQ_UngrabPointer (CLIENT * clnt, xUngrabPointerReq * q)
 	// CARD32 id: time or CurrentTime
 	//...........................................................................
 	
+	#ifdef TRACE
 	CARD32 wid = (_WIND_PgrabWindow ? _WIND_PgrabWindow->Id : 0);
+	#endif
 	
 	if ((!q->id || (q->id >= _WIND_PgrabTime && q->id <= MAIN_TimeStamp))
-	    && _Wind_PgrabClear (clnt)) {
+	    && _Wind_PgrabClr (clnt)) {
 		
-		PRINT (UngrabPointer," W:%lX T:%lX", wid, q->id);
+		DEBUG (UngrabPointer," W:%lX T:%lX", wid, q->id);
 		
 		_Wind_Cursor (_WIND_PointerRoot);
 	
 	} else {
-		PRINT (UngrabPointer," W:%lX T:%lX ignored", wid, q->id);
+		DEBUG (UngrabPointer," W:%lX T:%lX ignored", wid, q->id);
 	}
 }
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-static BTNGRAB *
-find_grab (BTNGRAB * grab, CARD8 but, CARD16 mod)
-{
-	while (grab) {
-		if (   (!but || !grab->Button    || but == grab->Button)
-		    && (!mod || !grab->Modifiers || mod == grab->Modifiers)) break;
-		grab = grab->Next;
-	}
-	return grab;
-}
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void
 RQ_GrabButton (CLIENT * clnt, xGrabButtonReq * q)
 {
@@ -265,7 +268,6 @@ RQ_GrabButton (CLIENT * clnt, xGrabButtonReq * q)
 	
 	WINDOW  * wind = WindFind (q->grabWindow);
 	CURSOR  * crsr = NULL;
-	BTNGRAB * grab = NULL, * reuse;
 	
 	if (!wind) {
 		Bad(Window, q->grabWindow, GrabButton,);
@@ -273,39 +275,42 @@ RQ_GrabButton (CLIENT * clnt, xGrabButtonReq * q)
 	} else if (q->cursor && !(crsr = CrsrGet(q->cursor))) {
 		Bad(Cursor, q->cursor, GrabButton,);
 	
-	} else if ((reuse = find_grab (wind->ButtonGrab, q->button, q->modifiers))
-	           &&  reuse->Client != clnt) {
-		Bad(Access,, GrabButton,);
-	
-	} else if (!reuse && !(grab = malloc (sizeof(BTNGRAB)))) {
-		Bad(Alloc,, GrabButton,);
-	
-	} else { //..................................................................
-		PRINT (GrabButton," W:%lX(W:%lX,C:%lX) evnt=0x%04X/%i mode=%i/%i"
-		                  " but=%i/%04X",
-		       q->grabWindow, q->confineTo, q->cursor, q->eventMask,
-		       q->ownerEvents, q->pointerMode, q->keyboardMode, q->button,
-		       q->modifiers);
+	} else {
+		BTNGRAB * grab = wind->ButtonGrab;
 		
-		if (reuse) {
-			if (reuse->Cursor  &&  reuse->Cursor != crsr) {
-				CrsrFree (reuse->Cursor, NULL);
+		while (grab) {
+			if (   (!q->button || !grab->Button || q->button == grab->Button)
+			    && (!q->modifiers || !grab->Modifiers
+			       ||  q->modifiers == grab->Modifiers)) break;
+			grab = grab->Next;
+		}
+		if (grab) {
+			if (grab->Client != clnt) {
+				grab = NULL;
+				Bad(Access,, GrabButton,);
+			
+			} else if (grab->Cursor  &&  grab->Cursor != crsr) {
+				CrsrFree (grab->Cursor, NULL);
 			}
-			grab = reuse;
-		} else {
+		} else if (!(grab = malloc (sizeof(BTNGRAB)))) {
+			Bad(Alloc,, GrabButton,);
+		
+		} else { //...............................................................
 			grab->Next       = wind->ButtonGrab;
 			wind->ButtonGrab = grab;
 			grab->Client     = clnt;
 			clnt->EventReffs++;
 		}
-		grab->PntrAsync  = q->pointerMode;
-		grab->KybdAsync  = q->keyboardMode;
-		grab->OwnrEvents = q->ownerEvents;
-		grab->Button     = q->button;
-		grab->Modifiers  = q->modifiers;
-		grab->EventMask  = q->eventMask;
-		grab->Cursor     = crsr;
-		crsr             = NULL;
+		if (grab) {
+			grab->PntrAsync  = q->pointerMode;
+			grab->KybdAsync  = q->keyboardMode;
+			grab->OwnrEvents = q->ownerEvents;
+			grab->Button     = q->button;
+			grab->Modifiers  = q->modifiers;
+			grab->EventMask  = q->eventMask;
+			grab->Cursor     = crsr;
+			crsr             = NULL;
+		}
 	}
 	if (crsr) {
 		CrsrFree (crsr, NULL);
@@ -331,21 +336,18 @@ RQ_UngrabButton (CLIENT * clnt, xUngrabButtonReq * q)
 	} else { //..................................................................
 		BTNGRAB ** pGrab = &wind->ButtonGrab;
 		
-		PRINT (UngrabButton," W:%lX but=%i/%04X",
+		DEBUG (UngrabButton," W:%lX but=%i/%04X",
 		       q->grabWindow, q->button, q->modifiers);
 		
 		while (*pGrab) {
 			if ((*pGrab)->Client == clnt
 			    && (!q->button    || q->button    == (*pGrab)->Button)
 			    && (!q->modifiers || q->modifiers == (*pGrab)->Modifiers)) {
-				BTNGRAB * grab = *pGrab;
-				*pGrab         = grab->Next;
-				if (grab->Cursor) CrsrFree (grab->Cursor, NULL);
-				grab->Client->EventReffs++;
-				free (grab);
+				_Wind_PgrabRemove (pGrab);
 				if (q->button && q->modifiers) break;
+			} else {
+				pGrab = &(*pGrab)->Next;
 			}
-			pGrab = &(*pGrab)->Next;
 		}
 	}
 }

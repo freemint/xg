@@ -184,6 +184,20 @@ EvntSearch (WINDOW * wind, CLIENT * clnt, CARD32 mask)
 	return NULL;
 }
 
+//==============================================================================
+CLIENT *
+EvntClient (WINDOW * wind, CARD32 mask)
+{
+	CARD16     num = (wind->u.List.AllMasks < 0 ? wind->u.List.p->Length : 1);
+	WINDEVNT * lst = (num > 1 ? wind->u.List.p->Event : &wind->u.Event);
+	
+	while (num--) {
+		if ((lst->Mask & mask) == mask) return lst->Client;
+		lst++;
+	}
+	return NULL;
+}
+
 
 //==============================================================================
 void

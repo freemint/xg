@@ -29,6 +29,7 @@ BOOL     EvntSet    (p_WINDOW wind, p_CLIENT clnt, CARD32 mask);
 BOOL     EvntClr    (p_WINDOW wind, p_CLIENT clnt);
 void     EvntDel    (p_WINDOW wind);
 p_WINDOW EvntSearch (p_WINDOW wind, p_CLIENT clnt, CARD32 mask);
+p_CLIENT EvntClient (p_WINDOW wind, CARD32 mask);
 
 // KeyPress/KeyRelease, ButtonPress/ButtonRelease
 BOOL EvntPropagate (p_WINDOW wind, CARD32 mask, BYTE event,

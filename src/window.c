@@ -111,6 +111,15 @@ WindCleanup (CLIENT * clnt)
 	BOOL     b    = xTrue;
 	do {
 		if (b) {
+			p_BTNGRAB * pGrab = &wind->ButtonGrab;
+			while (*pGrab) {
+				if ((*pGrab)->Client == clnt) {
+					_Wind_PgrabRemove (pGrab);
+					if (!clnt->EventReffs) break;
+				} else {
+					pGrab = &(*pGrab)->Next;
+				}
+			}
 			if (wind->u.List.AllMasks) {
 				EvntClr (wind, clnt);
 				if (!clnt->EventReffs) break;
@@ -175,6 +184,18 @@ WindButton (CARD16 prev_mask, int count)
 		return xTrue;
 	}
 	
+	if (!_WIND_PgrabWindow && wind && butt_p) {
+		CLIENT * clnt;
+		#define MASK (ButtonPressMask|ButtonReleaseMask)
+		if (!_Wind_PgrabMatch (wind, butt_p, MAIN_KeyButMask & 0xFF)
+		    &&  (wind->u.List.AllMasks & MASK) == MASK
+		    &&  (clnt = EvntClient (wind, MASK))) {
+			_Wind_PgrabSet (clnt, wind, NULL,
+			                wind->u.List.AllMasks, xTrue, MAIN_TimeStamp, xTrue);
+		}
+		#undef MASK
+	}
+	
 	if (_WIND_PgrabWindow) {
 		CARD32 w_id = 0;
 		if (_WIND_OpenCounter && wind) {
@@ -222,6 +243,9 @@ WindButton (CARD16 prev_mask, int count)
 				_evnt_c (_WIND_PgrabClient, ButtonRelease,
 				         w_id, wnd_r->Id, c_id,
 				         *(CARD32*)&w_xy, *(CARD32*)&e_xy, butt_r);
+				if (_WIND_PgrabPassive) {
+					_Wind_PgrabClr (NULL);
+				}
 			}
 			if (wnd_p) {
 				CARD32   c_id = None;
@@ -568,7 +592,7 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 			stack[anc] = bott;
 			EvntPointer (stack, anc, anc, r_xy, r_xy, wind->Id, mode);
 			if (mode == NotifyUngrab) {
-				_Wind_PgrabClear (NULL);
+				_Wind_PgrabClr (NULL);
 			}
 			_WIND_PointerRoot = bott;
 			enter             = xTrue;
@@ -591,6 +615,9 @@ WindDelete (WINDOW * wind, CLIENT * clnt)
 		}
 		if (wind->Parent->u.List.AllMasks & SubstructureNotifyMask) {
 			EvntDestroyNotify (wind->Parent, SubstructureNotifyMask, wind->Id);
+		}
+		while (wind->ButtonGrab) {
+			_Wind_PgrabRemove (&wind->ButtonGrab);
 		}
 		EvntDel (wind);
 		
@@ -806,6 +833,11 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 	} else if (!(pwnd = WindFind(q->parent))) {
 		Bad(Window, q->parent, CreateWindow,);
 		
+	} else if ((short)q->width <= 0  ||  (short)q->height <= 0) {
+		Bad(Value, (short)((short)q->width <= 0 ? q->width : q->height),
+		           CreateWindow," width = %i height = %i",
+		           (short)q->width, (short)q->height);
+		
 	/* check visual */
 	/* check depth */
 	
@@ -852,6 +884,7 @@ RQ_CreateWindow (CLIENT * clnt, xCreateWindowReq * q)
 		wind->PropagateMask  = AllEventMask;
 		wind->u.Event.Mask   = 0uL;
 		wind->u.Event.Client = NULL;
+		wind->ButtonGrab     = NULL;
 		
 		wind->Parent     = pwnd;
 		wind->PrevSibl   = NULL;
