@@ -256,6 +256,10 @@ FontInit (short count)
 	char        buf[258];
 	int         i, j;
 	
+//>>>>>>>>>> TEMPORARY >>>>>>>>>>
+	BOOL font_warn = xFalse;
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+	
 	while (*list) list = &(*list)->Next;
 	
 	/*--- read font.alias --*/
@@ -318,6 +322,10 @@ FontInit (short count)
 		    || minor < 6 || (minor == 6  &&  tiny < 3)) {
 			fclose (f_db);
 			f_db = NULL;
+//>>>>>>>>>> TEMPORARY >>>>>>>>>>
+			font_warn = xTrue;
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+	
 		}
 	}
 	if (f_db) {
@@ -683,6 +691,7 @@ FontInit (short count)
 		printf ("  *\n  * Please upate the Latin1-encoded Font Package from:\n");
 		printf ("  *      http://freemint.de/X11/gdos-X-fonts-02.tgz\n");
 		printf ("  * (or newer version)\n  *\n  **********\n\n");
+		FONT_Obsolete = font_warn;
 	}
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 	
