@@ -823,8 +823,10 @@ WmgrButton (void)
 		return xFalse;
 	
 	} else {
-		EVMULTI_IN  ev_i = { MU_BUTTON|MU_M1, 1,0x03,0x00, MO_LEAVE,
-		                     { MAIN_PointerPos->x, MAIN_PointerPos->y, 1,1 } };
+		EVMULTI_IN  ev_i = {
+			MU_BUTTON|MU_M1|MU_TIMER, 1,0x03,0x00,
+		   MO_LEAVE, { MAIN_PointerPos->x, MAIN_PointerPos->y, 1,1 },
+		   0, {0,0, 0,0}, 200,0 };
 		EVMULTI_OUT ev_o;
 		short       ev, dummy[8];
 		PXY         pc[5],   pw[5];
@@ -924,6 +926,9 @@ WmgrButton (void)
 			v_hide_c (GRPH_Vdi);
 			v_pline_p (GRPH_Vdi, 5, pw);
 			v_pline_p (GRPH_Vdi, 5, pc);
+			if (ev == MU_TIMER) {
+				ev_i.evi_flags &= ~MU_TIMER;
+			}
 			if (ev == MU_M1) {
 				if (WMGR_Cursor & 0x100) {
 					pc[0].x = pc[3].x = pc[4].x = mx + ch;
@@ -942,14 +947,19 @@ WmgrButton (void)
 		v_show_c (GRPH_Vdi, 1);
 		vsl_type (GRPH_Vdi, SOLID);
 		
-		pw[2].x  = pw[1].x - WIND_Root.Rect.x - wind->Rect.x;
-		pw[2].y  = 0;
-		pw[3].x -= pw[1].x -1 + wind->Rect.w;
-		pw[3].y -= pw[1].y -1 + wind->Rect.h;
-		if (pw[2].x || pw[3].x || pw[3].y) {
-			WindResize (wind, (GRECT*)(pw +2));
+		if (ev_i.evi_flags & MU_TIMER) {
+			WindCirculate (wind, PlaceOnTop);
+		
+		} else {
+			pw[2].x  = pw[1].x - WIND_Root.Rect.x - wind->Rect.x;
+			pw[2].y  = 0;
+			pw[3].x -= pw[1].x -1 + wind->Rect.w;
+			pw[3].y -= pw[1].y -1 + wind->Rect.h;
+			if (pw[2].x || pw[3].x || pw[3].y) {
+				WindResize (wind, (GRECT*)(pw +2));
+			}
+			WindPointerWatch (xFalse);
 		}
-		WindPointerWatch (xFalse);
 	}
 	return xTrue;
 }
