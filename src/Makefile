@@ -27,11 +27,11 @@ $(OBJDIR)/%.o: %.c ; rm -f $(PRG) ; $(CC) $(CCFLAGS) -D_$(<:.c=)_ -c $< -o $@
 ALL: $(PRG)
 
 SRC = Atom.c Cursor.c Pointer.c Property.c Prop_ICCC.c Request.c \
-      clnt.c clnt_swap.c colormap.c config.c draw_img.c drawable.c \
+      clnt.c clnt_swap.c colormap.c config.c drawable.c draw_img.c \
       event.c font.c font_init.c fontable.c gcontext.c grph.c keyboard.c \
-      main.c pixm_mono.c pixmap.c selection.c srvr.c \
-      wind_draw.c wind_grab.c wind_pntr.c wind_save.c wind_util.c \
-      window.c wmgr.c wmgr_draw.c wmgr_prog.c x_gem.c xrsc.c
+      main.c pixmap.c pixm_mono.c selection.c server.c \
+      window.c wind_draw.c wind_grab.c wind_pntr.c wind_save.c wind_util.c \
+      wmgr.c wmgr_draw.c wmgr_prog.c x_gem.c x_printf.c xrsc.c
 
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 

@@ -436,6 +436,8 @@ FT_Clnt_error_LSB (p_CLIENT clnt,
 void
 ClntPrint (CLIENT * clnt, int req, const char * form, ...)
 {
+	extern int (*pr_out)(const char * , va_list );
+	
 	va_list vlst;
 	BOOL    head;
 	BOOL    crlf;
@@ -461,16 +463,18 @@ ClntPrint (CLIENT * clnt, int req, const char * form, ...)
 		else if (req < 0) printf ("{%s}", RequestTable[-req].Name);
 	}
 	va_start (vlst, form);
-	vprintf (form, vlst);
+	/*vprintf*/ (*pr_out) (form, vlst);
 	va_end (vlst);
 	
-	if (!crlf) puts("");
+	if (!crlf) printf("\n");
 }
 
 //==============================================================================
 void
 ClntError (CLIENT * clnt, int err, CARD32 val, int req, const char * add, ...)
 {
+	extern int (*pr_out)(const char * , va_list );
+	
 	const char * text = "<invalid>", * v = NULL;
 	switch (err) {
 	#	define CASE(e,f) case e: text = #e; v = f; break
@@ -492,10 +496,10 @@ ClntError (CLIENT * clnt, int err, CARD32 val, int req, const char * add, ...)
 	if (add[1]) {
 		va_list vlst;
 		va_start (vlst, add);
-		vprintf (add +1, vlst);
+		/*vprintf*/ (*pr_out) (add +1, vlst);
 		va_end (vlst);
 	}
-	puts("");
+	printf("\n");
 	
 	clnt->Fnct->error (clnt, err, req, 0, val);
 }

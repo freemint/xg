@@ -28,6 +28,8 @@
 #include <X11/X.h>
 #include <X11/Xproto.h>
 
+void set_printf (BOOL buffer);
+
 extern const short  _app;
 extern const char * GLBL_Version;
 extern const char * GLBL_Build;
@@ -76,6 +78,7 @@ main (int argc, char * argv[])
 			c_id = WmgrLaunch ("/usr/X11/bin/xconsole",
 			                   sizeof(args) / sizeof(*args), args);
 			if (c_id > 0) {
+				set_printf  (xTrue);
 				redir = 0;
 			} else {
 				c_id = 0;
@@ -228,6 +231,13 @@ main (int argc, char * argv[])
 						WindUpdate (xFalse);
 					}
 					SrvrReset();
+				} else if (c_id) {
+					extern BOOL wind_done;
+					if (wind_done) {
+						set_printf  (xFalse);
+						printf ("------------------END-BUFFERED------------------\n");
+						c_id = 0;
+					}
 				}
 			} 
 		}

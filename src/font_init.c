@@ -328,10 +328,10 @@ FontInit (short count)
 			            &i, &type, &isSymbol, &isMono, &c,&j) == 5  &&  c == ' ') {
 				struct FONT_DB * db;
 				if (face) {
-					puts("A");
+					printf ("A\n");
 					break;
 				} else if (!(db = malloc (sizeof(struct FONT_DB) + len - j))) {
-					puts("a");
+					printf ("a\n");
 					break;
 				}
 				db->next = font_db;
@@ -347,21 +347,21 @@ FontInit (short count)
 				font_db = db;
 			
 			} else if (!font_db) {
-				puts("B");
+				printf ("B\n");
 				break;
 			
 			} else if (buf[0] == '-') {
 				if (face) {
-					puts("C");
+					printf ("C\n");
 					break;
 				} else if (!(face = _Font_Create (buf, len,
 				                                  type, isSymbol, isMono))) {
-					puts("c");
+					printf ("c\n");
 					break;
 				}
 			
 			} else if (!face) {
-				puts("D");
+				printf ("D\n");
 				break;
 			
 			} else if (sscanf (buf, "%i, %hi,%hi, %hi  %hi,%hi %hi,%hi"
@@ -385,7 +385,7 @@ FontInit (short count)
 			} else {
 				if (face) free (face);
 				face = NULL;
-				puts("d");
+				printf ("d\n");
 				break;
 			}
 		}
