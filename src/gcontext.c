@@ -339,7 +339,7 @@ RQ_CreateGC (CLIENT * clnt, xCreateGCReq * q)
 		
 		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_CreateGC);
 		
-		DEBUG (," ");
+		DEBUG (,"+");
 	}
 }
 
@@ -374,12 +374,12 @@ RQ_ChangeGC (CLIENT * clnt, xChangeGCReq * q)
 			} else if (gc->ClipRect) {
 				free (gc->ClipRect);
 				gc->ClipRect = NULL;
-				gc->ClipNum  = 0;
 			}
+			gc->ClipNum  = 0;
 		}
 		_Gcnt_setup (clnt, gc, q->mask, (CARD32*)(q +1), X_ChangeGC);
 		
-		DEBUG (," ");
+		DEBUG (,"+");
 	}
 }
 
@@ -432,8 +432,8 @@ RQ_CopyGC (CLIENT * clnt, xCopyGCReq * q)
 			} else if (dst->ClipRect) {
 				free (dst->ClipRect);
 				dst->ClipRect = NULL;
-				dst->ClipNum  = 0;
 			}
+			dst->ClipNum  = 0;
 			dst->ClipMask = PmapShare (src->ClipMask);
 		}
 		if (q->mask & GCFont) FontCopy ((p_FONTABLE)dst, (p_FONTABLE)src);
