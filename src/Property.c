@@ -25,7 +25,6 @@
 #include <string.h>
 #include <stdio.h> // debug
 
-#include <X11/X.h>
 #include <X11/Xproto.h>
 #include <X11/Xatom.h>
 
