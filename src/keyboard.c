@@ -151,7 +151,7 @@ static KeySym Tos2Iso[256] = {
 	XK_Greek_EPSILON, XK_Greek_sigma, XK_Greek_mu,    XK_Greek_rho,
 	XK_Greek_PHI,     XK_Greek_THETA, XK_Greek_OMEGA, XK_Greek_delta,
 	// 235 .. 
-	NO_SYM('ì'),    NO_SYM('í'),       XK_includedin,       XK_intersection,
+	NO_SYM('ì'),    XK_Greek_phi,      XK_includedin,       XK_intersection,
 	NO_SYM('ð'),    XK_plusminus,      XK_greaterthanequal, XK_lessthanequal,
 	XK_topintegral, XK_botintegral,    XK_division,         XK_similarequal,
 	XK_degree,      XK_periodcentered, NO_SYM('ú'),         NO_SYM('û'),
@@ -617,7 +617,7 @@ KybdEvent (CARD16 scan, CARD8 meta)
 
 //==============================================================================
 static void
-KYBD_GetMapping (CARD8 * map)
+Kybd_GetMapping (CARD8 * map)
 {
 	int   i, n = numberof(KYBD_Static) -1;
 	CARD8 mask = KYBD_PrvMeta;
@@ -725,7 +725,7 @@ RQ_GetKeyboardMapping (CLIENT * clnt, xGetKeyboardMappingReq * q)
 		int      num = q->count * 4;
 		size_t   len = num * sizeof(KeySym);
 		
-		DEBUG (GetKeyboardMapping," %i (%i)", q->firstKeyCode, q->count);
+		PRINT (GetKeyboardMapping," %i (%i)", q->firstKeyCode, q->count);
 		
 		r->keySymsPerKeyCode = 4;
 		if (clnt->DoSwap) {
@@ -738,6 +738,59 @@ RQ_GetKeyboardMapping (CLIENT * clnt, xGetKeyboardMappingReq * q)
 		ClntReply (GetKeyboardMapping, len, NULL);
 	}
 }
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void
+RQ_ChangeKeyboardMapping (CLIENT * clnt, xChangeKeyboardMappingReq * q)
+{
+	// Defines the first 'keySymsPerKeyCode' of 'count' KeySyms starting from
+	// 'firstKeyCode'.  KeySyms outside this range remains unchanged.
+	//
+	// CARD8   keyCodes:
+	// KeyCode firstKeyCode:
+	// CARD8   keySymsPerKeyCode:
+	//...........................................................................
+	
+	if (q->firstKeyCode < KYBD_CodeMin) {
+		Bad(Value, q->firstKeyCode, ChangeKeyboardMapping,"(): \n"
+		    "          firstKeyCode %u < %u \n", q->firstKeyCode, KYBD_CodeMin);
+	
+	} else if (q->firstKeyCode + q->keyCodes -1 > KYBD_CodeMax) {
+		Bad(Value, q->keyCodes, ChangeKeyboardMapping,"(): \n"
+		    "          firstKeyCode + keyCodes -1 %u > %u \n",
+		           q->firstKeyCode + q->keyCodes -1, KYBD_CodeMax);
+	
+	} else if (q->keySymsPerKeyCode > numberof(*KYBD_Symbol)) {
+		Bad(Alloc,, ChangeKeyboardMapping," %i (%i*%i)",
+	       q->firstKeyCode, q->keyCodes, q->keySymsPerKeyCode);
+		
+		// no support for dynamical expansion of keySymsPerKeyCode for now!
+	
+	} else { //..................................................................
+		
+		KeySym * src = (KeySym*)(q +1);
+		KeySym * dst = KYBD_Symbol[q->firstKeyCode - KYBD_CodeMin];
+		int      n   = q->keyCodes;
+		
+		PRINT (ChangeKeyboardMapping," %i (%i*%i)",
+		       q->firstKeyCode, q->keyCodes, q->keySymsPerKeyCode);
+		
+		if (clnt->DoSwap) while (n--) {
+			KeySym * sym = dst;
+			int      i   = q->keySymsPerKeyCode;
+			while (i--) *(sym++) = Swap32(*(src++));
+			dst += numberof(*KYBD_Symbol);
+		
+		} else while (n--) {
+			KeySym * sym = dst;
+			int      i   = q->keySymsPerKeyCode;
+			while (i--) *(sym++) = *(src++);
+			dst += numberof(*KYBD_Symbol);
+		}
+		EvntMappingNotify (MappingKeyboard, 0,0);
+	}
+}
+
 
 //------------------------------------------------------------------------------
 void
@@ -753,18 +806,6 @@ RQ_SetModifierMapping (CLIENT * clnt, xSetModifierMappingReq * q)
 	PRINT (- X_SetModifierMapping," ");
 }
 
-//------------------------------------------------------------------------------
-void
-RQ_ChangeKeyboardMapping (CLIENT * clnt, xChangeKeyboardMappingReq * q)
-{
-	// CARD8   keyCodes:
-	// KeyCode firstKeyCode:
-	// CARD8   keySymsPerKeyCode:
-	
-	PRINT (- X_ChangeKeyboardMapping," %i (%i*%i)",
-	       q->firstKeyCode, q->keyCodes, q->keySymsPerKeyCode);
-}
-
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void
@@ -778,7 +819,7 @@ RQ_QueryKeymap (CLIENT * clnt, xQueryKeymapReq * q)
 	
 	PRINT (QueryKeymap," ");
 	
-	KYBD_GetMapping (r->map);
+	Kybd_GetMapping (r->map);
 	
 	ClntReply (QueryKeymap,, NULL);
 }
