@@ -142,10 +142,47 @@ WindCleanup (CLIENT * clnt)
 
 
 //==============================================================================
+static BOOL
+Evnt_Propagate (WINDOW * wind, CARD32 mask, BYTE event,
+               Window c_id, PXY r_xy, PXY e_xy, BYTE detail)
+{
+	BOOL exec = xFalse;
+	
+	do {
+		if (mask & wind->u.List.AllMasks) {
+			_evnt_w (wind, mask, event,
+			         ROOT_WINDOW, c_id, *(CARD32*)&r_xy, *(CARD32*)&e_xy, detail);
+			exec  = xTrue;
+			mask &= !wind->u.List.AllMasks;
+		}
+		if (mask &= wind->PropagateMask) {
+			e_xy.x += wind->Rect.x;
+			e_xy.y += wind->Rect.y;
+			if (c_id) c_id = wind->Id;
+		} else {
+			break;
+		}
+	} while ((wind = wind->Parent));
+	
+	return exec;
+}
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+static CARD32
+_get_child (WINDOW * wind, WINDOW * cand)
+{
+	do if (cand->Parent == wind) {
+		return cand->Id;
+	} while ((cand = cand->Parent));
+	
+	return None;
+}
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 BOOL
 WindButton (CARD16 prev_mask, int count)
 {
 	WINDOW * wind = _WIND_PointerRoot;
+	CARD32   w_id = 0;
+	PXY      r_xy = WindPointerPos (NULL);
 	PXY      w_xy;
 	CARD8    butt_r = (prev_mask & Button1Mask ? Button1 :
 	                   prev_mask & Button2Mask ? Button2 :
@@ -156,6 +193,8 @@ WindButton (CARD16 prev_mask, int count)
 	                   MAIN_KeyButMask & Button3Mask ? Button3 :
 	                   None);
 	
+	//>>>>> for debugging: Alt+RightButton gives  window informations
+	//
 	if ((MAIN_KeyButMask & K_ALT) && (MAIN_KeyButMask & Button2Mask) && wind) {
 		short dmy;
 		printf ("\nW:%X #%i [%i,%i/%i,%i/%i] * %i \n",
@@ -184,105 +223,133 @@ WindButton (CARD16 prev_mask, int count)
 		evnt_button (1, 2, 0, &dmy, &dmy, &dmy, &dmy);
 		return xTrue;
 	}
+	//<<<<< end debugging
 	
-	if (!_WIND_PgrabWindow && wind && butt_p) {
-		CLIENT * clnt;
-		#define MASK (ButtonPressMask|ButtonReleaseMask)
-		if (!_Wind_PgrabMatch (wind, butt_p, MAIN_KeyButMask & 0xFF)
-		    &&  (wind->u.List.AllMasks & MASK) == MASK
-		    &&  (clnt = EvntClient (wind, MASK))) {
-			_Wind_PgrabSet (clnt, wind, NULL,
-			                wind->u.List.AllMasks, xTrue, MAIN_TimeStamp, xTrue);
+	if (!_WIND_PgrabWindow && wind) {
+		if (butt_r) {
+			Evnt_Propagate (wind, ButtonReleaseMask, ButtonRelease,
+			                wind->Id, r_xy, WindPointerPos (wind), butt_r);
+			if (!butt_p) {
+				return xFalse;
+			}
+			butt_r = None;
 		}
-		#undef MASK
+		if (butt_p) {
+			CLIENT * clnt;
+			#define MASK (ButtonPressMask|ButtonReleaseMask)
+			if (!_Wind_PgrabMatch (wind, butt_p, MAIN_KeyButMask & 0xFF)
+			    &&  (wind->u.List.AllMasks & MASK) == MASK
+			    &&  (clnt = EvntClient (wind, MASK))) {
+				_Wind_PgrabSet (clnt, wind, NULL,
+				                wind->u.List.AllMasks, xTrue, MAIN_TimeStamp, xTrue);
+			}
+			#undef MASK
+		}
 	}
 	
 	if (_WIND_PgrabWindow) {
-		CARD32 w_id = 0;
 		if (_WIND_OpenCounter && wind) {
-			w_xy = WindPointerPos (wind);
 			w_id = wind->Id;
 
 		} else {
 			int hdl = wind_find (MAIN_PointerPos->x, MAIN_PointerPos->y);
 			if (hdl >= 0) {
-				GRECT curr;
-				wind_get_curr (hdl, &curr);
-				w_xy.x = MAIN_PointerPos->x - curr.x;
-				w_xy.y = MAIN_PointerPos->y - curr.y;
-				w_id   = hdl | ROOT_WINDOW;
+				w_id = hdl | ROOT_WINDOW;
 			}
 		}
-		if (w_id) {
-			WINDOW * wnd_r = NULL, * wnd_p = NULL;
-			PXY e_xy;
+		if (!w_id) {
+			if (_WIND_PgrabPassive && butt_r) {
+				_Wind_PgrabClr (NULL);
+			}
+			return xFalse;
+			
+		} else {
 			if (!wind) {
 				wind = &WIND_Root;
 			}
-			if (butt_r
-			    && (!_WIND_PgrabOwnrEv ||
+			if (butt_r) {
+				WINDOW * wnd_r = NULL;
+			   if ((!_WIND_PgrabOwnrEv ||
 			        !(wnd_r = EvntSearch (wind, _WIND_PgrabClient,
 			                              ButtonReleaseMask)))
-			    && (_WIND_PgrabEvents & ButtonReleaseMask)) {
-				wnd_r = _WIND_PgrabWindow;
+			       && (_WIND_PgrabEvents & ButtonReleaseMask)) {
+					wnd_r = _WIND_PgrabWindow;
+				}
+				if (wnd_r) {
+					w_xy = WindPointerPos (wnd_r);
+					_evnt_c (_WIND_PgrabClient, ButtonRelease,
+					         ROOT_WINDOW, wnd_r->Id, _get_child (wnd_r, wind),
+					         *(CARD32*)&r_xy, *(CARD32*)&w_xy, butt_r);
+				}
+				if (_WIND_PgrabPassive) {
+					_Wind_PgrabClr (NULL);
+					butt_r = None;
+					w_id   = None;
+				}
+				if (!butt_p) return xFalse;
 			}
-			if (butt_p
-			    && (!_WIND_PgrabOwnrEv ||
+		}
+		if (w_id && butt_p) {
+			WINDOW * wnd_p = NULL;
+			CARD32   c_id  = None;
+			if ((!_WIND_PgrabOwnrEv ||
 			        !(wnd_p = EvntSearch (wind, _WIND_PgrabClient,
 			                              ButtonPressMask)))
 			    && (_WIND_PgrabEvents & ButtonPressMask)) {
 				wnd_p = _WIND_PgrabWindow;
 			}
-			if (wnd_r) {
-				CARD32   c_id = None;
-				WINDOW * w    = wind;
-				do if (w->Parent == wnd_r) {
-					c_id = w->Id;
-					break;
-				} while ((w = w->Parent));
-				e_xy = WindPointerPos (wnd_r);
-				_evnt_c (_WIND_PgrabClient, ButtonRelease,
-				         w_id, wnd_r->Id, c_id,
-				         *(CARD32*)&w_xy, *(CARD32*)&e_xy, butt_r);
-				if (_WIND_PgrabPassive) {
-					_Wind_PgrabClr (NULL);
-				}
-			}
 			if (wnd_p) {
-				CARD32   c_id = None;
-				WINDOW * w    = wind;
-				do if (w->Parent == wnd_p) {
-					c_id = w->Id;
-					break;
-				} while ((w = w->Parent));
-				if (wnd_p != wnd_r) {
-					e_xy = WindPointerPos (wnd_p);
-				}
+				c_id = _get_child (wnd_p, wind);
+				w_xy = WindPointerPos (wnd_p);
 				_evnt_c (_WIND_PgrabClient, ButtonPress,
-				         w_id, wnd_p->Id, c_id,
-				         *(CARD32*)&w_xy, *(CARD32*)&e_xy, butt_p);
+				         ROOT_WINDOW, wnd_p->Id, c_id,
+				         *(CARD32*)&r_xy, *(CARD32*)&w_xy, butt_p);
 			}
+			if (count > 1) {
+				WINDOW * wnd_r = NULL;
+				if ((!_WIND_PgrabOwnrEv ||
+				        !(wnd_r = EvntSearch (wind, _WIND_PgrabClient,
+				                              ButtonReleaseMask)))
+				    && (_WIND_PgrabEvents & ButtonReleaseMask)) {
+					wnd_r = _WIND_PgrabWindow;
+				}
+				if (wnd_r == wnd_p) {
+					_evnt_c (_WIND_PgrabClient, ButtonRelease,
+					         ROOT_WINDOW, wnd_r->Id, c_id,
+					         *(CARD32*)&r_xy, *(CARD32*)&w_xy, butt_p);
+				} else if (wnd_r) {
+					PXY e_xy = WindPointerPos (wnd_r);
+					_evnt_c (_WIND_PgrabClient, ButtonRelease,
+					         ROOT_WINDOW, wnd_r->Id, _get_child (wnd_r, wind),
+					         *(CARD32*)&r_xy, *(CARD32*)&e_xy, butt_p);
+				}
+				if (wnd_p) {
+					_evnt_c (_WIND_PgrabClient, ButtonPress,
+					         ROOT_WINDOW, wnd_p->Id, c_id,
+					         *(CARD32*)&r_xy, *(CARD32*)&w_xy, butt_p);
+				}
+			}
+			return xFalse;
 		}
-		return xFalse;
+	}
 	
-	} else if (!wind) {
+	if (!wind) {
 		return WmgrButton();
 	}
 	
-	w_xy = WindPointerPos (wind);
-	do {
-		if (butt_r) {
-			EvntPropagate (wind, ButtonReleaseMask, ButtonRelease,
-			               wind->Id, None, w_xy, butt_r);
+	if (butt_p) {
+		w_xy = WindPointerPos (wind);
+		Evnt_Propagate (wind, ButtonPressMask, ButtonPress,
+		                wind->Id, r_xy, w_xy, butt_p);
+		if (count > 1) {
+			Evnt_Propagate (wind, ButtonReleaseMask, ButtonRelease,
+			                wind->Id, r_xy, w_xy, butt_r);
+			Evnt_Propagate (wind, ButtonPressMask, ButtonPress,
+			                wind->Id, r_xy, w_xy, butt_p);
 		}
-		if (butt_p) {
-			EvntPropagate (wind, ButtonPressMask, ButtonPress,
-			               wind->Id, None, w_xy, butt_p);
-		}
-		butt_r = butt_p;
-	} while (--count > 0);
+	}
 	
-	return (xFalse);
+	return xFalse;
 }
 
 
