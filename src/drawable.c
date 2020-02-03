@@ -22,6 +22,9 @@
 #include <stdio.h>
 
 #include <X11/X.h>
+#if defined __GNUC__ && !defined(v_gtext16n_pxy)
+#define v_gtext16n(h, x, y, wstr, num) v_gtext16n(h, (PXY){x, y}, wstr, num)
+#endif
 
 
 //==============================================================================
@@ -811,11 +814,11 @@ _Image_Text (p_DRAWABLE draw, GC * gc,
 			if (bg_draw) {
 				vswr_mode  (hdl, MD_ERASE);
 				vst_color  (hdl, gc->Background);
-				v_gtext16n (hdl, orig, arr, len);
+				v_gtext16n (hdl, orig.p_x, orig.p_y, arr, len);
 				vswr_mode  (hdl, MD_TRANS);
 				vst_color  (hdl, gc->Foreground);
 			}
-			v_gtext16n (hdl, orig, arr, len);
+			v_gtext16n (hdl, orig.p_x, orig.p_y, arr, len);
 		} while (--nClp);
 		vs_clip_off (hdl);
 		
@@ -923,7 +926,7 @@ _Poly_Text (p_DRAWABLE draw, GC * gc, BOOL is8N16, xTextElt * t, PXY * pos)
 			vswr_mode (hdl, MD_TRANS);
 			do {
 				vs_clip_pxy (hdl, (PXY*)(sect++));
-				v_gtext16n  (hdl, orig, arr, t->len);
+				v_gtext16n  (hdl, orig.p_x, orig.p_y, arr, t->len);
 			} while (--nClp);
 			vs_clip_off (hdl);
 			

@@ -17,6 +17,9 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <ctype.h>
+#if defined __GNUC__ && !defined(v_gtext16n_pxy)
+#define v_gtext16n(h, x, y, wstr, num) v_gtext16n(h, (PXY){x, y}, wstr, num)
+#endif
 
 
 static BOOL _N_interim_14_3 = xTrue;
@@ -213,7 +216,6 @@ _Font_Bounds (FONTFACE * face, BOOL mono, short * o_hdl, MFDB * mfdb)
 		
 		if (hdl > 0) {
 			long * buf = mfdb->fd_addr;
-			PXY    p   = { 14, 0 };
 			short  i;
 			
 			vst_font (hdl, face->Index);
@@ -228,7 +230,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono, short * o_hdl, MFDB * mfdb)
 			if (face->MaxDesc > face->Ascent /2) {
 				short txt[] = {'g','p','q','y'};
 				i = sizeof(txt) /2;
-				while (i) v_gtext16n (hdl, p, &txt[--i], 1);
+				while (i) { --i; v_gtext16n (hdl, 14, 0, &txt[i], 1); }
 				i = hgt;
 				while (--i > 0 && !buf[i]);
 				face->MaxDesc = i - face->Ascent +1;
@@ -236,7 +238,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono, short * o_hdl, MFDB * mfdb)
 			if (face->HalfLine >= face->Ascent) {
 				short txt[] = {'a','c','e','m','n','o','r','s','z'};
 				i = sizeof(txt) /2;
-				while (i) v_gtext16n (hdl, p, &txt[--i], 1);
+				while (i) { --i; v_gtext16n (hdl, 14, 0, &txt[i], 1); }
 				i = -1;
 				while (++i < hgt && !buf[i]);
 				face->HalfLine = face->MinAsc = face->Ascent - i;
@@ -244,7 +246,7 @@ _Font_Bounds (FONTFACE * face, BOOL mono, short * o_hdl, MFDB * mfdb)
 			if (face->MaxAsc >= face->Ascent) {
 				short txt[] = {'A','O','T'};
 				i = sizeof(txt) /2;
-				while (i) v_gtext16n (hdl, p, &txt[--i], 1);
+				while (i) { --i; v_gtext16n (hdl, 14, 0, &txt[i], 1); }
 				i = -1;
 				while (++i < hgt && !buf[i]);
 				face->MaxAsc = face->Ascent - i;
